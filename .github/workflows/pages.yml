@@ -24,3 +24,4 @@ jobs:
           path: docs
       - id: deployment
         uses: actions/deploy-pages@v4
+# Pulse backend sync refresh
