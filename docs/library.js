@@ -10,7 +10,7 @@
  $('#trackForm').onsubmit=async e=>{e.preventDefault();$('#saveTrack').disabled=true;try{await api('/api/music/'+editingTrack+'/meta',{method:'POST',body:JSON.stringify({title:$('#editTitle').value.trim(),artist:$('#editArtist').value.trim(),genres:PulseMusic.genres($('#editGenres').value)})});await refresh();$('#trackDialog').close();toast('Трек обновлён')}catch(e){$('#editError').textContent=e.message}finally{$('#saveTrack').disabled=false}};
  document.addEventListener('keydown',e=>{if(e.code==='Space'&&!e.repeat&&!/INPUT|TEXTAREA|SELECT|BUTTON/.test(e.target.tagName)&&!document.querySelector('dialog[open]')){e.preventDefault();$('#play').click()}});
  audio.addEventListener('timeupdate',()=>{if(sleepDeadline&&Date.now()>=sleepDeadline){audio.pause();sleepDeadline=0;$('#sleepTimer').value=0;$('#sleepStatus').textContent='Таймер сна остановил музыку'}const delta=audio.currentTime-lastPlaybackTime;if(delta>0&&delta<2&&!audio.paused)listenedSeconds+=delta;lastPlaybackTime=audio.currentTime;if(!historyRecorded&&current&&listenedSeconds>=Math.min(30,audio.duration*.5)){historyRecorded=true;mutate({type:'history',id:current.id}).catch(()=>{})}});
- audio.addEventListener('play',()=>{document.documentElement.dataset.playing='true';$('#play').innerHTML=icon('pause')});audio.addEventListener('pause',()=>{document.documentElement.dataset.playing='false';$('#play').innerHTML=icon('play')});render();
+ render();
  }
  window.PulseLibrary={render,init,resolveAll,ranked,count};
 })();
