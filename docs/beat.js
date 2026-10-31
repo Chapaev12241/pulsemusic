@@ -1,6 +1,6 @@
 (()=>{
  const media=document.getElementById('audio'),disc=document.querySelector('.vinyl'),reduced=matchMedia('(prefers-reduced-motion: reduce)');
- let preparedDecoder=null;const status=document.createElement('p');status.id='beatStatus';status.className='muted';status.setAttribute('role','status');document.querySelector('#settings .panel').append(status);
+ let preparedDecoder=null;const status=document.getElementById('beatStatus');
  function report(message){status.textContent='Реакция на бит: '+message}
  function prepare(){if(preparedDecoder)return;try{const Offline=window.OfflineAudioContext||window.webkitOfflineAudioContext;if(Offline)preparedDecoder=new Offline(1,128,44100)}catch(e){report(e.message)}}
  document.addEventListener('pointerdown',prepare,{capture:true,passive:true});document.addEventListener('touchstart',prepare,{capture:true,passive:true});document.addEventListener('change',e=>{if(e.target.id==='animations'){start();report(e.target.checked?'анимации включены':'анимации выключены')}});
