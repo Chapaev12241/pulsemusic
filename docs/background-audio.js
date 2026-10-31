@@ -1,0 +1,11 @@
+/* Native media lifecycle. Never resume an OS interruption or a user's pause. */
+(()=>{
+ const player=document.getElementById('audio');const events=[];
+ function note(name){events.push({at:new Date().toISOString(),event:name,hidden:document.hidden,paused:player.paused,ready:player.readyState,time:Math.round(player.currentTime||0),error:player.error?.code||null,session:navigator.audioSession?.state||'unavailable'});if(events.length>40)events.shift();const field=document.getElementById('backgroundReport');if(field)field.value=JSON.stringify({build:32,userAgent:navigator.userAgent,standalone:matchMedia('(display-mode: standalone)').matches||navigator.standalone===true,events},null,2)}
+ function sessionState(){if(!navigator.mediaSession)return;try{navigator.mediaSession.playbackState=player.paused?'paused':'playing';if(Number.isFinite(player.duration)&&player.duration>0)navigator.mediaSession.setPositionState({duration:player.duration,position:Math.min(player.duration,Math.max(0,player.currentTime)),playbackRate:player.playbackRate})}catch{}}
+ for(const name of ['playing','pause','ended','error','waiting','stalled','emptied'])player.addEventListener(name,()=>{sessionState();note(name)});
+ player.addEventListener('timeupdate',sessionState);player.addEventListener('loadedmetadata',sessionState);
+ player.addEventListener('play',()=>{try{if(navigator.audioSession)navigator.audioSession.type='playback'}catch{}sessionState();note('play')});
+ document.addEventListener('visibilitychange',()=>{sessionState();note(document.hidden?'background':'foreground')});window.addEventListener('pagehide',()=>note('pagehide'));window.addEventListener('pageshow',()=>note('pageshow'));
+ const panel=document.createElement('details');panel.className='panel';const title=document.createElement('summary');title.textContent='Диагностика фонового звука · версия 32';panel.append(title);const field=document.createElement('textarea');field.id='backgroundReport';field.readOnly=true;field.setAttribute('aria-label','Отчёт фонового воспроизведения');field.style.cssText='width:100%;height:180px;margin-top:12px;background:var(--bg);color:var(--text);font:11px monospace';panel.append(field);document.querySelector('#settings .settings-grid').append(panel);note('initialized');
+})();
