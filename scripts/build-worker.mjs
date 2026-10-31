@@ -1,2 +1,6 @@
-import {rmSync,mkdirSync,copyFileSync} from 'node:fs';
-rmSync('dist',{recursive:true,force:true});mkdirSync('dist/server',{recursive:true});mkdirSync('dist/.openai',{recursive:true});copyFileSync('worker/index.js','dist/server/index.js');copyFileSync('.openai/hosting.json','dist/.openai/hosting.json');console.log('Built dist');
+import {rmSync,mkdirSync,readFileSync,writeFileSync,copyFileSync} from 'node:fs';
+rmSync(new URL('../dist/',import.meta.url),{recursive:true,force:true});
+mkdirSync('dist/server',{recursive:true});mkdirSync('dist/.openai',{recursive:true});mkdirSync('docs/fonts',{recursive:true});
+copyFileSync('Soledago.ttf','docs/fonts/soledago.ttf');copyFileSync('Docker One.ttf','docs/fonts/docker-one.ttf');copyFileSync('docs/index.html','docs/import.html');
+const assets={};for(const [path,file,type] of [['/','docs/index.html','text/html; charset=utf-8'],['/import.html','docs/import.html','text/html; charset=utf-8'],['/app.css','docs/app.css','text/css; charset=utf-8'],['/app.js','docs/app.js','application/javascript; charset=utf-8'],['/fonts/soledago.ttf','Soledago.ttf','font/ttf'],['/fonts/docker-one.ttf','Docker One.ttf','font/ttf']])assets[path]={type,data:readFileSync(file).toString('base64')};
+writeFileSync('dist/server/index.js','const ASSETS='+JSON.stringify(assets)+';\n'+readFileSync('worker/backend.mjs','utf8'));copyFileSync('.openai/hosting.json','dist/.openai/hosting.json');console.log('Built UI, fonts, import studio and API');

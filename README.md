@@ -1,9 +1,24 @@
-# Pulse Music
+# Pulse
 
-Pulse is a dark music player Worker app with local Pulse auth UI, playlists, history, PWA support, Audius fallback, Soledago and Docker One font assets.
+Плеер: https://chapaev12241.github.io/pulsemusic/
 
-## Run locally
+Импорт папок: https://chapaev12241.github.io/pulsemusic/import.html
 
-This repository contains the Cloudflare Worker entrypoint at `worker/index.js`. Deploy it with the Worker ESM setup or your own Cloudflare/VPS host. The current hosted version is available at https://pulse-vibe-music.desyatnichenkoiosyf2.chatgpt.site.
+`docs/` — опубликованный интерфейс GitHub Pages. Soledago и Docker One загружаются из `docs/fonts/` относительными путями. Внешних библиотек интерфейса и Google Fonts нет.
 
-The browser account form is a personal local account flow. For production multi-device auth, connect it to the D1 schema in the Worker API or a managed auth provider.
+`worker/backend.mjs` — сервер аккаунтов, состояния и загрузки музыки. GitHub Pages раздаёт статические файлы; API работает отдельно на Sites/Cloudflare Workers. Binding `DB` — D1, `BUCKET` — R2. SQL-миграция лежит в `drizzle/`. Не публикуйте секреты или токены в репозитории.
+
+Загрузка музыки требует входа. Каждый пользователь получает отдельное облачное хранилище. Импорт идёт последовательно, повторные файлы определяются по SHA-256. Лимит одного файла — 50 МБ. Потоковые ссылки ограничены по времени, поддерживаются HTTP Range для перемотки.
+
+Проверки без сторонних зависимостей, Node 24:
+
+```
+node scripts/build-worker.mjs
+node scripts/validate-artifact.mjs
+node scripts/test-backend.mjs
+node scripts/preview.mjs
+```
+
+Предпросмотр: http://127.0.0.1:4173. Облачный API разрешает origin опубликованных сайтов; для тестирования аккаунтов используйте опубликованную версию.
+
+Тесты backend проверяют регистрацию, вход из двух сеансов, разделение аккаунтов, загрузку, дубли, подписи медиассылок, HTTP Range и конкурентное сохранение истории/плейлистов. Мобильная вёрстка проверена при ширине 390 px в Chromium; проверка на физическом iPhone/Safari остаётся отдельным этапом.
