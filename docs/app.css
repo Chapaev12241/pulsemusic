@@ -13,3 +13,4 @@ html[data-motion=off] *,html[data-motion=off] *:before,html[data-motion=off] *:a
 
 /* Accessible touch controls */
 .icon{min-width:44px;min-height:44px}.ui-icon{width:26px;height:26px}.sidebar button .ui-icon{width:24px;height:24px}.controls .ui-icon{width:25px;height:25px}.empty .primary{margin:16px 8px 0 0}@media(max-width:700px){.mobile-nav button .ui-icon{width:26px;height:26px}.track-row{grid-template-columns:minmax(0,1fr) 44px 44px 44px;gap:2px}.track-row .icon{width:44px;min-width:44px}.track-row .ui-icon{width:24px;height:24px}}
+.vinyl{transform-origin:center;will-change:transform;--beat:0;box-shadow:0 0 calc(12px + var(--beat)*38px) rgb(155 119 255 / calc(.06 + var(--beat)*.3))}.vinyl span{box-shadow:0 0 calc(var(--beat)*24px) #b09aff66}@media(prefers-reduced-motion:reduce){.vinyl{scale:1!important}}html[data-motion=off] .vinyl{scale:1!important}
