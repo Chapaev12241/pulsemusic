@@ -43,5 +43,16 @@ assert.equal((await call('/api/community/messages',{token:one.token,method:'POST
 const strangerResponse=await call('/api/auth/register',{method:'POST',body:{email:'stranger@example.invalid',password,name:'Третий'}});const stranger=await strangerResponse.json();assert.equal(strangerResponse.status,201);assert.equal((await call('/api/community/messages?with='+one.user.id,{token:stranger.token})).status,403);assert.equal((await call('/api/community/respond',{token:stranger.token,method:'POST',body:{id:one.user.id,accept:true}})).status,404);
 await call('/api/community/profile',{token:one.token,method:'POST',body:{name:'Новое имя',bio:'Люблю музыку',color:'#123456',emoji:'♫'}});const visible=await(await call('/api/community/profile/'+one.user.id,{token:two.token})).json();assert.equal(visible.profile.name,'Новое имя');assert.equal(visible.profile.email,undefined);
 assert.equal((await call('/api/community/me')).status,401);
+assert.equal((await call('/api/community/avatar',{method:'POST',body:bytes})).status,401);
+assert.equal((await call('/api/community/avatar',{token:one.token,method:'POST',body:bytes})).status,415);
+const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=','base64');
+assert.equal((await call('/api/community/avatar',{token:one.token,method:'POST',body:png.buffer.slice(png.byteOffset,png.byteOffset+png.byteLength)})).status,200);
+const avatarProfile=await(await call('/api/community/profile/'+one.user.id,{token:two.token})).json();assert(avatarProfile.profile.avatar.includes('/api/avatar/'+one.user.id));assert.equal((await call('/api/avatar/'+one.user.id)).status,200);
+const fetchBeforeLyrics=globalThis.fetch;
+try{globalThis.fetch=async()=>new Response(JSON.stringify({id:123,syncedLyrics:'[00:01.00]Synthetic test line',plainLyrics:'Synthetic test line'}),{headers:{'content-type':'application/json'}});const lyrics=await(await call('/api/lyrics?title=Test&artist=Test&duration=60')).json();assert.equal(lyrics.found,true);assert(lyrics.syncedLyrics.startsWith('[00:01.00]'));globalThis.fetch=async()=>{throw Error('Should use cache')};assert.equal((await call('/api/lyrics?title=Test&artist=Test&duration=60')).status,200)}finally{globalThis.fetch=fetchBeforeLyrics}
+assert.equal((await call('/api/lyrics?title=Test')).status,400);
+for(let i=0;i<105;i++)await DB.prepare('INSERT INTO pulse_messages(sender,recipient,body,created_at) VALUES(?,?,?,?)').bind(one.user.id,two.user.id,'Page '+i,new Date().toISOString()).run();
+const latest=await(await call('/api/community/messages?with='+two.user.id,{token:one.token})).json();assert.equal(latest.messages.length,100);assert.equal(latest.hasMore,true);const older=await(await call('/api/community/messages?with='+two.user.id+'&before='+latest.messages[0].id,{token:one.token})).json();assert(older.messages.length>0);assert(older.messages.at(-1).id<latest.messages[0].id);
+
 await call('/api/auth/logout',{token:one.token,method:'POST'});assert.equal((await call('/api/music',{token:one.token})).status,401);
 console.log('PASS: registration/login, two sessions, account isolation, cloud upload, duplicate detection, signed media, byte ranges, concurrent playlist/history/likes and logout; community profiles, friend acceptance, private messaging and public catalog isolation');
