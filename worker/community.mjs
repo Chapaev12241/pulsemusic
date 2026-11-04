@@ -2,8 +2,36 @@ async function publicProfile(env,id){return env.DB.prepare("SELECT a.id,COALESCE
 function pair(a,b){return [a,b].sort()}
 async function areFriends(env,a,b){const [x,y]=pair(a,b);return !!await env.DB.prepare('SELECT a FROM pulse_friendships WHERE a=? AND b=?').bind(x,y).first()}
 async function publishTrack(env,user,id,key,meta,size){await env.DB.prepare('INSERT INTO pulse_catalog(id,owner_id,storage_key,title,artist,album,genres_json,size,published_at) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING').bind(id,user.id,key,meta.title,meta.artist,meta.album||'',JSON.stringify(meta.genres||[]),size,new Date().toISOString()).run()}
+const catalogBackfills=new WeakMap();
+async function backfillCatalog(env){
+ if(catalogBackfills.has(env.DB))return catalogBackfills.get(env.DB);
+ const operation=(async()=>{
+  const marker='system/catalog-backfill-v1';let progress={};
+  try{const saved=await env.BUCKET.get(marker);if(saved)progress=JSON.parse(await saved.text())}catch{}
+  if(progress.done)return false;
+  // Bounded, restartable indexing: audio bytes and private account state are untouched.
+  for(let pageNumber=0;pageNumber<3;pageNumber++){
+   const page=await env.BUCKET.list({prefix:'music/',include:['customMetadata'],limit:100,cursor:progress.cursor});
+   for(const object of page.objects){
+    const match=object.key.match(/^music\/([a-f0-9-]{36})\/([a-f0-9]{64})$/i);if(!match)continue;
+    const existing=await env.DB.prepare('SELECT id FROM pulse_catalog WHERE id=?').bind(match[2]).first();if(existing)continue;
+    if(!await env.DB.prepare('SELECT id FROM pulse_accounts WHERE id=?').bind(match[1]).first())continue;
+    const meta=object.customMetadata||{};let override={};
+    try{const saved=await env.BUCKET.get(`track-meta/${match[1]}/${match[2]}`);if(saved)override=JSON.parse(await saved.text())}catch{}
+    let genres=[];try{genres=JSON.parse(meta.genres||'[]')}catch{}
+    const tags={title:override.title||meta.title||'Без названия',artist:override.artist||meta.artist||'Без исполнителя',album:override.album||meta.album||'',genres:override.genres||genres};
+    await publishTrack(env,{id:match[1]},match[2],object.key,tags,object.size);
+   }
+   progress=page.truncated?{cursor:page.cursor}:{done:true};
+   await env.BUCKET.put(marker,JSON.stringify(progress));
+   if(progress.done)return false;
+  }
+  return true;
+ })();catalogBackfills.set(env.DB,operation);
+ try{return await operation}finally{catalogBackfills.delete(env.DB)}
+}
 async function catalog(env,origin){const result=await env.DB.prepare('SELECT id,title,artist,album,genres_json,size,published_at FROM pulse_catalog WHERE is_public=1 ORDER BY published_at DESC LIMIT 2000').all();return result.results.map(t=>({id:t.id,title:t.title,artist:t.artist,album:t.album,genres:JSON.parse(t.genres_json),size:t.size,publishedAt:t.published_at,public:true,audio:origin+'/api/public-stream/'+t.id}))}
-async function communityRoute(r,env){const url=new URL(r.url),p=url.pathname,m=r.method;if(p==='/api/catalog'&&m==='GET')return json(r,{tracks:await catalog(env,url.origin)});const visibility=p.match(/^\/api\/catalog\/([a-f0-9]{64})\/visibility$/);if(visibility&&m==='POST'){const u=await account(r,env);if(!u)return json(r,{error:'Войди в аккаунт'},401);const row=await env.DB.prepare('SELECT owner_id FROM pulse_catalog WHERE id=?').bind(visibility[1]).first();if(!row||row.owner_id!==u.id)return json(r,{error:'Трек не найден'},404);const d=await r.json();await env.DB.prepare('UPDATE pulse_catalog SET is_public=? WHERE id=? AND owner_id=?').bind(d.public===true?1:0,visibility[1],u.id).run();return json(r,{saved:true})}if(!p.startsWith('/api/community/'))return null;const u=await account(r,env);if(!u)return json(r,{error:'Войди в аккаунт'},401);
+async function communityRoute(r,env){const url=new URL(r.url),p=url.pathname,m=r.method;if(p==='/api/catalog'&&m==='GET'){const indexing=await backfillCatalog(env);return json(r,{tracks:await catalog(env,url.origin),indexing})}const visibility=p.match(/^\/api\/catalog\/([a-f0-9]{64})\/visibility$/);if(visibility&&m==='POST'){const u=await account(r,env);if(!u)return json(r,{error:'Войди в аккаунт'},401);const row=await env.DB.prepare('SELECT owner_id FROM pulse_catalog WHERE id=?').bind(visibility[1]).first();if(!row||row.owner_id!==u.id)return json(r,{error:'Трек не найден'},404);const d=await r.json();await env.DB.prepare('UPDATE pulse_catalog SET is_public=? WHERE id=? AND owner_id=?').bind(d.public===true?1:0,visibility[1],u.id).run();return json(r,{saved:true})}if(!p.startsWith('/api/community/'))return null;const u=await account(r,env);if(!u)return json(r,{error:'Войди в аккаунт'},401);
 if(p==='/api/community/me'&&m==='GET'){const friends=await env.DB.prepare('SELECT CASE WHEN a=? THEN b ELSE a END AS id FROM pulse_friendships WHERE a=? OR b=?').bind(u.id,u.id,u.id).all();const incoming=await env.DB.prepare('SELECT sender AS id FROM pulse_friend_requests WHERE recipient=?').bind(u.id).all();const outgoing=await env.DB.prepare('SELECT recipient AS id FROM pulse_friend_requests WHERE sender=?').bind(u.id).all();return json(r,{profile:await publicProfile(env,u.id),friends:await Promise.all(friends.results.map(x=>publicProfile(env,x.id))),incoming:await Promise.all(incoming.results.map(x=>publicProfile(env,x.id))),outgoing:outgoing.results.map(x=>x.id)})}
 if(p==='/api/community/profile'&&m==='POST'){const d=await r.json(),name=String(d.name||'').trim().slice(0,80),bio=String(d.bio||'').trim().slice(0,300),color=/^#[0-9a-f]{6}$/i.test(d.color||'')?d.color:'#a59aff',emoji=Array.from(String(d.emoji||'♫')).slice(0,4).join('');if(!name)return json(r,{error:'Укажи имя'},400);await env.DB.prepare('INSERT INTO pulse_profiles(user_id,display_name,bio,color,emoji) VALUES(?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET display_name=excluded.display_name,bio=excluded.bio,color=excluded.color,emoji=excluded.emoji').bind(u.id,name,bio,color,emoji).run();return json(r,{profile:await publicProfile(env,u.id)})}
 if(p==='/api/community/request'&&m==='POST'){const d=await r.json(),id=String(d.id||'');if(id===u.id)return json(r,{error:'Это твой профиль'},400);if(!await publicProfile(env,id))return json(r,{error:'Профиль не найден'},404);if(await areFriends(env,u.id,id))return json(r,{ok:true});await env.DB.prepare('INSERT INTO pulse_friend_requests(sender,recipient,created_at) VALUES(?,?,?) ON CONFLICT DO NOTHING').bind(u.id,id,new Date().toISOString()).run();return json(r,{ok:true})}
