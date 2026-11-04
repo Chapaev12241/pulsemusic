@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';import {DatabaseSync} from 'node:sqlite';import {readFileSync} from 'node:fs';
 const {default:worker}=await import('data:text/javascript;base64,'+readFileSync('dist/server/index.js').toString('base64'));
 const sqlite=new DatabaseSync(':memory:');sqlite.exec(readFileSync('drizzle/0000_pulse.sql','utf8').replaceAll('--> statement-breakpoint',''));sqlite.exec(readFileSync('drizzle/0001_community.sql','utf8').replaceAll('--> statement-breakpoint',''));
+sqlite.exec(readFileSync('drizzle/0002_artwork.sql','utf8'));
 const DB={async batch(statements){const results=[];for(const statement of statements)results.push(await statement.run());return results},
   prepare(sql){
     return {async all(){return {results:sqlite.prepare(sql).all()}},bind(...args){

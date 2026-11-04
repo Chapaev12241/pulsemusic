@@ -1,0 +1,8 @@
+import vm from'node:vm';import assert from'node:assert/strict';import{readFileSync}from'node:fs';
+const handlers=new Map(),domHandlers=new Map(),storage=new Map([['pulse_playback_v1:guest',JSON.stringify({id:'a',time:43,queue:['a','gone']})]]),elements=new Map();
+const audio={paused:true,currentTime:0,duration:180,addEventListener(name,fn){if(!handlers.has(name))handlers.set(name,[]);handlers.get(name).push(fn)},load(){},src:''};
+const scope={token:'',user:null,current:null,tracks:[{id:'a',title:'Title',artist:'Artist',audio:'https://example.invalid/fresh'}],queue:[],audio,window:{addEventListener(){}},document:{hidden:false,addEventListener(name,fn){domHandlers.set(name,fn)}},localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},PulseArtwork:{markup:()=>'<span />'},$:s=>{if(!elements.has(s))elements.set(s,{});return elements.get(s)},fmt:String,timeline(){},playbackUI(){}};
+vm.runInNewContext(readFileSync('docs/playback-memory.js','utf8'),scope);assert.equal(scope.current.id,'a');assert.equal(audio.paused,true);assert.equal(audio.src,'https://example.invalid/fresh');assert.equal(scope.queue.length,1);for(const fn of handlers.get('loadedmetadata'))fn();assert.equal(audio.currentTime,43);
+audio.currentTime=67;for(const fn of handlers.get('pause'))fn();assert.equal(JSON.parse(storage.get('pulse_playback_v1:guest')).time,67);
+scope.user={id:'another'};scope.token='session';audio.currentTime=2;for(const fn of handlers.get('pause'))fn();assert.equal(JSON.parse(storage.get('pulse_playback_v1:guest')).time,67);assert(!storage.has('pulse_playback_v1:another'));
+console.log('PASS: restore paused track and timestamp, fresh media URL, stale queue filtering, pause persistence and account isolation');

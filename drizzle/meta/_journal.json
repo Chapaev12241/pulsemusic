@@ -1,1 +1,1 @@
-{"version":"7","dialect":"sqlite","entries":[{"idx":0,"version":"6","when":1793228400000,"tag":"0000_pulse","breakpoints":true},{"idx":1,"version":"6","when":1793836800000,"tag":"0001_community","breakpoints":true}]}
+{"version":"7","dialect":"sqlite","entries":[{"idx":0,"version":"6","when":1793228400000,"tag":"0000_pulse","breakpoints":true},{"idx":1,"version":"6","when":1793836800000,"tag":"0001_community","breakpoints":true},{"idx":2,"version":"6","when":1793836800001,"tag":"0002_artwork","breakpoints":true}]}

@@ -1,0 +1,1 @@
+ALTER TABLE pulse_catalog ADD COLUMN cover_url TEXT NOT NULL DEFAULT '';
