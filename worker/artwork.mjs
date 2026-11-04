@@ -1,10 +1,12 @@
 const coverNorm=value=>String(value||'').normalize('NFKC').toLowerCase().replace(/ё/g,'е').replace(/[^\p{L}\p{N}]/gu,'');
-function coverArtistMatch(a,b){const first=value=>String(value).split(/\s+(?:feat\.?|ft\.?)\s+|[,;&]/i).map(coverNorm).filter(Boolean);const x=first(a),y=first(b);return coverNorm(a)===coverNorm(b)||x.some(v=>y.includes(v))}
-function chooseCover(items,artist,title){return items.filter(t=>t.artworkUrl100&&coverArtistMatch(t.artistName,artist)&&(!title||coverNorm(t.trackName)===coverNorm(title))).sort((a,b)=>Number(b.trackExplicitness==='explicit')-Number(a.trackExplicitness==='explicit'))[0]}
+function coverArtistMatch(a,b){const aliases={монеточка:'monetochka',моргенштерн:'morgenshtern',полматери:'polmateri',оксимирон:'oxxxymiron'},first=value=>String(value).split(/\s+(?:feat\.?|ft\.?)\s+|[,;&]/i).map(coverNorm).map(v=>aliases[v]||v).filter(Boolean);const x=first(a),y=first(b);return coverNorm(a)===coverNorm(b)||x.some(v=>y.includes(v))}
+function coverTitle(value){return coverNorm(String(value||'').replace(/\s*[([]\s*(?:feat\.?|ft\.?)\s+[^)\]]*[)\]]/gi,'').replace(/\s+(?:feat\.?|ft\.?)\s+.*$/i,''))}
+function chooseCover(items,artist,title){return items.filter(t=>t.artworkUrl100&&coverArtistMatch(t.artistName,artist)&&(!title||coverTitle(t.trackName)===coverTitle(title))).sort((a,b)=>Number(b.trackExplicitness==='explicit')-Number(a.trackExplicitness==='explicit'))[0]}
 const artworkJobs=new Map();
 async function artworkLookup(env,artist,title){
  const key='artwork/v3/'+hex(await crypto.subtle.digest('SHA-256',enc.encode(coverNorm(artist)+'|'+coverNorm(title))));
  const cached=await env.BUCKET.get(key);if(cached){const entry=JSON.parse(await cached.text());if(entry.until>Date.now())return entry.result}
+ const bundled=typeof ARTWORK_INDEX!=='undefined'?ARTWORK_INDEX[coverNorm(artist)+'|'+coverNorm(title)]:null;if(bundled?.url)return{found:true,...bundled,url:bundled.url.startsWith('covers/')?'https://pulse-vibe-music.desyatnichenkoiosyf2.chatgpt.site/'+bundled.url:bundled.url};
  if(artworkJobs.has(key))return artworkJobs.get(key);
  const job=(async()=>{
   let hit;
@@ -27,4 +29,4 @@ async function artworkLookup(env,artist,title){
   const result={found:!!url,url,source:'Apple Music',sourceUrl:hit?.trackViewUrl||''};await env.BUCKET.put(key,JSON.stringify({until:Date.now()+(url?30*86400000:6*3600000),result}));return result;
  })();artworkJobs.set(key,job);try{return await job}finally{artworkJobs.delete(key)}
 }
-async function artworkRoute(r,env){const url=new URL(r.url);if(url.pathname!=='/api/artwork'||r.method!=='GET')return null;const artist=String(url.searchParams.get('artist')||'').trim(),title=String(url.searchParams.get('title')||'').trim();if(!artist||artist.length>100||title.length>150)return json(r,{error:'Нужны название и исполнитель'},400);try{return json(r,await artworkLookup(env,artist,title))}catch{return json(r,{error:'Не удалось загрузить обложку'},502)}}
+async function artworkRoute(r,env){const url=new URL(r.url);if(url.pathname!=='/api/artwork'||r.method!=='GET')return null;const artist=String(url.searchParams.get('artist')||'').trim(),title=String(url.searchParams.get('title')||'').trim();if(!artist||artist.length>100||title.length>150)return json(r,{error:'Нужны название и исполнитель'},400);try{return json(r,await artworkLookup(env,artist,title))}catch(e){console.warn('Artwork provider failed:',e.message);return json(r,{error:'Не удалось загрузить обложку'},502)}}

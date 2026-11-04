@@ -1,0 +1,10 @@
+async function uploadedCoverRoute(r,env){
+ const url=new URL(r.url),match=url.pathname.match(/^\/api\/track-cover\/([a-f0-9]{64})(\/match)?$/);if(!match)return null;const id=match[1],key='track-covers/'+id;
+ if(r.method==='GET'&&!match[2]){const object=await env.BUCKET.get(key);if(!object)return json(r,{error:'Обложка не найдена'},404);return new Response(object.body,{headers:{...cors(r),'content-type':object.httpMetadata?.contentType||'image/jpeg','cache-control':'public,max-age=3600','x-content-type-options':'nosniff'}})}
+ if(r.method!=='POST')return json(r,{error:'Метод не поддерживается'},405);const user=await account(r,env);if(!user)return json(r,{error:'Войди в аккаунт'},401);const owned=await env.BUCKET.head(`music/${user.id}/${id}`);if(!owned)return json(r,{error:'Трек не найден'},404);
+ const override=await env.BUCKET.get(`track-meta/${user.id}/${id}`);let metadata=owned.customMetadata||{};if(override)try{metadata={...metadata,...JSON.parse(await override.text())}}catch{}
+ let result;
+ if(match[2]){const body=await r.json();let parsed;try{parsed=new URL(body.url)}catch{return json(r,{error:'Неверная обложка'},400)}if(parsed.protocol!=='https:'||!parsed.hostname.endsWith('.mzstatic.com'))return json(r,{error:'Неверный источник обложки'},400);result={found:true,url:parsed.href,source:'Apple Music',sourceUrl:String(body.sourceUrl||'').slice(0,500)}}
+ else{if(Number(r.headers.get('content-length'))>1000000)return json(r,{error:'Обложка слишком большая'},413);const bytes=new Uint8Array(await r.arrayBuffer());if(bytes.length<20||bytes.length>1000000||!(bytes[0]===255&&bytes[1]===216&&bytes[2]===255))return json(r,{error:'Нужна обложка JPEG до 1 МБ'},415);await env.BUCKET.put(key,bytes,{httpMetadata:{contentType:'image/jpeg'}});result={found:true,url:url.origin+'/api/track-cover/'+id,source:'Embedded',sourceUrl:''}}
+ const cacheKey='artwork/v3/'+hex(await crypto.subtle.digest('SHA-256',enc.encode(coverNorm(metadata.artist)+'|'+coverNorm(metadata.title))));await env.BUCKET.put(cacheKey,JSON.stringify({until:Date.now()+30*86400000,result}));return json(r,result);
+}

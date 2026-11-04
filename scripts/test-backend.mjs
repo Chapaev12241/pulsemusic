@@ -48,6 +48,13 @@ assert.equal((await call('/api/community/avatar',{token:one.token,method:'POST',
 const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=','base64');
 assert.equal((await call('/api/community/avatar',{token:one.token,method:'POST',body:png.buffer.slice(png.byteOffset,png.byteOffset+png.byteLength)})).status,200);
 const avatarProfile=await(await call('/api/community/profile/'+one.user.id,{token:two.token})).json();assert(avatarProfile.profile.avatar.includes('/api/avatar/'+one.user.id));assert.equal((await call('/api/avatar/'+one.user.id)).status,200);
+
+assert.equal((await call('/api/track-cover/'+id,{token:two.token,method:'POST',body:bytes})).status,404);
+assert.equal((await call('/api/track-cover/'+id+'/match',{token:one.token,method:'POST',body:{url:'https://example.invalid/cover.jpg'}})).status,400);
+const jpeg=new Uint8Array(24);jpeg.set([255,216,255]);
+assert.equal((await call('/api/track-cover/'+id,{token:one.token,method:'POST',body:jpeg.buffer})).status,200);
+assert.equal((await call('/api/track-cover/'+id)).status,200);
+const sharedCover=await(await call('/api/artwork?artist='+encodeURIComponent('Артист')+'&title='+encodeURIComponent('Волна 2'),{token:two.token})).json();assert(sharedCover.url.includes('/api/track-cover/'+id));
 const fetchBeforeLyrics=globalThis.fetch;
 try{globalThis.fetch=async()=>new Response(JSON.stringify({id:123,syncedLyrics:'[00:01.00]Synthetic test line',plainLyrics:'Synthetic test line'}),{headers:{'content-type':'application/json'}});const lyrics=await(await call('/api/lyrics?title=Test&artist=Test&duration=60')).json();assert.equal(lyrics.found,true);assert(lyrics.syncedLyrics.startsWith('[00:01.00]'));globalThis.fetch=async()=>{throw Error('Should use cache')};assert.equal((await call('/api/lyrics?title=Test&artist=Test&duration=60')).status,200)}finally{globalThis.fetch=fetchBeforeLyrics}
 assert.equal((await call('/api/lyrics?title=Test')).status,400);

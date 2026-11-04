@@ -14,6 +14,7 @@ const types={mp3:'audio/mpeg',m4a:'audio/mp4',aac:'audio/aac',wav:'audio/wav',fl
 function magic(b){const s=String.fromCharCode(...b.slice(0,16));return s.startsWith('ID3')||s.startsWith('fLaC')||s.startsWith('OggS')||s.startsWith('RIFF')||s.slice(4,8)==='ftyp'||(b[0]===255&&(b[1]&224)===224)}
 const attempts=new Map();function limited(r){const now=Date.now(),key=r.headers.get('cf-connecting-ip')||'unknown',v=attempts.get(key);if(v&&now-v.start<60000){if(v.count>=15)return true;v.count++}else attempts.set(key,{start:now,count:1});if(attempts.size>5000)for(const[k,v]of attempts)if(now-v.start>60000)attempts.delete(k);return false}
 async function handle(r,env){const url=new URL(r.url),p=url.pathname,m=r.method;if(m==='OPTIONS')return new Response(null,{status:204,headers:cors(r)});if(m==='GET'&&ASSETS[p]){const a=ASSETS[p];return new Response(Uint8Array.from(atob(a.data),c=>c.charCodeAt(0)),{headers:{'content-type':a.type,'cache-control':p.includes('/fonts/')?'public,max-age=86400':'no-cache','x-content-type-options':'nosniff'}})}
+const uploadedCover=await uploadedCoverRoute(r,env);if(uploadedCover)return uploadedCover;
 const artwork=await artworkRoute(r,env);if(artwork)return artwork;
 const experience=await experienceRoute(r,env);if(experience)return experience;
 const community=await communityRoute(r,env);if(community)return community;
