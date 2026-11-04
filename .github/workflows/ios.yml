@@ -1,0 +1,42 @@
+name: iOS app
+on:
+  push:
+    paths: ['ios/**', '.github/workflows/ios.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test playback bridge
+        run: node scripts/test-native-bridge.mjs
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: node scripts/prepare-ios-icons.mjs
+      - name: Generate Xcode project
+        working-directory: ios
+        run: xcodegen generate
+      - name: Build simulator
+        working-directory: ios
+        run: xcodebuild -project Pulse.xcodeproj -scheme Pulse -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build-simulator CODE_SIGNING_ALLOWED=NO build
+      - name: Build unsigned iPhone app
+        working-directory: ios
+        run: |
+          xcodebuild -project Pulse.xcodeproj -scheme Pulse -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build-device CODE_SIGNING_ALLOWED=NO build
+          mkdir -p package/Payload
+          cp -R build-device/Build/Products/Release-iphoneos/Pulse.app package/Payload/
+          cd package
+          zip -qry ../Pulse-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pulse-iPhone-unsigned
+          path: ios/Pulse-unsigned.ipa
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pulse-simulator
+          path: ios/build-simulator/Build/Products/Debug-iphonesimulator/Pulse.app
+          retention-days: 7
