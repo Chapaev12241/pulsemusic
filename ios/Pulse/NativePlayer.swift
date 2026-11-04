@@ -1,11 +1,13 @@
 import AVFoundation
 import MediaPlayer
 import UIKit
+import ImageIO
 
 // The audio clock and queue live outside WKWebView, including when WebKit is suspended.
 final class NativePlayer {
     struct Track {
-        let id: String, title: String, artist: String
+        let id: String, title: String, artist: String, album: String
+        let artwork: URL?
         let url: URL
         init?(_ value: [String: Any]) {
             guard let id = value["id"] as? String, let audio = value["audio"] as? String,
@@ -13,6 +15,9 @@ final class NativePlayer {
                   url.host == "pulse-vibe-music.desyatnichenkoiosyf2.chatgpt.site" else { return nil }
             self.id = id; self.url = url
             title = value["title"] as? String ?? ""; artist = value["artist"] as? String ?? ""
+            album = value["album"] as? String ?? ""
+            let imageURL = URL(string: value["artwork"] as? String ?? "")
+            artwork = imageURL?.scheme == "https" ? imageURL : nil
         }
     }
     var onState: (([String: Any]) -> Void)?
@@ -34,6 +39,9 @@ final class NativePlayer {
     private var generation = 0
     private var historyTask: URLSessionDataTask?
     private let session = AVAudioSession.sharedInstance()
+    private var artworkTask: URLSessionDataTask?
+    private var artworkURL: URL?
+    private var artworkImage: MPMediaItemArtwork?
 
     init() {
         let commands = MPRemoteCommandCenter.shared()
@@ -62,7 +70,7 @@ final class NativePlayer {
         notifications.append(center.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in self?.emit() })
     }
     deinit {
-        fade?.invalidate()
+        fade?.invalidate(); artworkTask?.cancel()
         if let clock = clock { player.removeTimeObserver(clock) }
         notifications.forEach { NotificationCenter.default.removeObserver($0) }
         remoteTargets.forEach { $0.0.removeTarget($0.1) }
@@ -193,6 +201,25 @@ final class NativePlayer {
         }
         historyTask?.resume()
     }
+    private func loadArtwork(_ url: URL?) {
+        guard artworkURL != url else { return }
+        artworkTask?.cancel(); artworkURL = url; artworkImage = nil
+        guard let url = url else { return }
+        var request = URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad, timeoutInterval: 15)
+        request.setValue("image/*", forHTTPHeaderField: "Accept")
+        artworkTask = URLSession.shared.dataTask(with: request) { [weak self] data, response, _ in
+            guard let data = data, data.count <= 5_000_000, (response as? HTTPURLResponse)?.statusCode == 200,
+                  let source = CGImageSourceCreateWithData(data as CFData, nil),
+                  let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: 600] as CFDictionary) else { return }
+            let image = UIImage(cgImage: cg)
+            DispatchQueue.main.async {
+                guard let self = self, self.artworkURL == url else { return }
+                self.artworkImage = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+                self.emit()
+            }
+        }
+        artworkTask?.resume()
+    }
     private func emit(error: String? = nil) {
         let seconds = player.currentTime().seconds
         let playing = wantsPlayback && player.currentItem != nil
@@ -200,8 +227,11 @@ final class NativePlayer {
         var result: [String: Any] = ["id": track?.id ?? "", "time": seconds.isFinite ? seconds : 0, "duration": duration, "paused": !playing, "buffering": playing && player.timeControlStatus != .playing]
         if let error = error { result["error"] = error }
         if let track = track {
-            MPNowPlayingInfoCenter.default().nowPlayingInfo = [MPMediaItemPropertyTitle: track.title, MPMediaItemPropertyArtist: track.artist, MPMediaItemPropertyPlaybackDuration: duration, MPNowPlayingInfoPropertyElapsedPlaybackTime: seconds.isFinite ? seconds : 0, MPNowPlayingInfoPropertyPlaybackRate: player.rate]
-        } else { MPNowPlayingInfoCenter.default().nowPlayingInfo = nil }
+            loadArtwork(track.artwork)
+            var info: [String: Any] = [MPMediaItemPropertyTitle: track.title, MPMediaItemPropertyArtist: track.artist, MPMediaItemPropertyAlbumTitle: track.album, MPMediaItemPropertyPlaybackDuration: duration, MPNowPlayingInfoPropertyElapsedPlaybackTime: seconds.isFinite ? seconds : 0, MPNowPlayingInfoPropertyPlaybackRate: player.rate]
+            if let artworkImage = artworkImage { info[MPMediaItemPropertyArtwork] = artworkImage }
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+        } else { loadArtwork(nil); MPNowPlayingInfoCenter.default().nowPlayingInfo = nil }
         onState?(result)
     }
 }

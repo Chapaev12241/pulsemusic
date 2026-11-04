@@ -1,0 +1,17 @@
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const events={},listeners={},media={metadata:null};let writes=0,value=null;
+Object.defineProperty(media,'metadata',{get:()=>value,set:v=>{writes++;value=v}});
+const cache=new Map(),requests=[];
+const sandbox={window:{PulseArtwork:{url:(a,t)=>cache.get(a+'|'+t)||'',prioritize:(a,t)=>requests.push([a,t])}},navigator:{mediaSession:media},MediaMetadata:class{constructor(data){Object.assign(this,data)}},Event,URL,location:{href:'https://chapaev12241.github.io/pulsemusic/'},audio:{addEventListener:(n,f)=>events[n]=f},document:{dispatchEvent(){},addEventListener:(n,f)=>listeners[n]=f},current:{id:'a',title:'Song A',artist:'Artist A',album:'Album A',artwork:'./covers/a.webp'}};
+vm.runInNewContext(readFileSync('docs/now-playing.js','utf8'),sandbox);
+assert.equal(value.artwork[0].src,'https://chapaev12241.github.io/pulsemusic/covers/a.webp');assert.equal(value.album,'Album A');
+events.play();assert.equal(writes,1,'unchanged metadata is not republished on each tick');
+sandbox.current={id:'b',title:'Song B',artist:'Artist B'};events.play();assert.equal(value.title,'Song B');assert.equal(value.artwork.length,0,'old cover must disappear on track switch');assert.equal(requests.length,1);
+cache.set('Artist B|Song B','https://covers.example/b.jpg');listeners['pulse-artwork']();assert.equal(value.artwork[0].src,'https://covers.example/b.jpg');
+events.pause();assert.equal(value.title,'Song B','pause retains cover');
+sandbox.current={id:'c',title:'Bad URL',artist:'Artist C',artwork:'javascript:alert(1)'};events.play();assert.equal(value.artwork.length,0);
+sandbox.current=null;listeners['pulse-session']();assert.equal(value,null,'logout clears metadata');
+vm.runInNewContext(readFileSync('docs/now-playing.js','utf8'),{...sandbox,navigator:{}});
+console.log('System metadata: real cover URL, delayed artwork, next track, pause, logout and unsupported browser passed');

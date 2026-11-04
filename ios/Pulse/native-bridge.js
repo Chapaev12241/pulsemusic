@@ -18,7 +18,7 @@
     audio.play = async () => {
       const ids = queue.length ? queue : tracks.map(t => t.id);
       send({action: 'play', id: current?.id, token, dj: $('#djEnabled').checked,
-        tracks: ids.map(id => tracks.find(t => t.id === id)).filter(Boolean).map(t => ({id:t.id,title:t.title,artist:t.artist,audio:t.audio}))});
+        tracks: ids.map(id => tracks.find(t => t.id === id)).filter(Boolean).map(t => ({id:t.id,title:t.title,artist:t.artist,audio:t.audio,album:t.album||'',artwork:t.artwork||PulseArtwork.url?.(t.artist,t.title)||''}))});
     };
     audio.pause = () => send({action:'pause'});
     setupAudio = () => { $('#audioStatus').textContent = 'Нативный iOS-плеер · фоновый звук'; };
@@ -37,7 +37,7 @@
       native = message;
       if(current?.id !== message.id){
         const track = tracks.find(t => t.id === message.id);
-        if(track){current=track;source=track.audio;$('#nowTitle').textContent=track.title;$('#nowArtist').textContent=track.artist;$('.now>.art').outerHTML=PulseArtwork.markup(track.artist,track.title)}
+        if(track){current=track;window.PulseNowPlaying?.update();source=track.audio;$('#nowTitle').textContent=track.title;$('#nowArtist').textContent=track.artist;$('.now>.art').outerHTML=PulseArtwork.markup(track.artist,track.title)}
       }
       historyRecorded = true;
       if(previous.paused !== native.paused) event(native.paused?'pause':'play');
