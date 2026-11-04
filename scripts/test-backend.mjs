@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';import {DatabaseSync} from 'node:sqlite';import {readFileSync} from 'node:fs';
 const {default:worker}=await import('data:text/javascript;base64,'+readFileSync('dist/server/index.js').toString('base64'));
-const sqlite=new DatabaseSync(':memory:');sqlite.exec(readFileSync('drizzle/0000_pulse.sql','utf8').replaceAll('--> statement-breakpoint',''));
-const DB={
+const sqlite=new DatabaseSync(':memory:');sqlite.exec(readFileSync('drizzle/0000_pulse.sql','utf8').replaceAll('--> statement-breakpoint',''));sqlite.exec(readFileSync('drizzle/0001_community.sql','utf8').replaceAll('--> statement-breakpoint',''));
+const DB={async batch(statements){const results=[];for(const statement of statements)results.push(await statement.run());return results},
   prepare(sql){
-    return {bind(...args){
+    return {async all(){return {results:sqlite.prepare(sql).all()}},bind(...args){
       return {
-        async first(){return sqlite.prepare(sql).get(...args)||null},
+        async first(){return sqlite.prepare(sql).get(...args)||null},async all(){return {results:sqlite.prepare(sql).all(...args)}},
         async run(){const r=sqlite.prepare(sql).run(...args);return {meta:{changes:Number(r.changes)}}}
       };
     }};
@@ -33,5 +33,12 @@ const updated=await call('/api/music/'+id+'/meta',{token:one.token,method:'POST'
 const profile=await call('/api/artists/resolve',{token:one.token,method:'POST',body:{artist:'Артист',genres:['trap']}});assert.equal(profile.status,200);const edited=await(await call('/api/music',{token:one.token})).json();assert.equal(edited.tracks[0].title,'Волна 2');assert.equal(edited.tracks[0].genres[0],'trap');assert.equal(edited.tracks[0].genreSource,'manual');
 const realFetch=globalThis.fetch;
 try{globalThis.fetch=async url=>String(url).includes('musicbrainz.org')?new Response('{}',{status:503}):new Response(JSON.stringify({results:[{artistName:'FallbackArtist',artistId:123,primaryGenreName:'Jazz'}]}),{headers:{'content-type':'application/json'}});const fallback=await call('/api/artists/resolve',{token:one.token,method:'POST',body:{artist:'FallbackArtist'}});assert.equal(fallback.status,200);const resolved=await fallback.json();assert.equal(resolved.source,'apple');assert.equal(resolved.genres[0],'jazz');assert.equal(resolved.artistId,'apple:123')}finally{globalThis.fetch=realFetch}
+const catalogResponse=await(await call('/api/catalog')).json();assert(catalogResponse.tracks.some(t=>t.id===id));assert.equal((await call('/api/public-stream/'+id,{headers:{range:'bytes=0-99'}})).status,206);
+assert.equal((await call('/api/community/messages',{token:one.token,method:'POST',body:{to:two.user.id,body:'test'}})).status,403);
+await call('/api/community/request',{token:one.token,method:'POST',body:{id:two.user.id}});const incoming=await(await call('/api/community/me',{token:two.token})).json();assert.equal(incoming.incoming[0].id,one.user.id);await call('/api/community/respond',{token:two.token,method:'POST',body:{id:one.user.id,accept:true}});
+assert.equal((await call('/api/community/messages',{token:one.token,method:'POST',body:{to:two.user.id,body:'Привет'}})).status,200);const thread=await(await call('/api/community/messages?with='+one.user.id,{token:two.token})).json();assert.equal(thread.messages[0].body,'Привет');
+const strangerResponse=await call('/api/auth/register',{method:'POST',body:{email:'stranger@example.invalid',password,name:'Третий'}});const stranger=await strangerResponse.json();assert.equal(strangerResponse.status,201);assert.equal((await call('/api/community/messages?with='+one.user.id,{token:stranger.token})).status,403);assert.equal((await call('/api/community/respond',{token:stranger.token,method:'POST',body:{id:one.user.id,accept:true}})).status,404);
+await call('/api/community/profile',{token:one.token,method:'POST',body:{name:'Новое имя',bio:'Люблю музыку',color:'#123456',emoji:'♫'}});const visible=await(await call('/api/community/profile/'+one.user.id,{token:two.token})).json();assert.equal(visible.profile.name,'Новое имя');assert.equal(visible.profile.email,undefined);
+assert.equal((await call('/api/community/me')).status,401);
 await call('/api/auth/logout',{token:one.token,method:'POST'});assert.equal((await call('/api/music',{token:one.token})).status,401);
-console.log('PASS: registration/login, two sessions, account isolation, cloud upload, duplicate detection, signed media, byte ranges, concurrent playlist/history/likes and logout');
+console.log('PASS: registration/login, two sessions, account isolation, cloud upload, duplicate detection, signed media, byte ranges, concurrent playlist/history/likes and logout; community profiles, friend acceptance, private messaging and public catalog isolation');
