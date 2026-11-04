@@ -638,5 +638,40 @@
     "url": "https://image-cdn-fa.spotifycdn.com/image/ab67616d00001e02ad0a9978d0ee34ff20f0b632",
     "source": "Spotify · Bulletproof: The Soundtrack",
     "sourceUrl": "https://open.spotify.com/album/6qXuGH6TdhlFOCr7aavXtu"
+  },
+  "noizemc|": {
+    "url": "https://avatars.yandex.net/get-music-content/14854709/d2f16cf5.p.160970/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/artist/160970"
+  },
+  "nirvana|": {
+    "url": "https://avatars.yandex.net/get-music-content/5496390/06f54371.p.9262/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/artist/9262"
+  },
+  "монеточка|": {
+    "url": "https://avatars.yandex.net/get-music-content/17696724/e602fc42.p.4623000/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/artist/4623000"
+  },
+  "oxxxymiron|": {
+    "url": "https://avatars.yandex.net/get-music-content/18172800/fb571b91.p.249991/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/artist/249991"
+  },
+  "eminem|": {
+    "url": "https://avatars.yandex.net/get-music-content/14082060/0fbc9e6e.p.1053/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/artist/1053"
+  },
+  "snoopdogg|": {
+    "url": "https://avatars.yandex.net/get-music-content/14854709/a18d03ba.p.6165/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/artist/6165"
+  },
+  "morgenshtern|": {
+    "url": "https://avatars.yandex.net/get-music-content/20900757/76737762.p.5781113/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/artist/5781113"
   }
 }

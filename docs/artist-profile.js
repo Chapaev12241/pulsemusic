@@ -13,7 +13,7 @@
   PulseArtwork.prioritize(a.name,'');
   $('#artistName').textContent=a.name;
   const ids=new Set(a.tracks.map(t=>t.id)),recent=(state.history||[]).filter(h=>ids.has(h.id)&&Date.now()-Date.parse(h.at)<7*864e5).length;
-  $('#artistStats').textContent=PulseLibrary.count(a.tracks.length)+(recent?' · '+recent+' прослушиваний за неделю':'');
+  $('#artistStats').textContent=PulseLibrary.count(a.tracks.length)+(recent?' · '+recent+' '+(recent%10===1&&recent%100!==11?'прослушивание':recent%10>=2&&recent%10<=4&&(recent%100<12||recent%100>14)?'прослушивания':'прослушиваний')+' за неделю':'');
   if(!a.genres.length)$('#artistGenres').textContent='';
   const group=releases(a).find(g=>g.key===release);if(release!==null&&!group)release=null;
   displayed=release!==null?group.tracks:popular(a);

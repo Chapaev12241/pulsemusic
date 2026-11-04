@@ -4,6 +4,7 @@ function coverTitle(value){return coverNorm(String(value||'').replace(/\s*[([]\s
 function chooseCover(items,artist,title){return items.filter(t=>t.artworkUrl100&&coverArtistMatch(t.artistName,artist)&&(!title||coverTitle(t.trackName)===coverTitle(title))).sort((a,b)=>Number(b.trackExplicitness==='explicit')-Number(a.trackExplicitness==='explicit'))[0]}
 const artworkJobs=new Map();
 async function artworkLookup(env,artist,title){
+ if(!title&&typeof ARTWORK_INDEX!=='undefined'){const portrait=ARTWORK_INDEX[coverNorm(artist)+'|'];if(portrait?.url)return{found:true,...portrait}}
  const key=(title?'artwork/v3/':'artwork/portraits-v1/')+hex(await crypto.subtle.digest('SHA-256',enc.encode(coverNorm(artist)+'|'+coverNorm(title))));
  const cached=await env.BUCKET.get(key);if(cached){const entry=JSON.parse(await cached.text());if(entry.until>Date.now()&&(entry.result?.found||entry.providers===2))return entry.result}
  const bundled=typeof ARTWORK_INDEX!=='undefined'?ARTWORK_INDEX[coverNorm(artist)+'|'+coverNorm(title)]:null;if(bundled?.url)return{found:true,...bundled,url:!/^https?:/.test(bundled.url)?'https://pulse-vibe-music.desyatnichenkoiosyf2.chatgpt.site/'+bundled.url:bundled.url};
