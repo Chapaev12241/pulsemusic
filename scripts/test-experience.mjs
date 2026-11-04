@@ -3,6 +3,10 @@ const node={addEventListener(){},dispatchEvent(){},children:[]},sandbox={window:
 vm.runInNewContext(readFileSync('docs/lyrics.js','utf8'),sandbox);
 const rows=sandbox.window.PulseLyrics.parse('[offset:-500]\n[00:01.00][00:03.20]First\n[00:02.00]Second\n[ar:Test]');
 assert.equal(rows.length,3);assert.equal(rows[0].time,.5);assert.equal(rows[1].text,'Second');assert.equal(rows[2].time,2.7);
+const enhanced=sandbox.window.PulseLyrics.parse('[offset:100]\n[00:01.00]<00:01.00>Hello <00:01.80>world');
+assert.equal(enhanced[0].text,'Hello world');assert(Math.abs(enhanced[0].words[1].time-1.9)<1e-9);
+const exact=sandbox.window.PulseLyrics.wordTimeline(enhanced[0],4,20);assert.equal(exact[0].start,1.1);assert(Math.abs(exact[0].end-1.9)<1e-9);
+const estimated=sandbox.window.PulseLyrics.wordTimeline({time:10,text:'Короткое слово и длинное'},30,60);assert.equal(estimated.length,4);assert.equal(estimated[0].start,10);assert(estimated.at(-1).end<30);assert(estimated.every(w=>w.end>w.start));
 vm.runInNewContext(readFileSync('docs/karaoke.js','utf8'),sandbox);
 const sample=sandbox.window.PulseKaraoke.sample;
 assert(Math.abs(sample(1,1,0)[0]-.16)<1e-9);assert.equal(sample(1,-1,0)[0],1);assert.equal(sample(1,-1,0)[1],-1);assert(Math.abs(sample(1,1,.84)[0]-1)<1e-9);
