@@ -1,0 +1,693 @@
+<!doctype html><html data-telegram="true" lang="ru" data-theme="dark"><head><script src="https://telegram.org/js/telegram-web-app.js?64"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#080809"><title>Pulse — твоя музыка</title><link rel="preload" href="./fonts/soledago.ttf" as="font" type="font/ttf" crossorigin><link rel="preload" href="./fonts/docker-one.ttf" as="font" type="font/ttf" crossorigin><link rel="stylesheet" href="./app.css?v=54"><script src="./icons.js?v=54" defer></script><script src="./music.js?v=54" defer></script><script src="./library.js?v=54" defer></script><script src="./artwork.js?v=54" defer></script><script src="./app.js?v=54" defer></script><script src="./now-playing.js?v=54" defer></script><script src="./artist-profile.js?v=54" defer></script><script src="./background-audio.js?v=54" defer></script><script src="./beat.js?v=54" defer></script><link rel="icon" href="./favicon.ico?v=38" sizes="any"><link rel="icon" type="image/svg+xml" href="./icons/pulse.svg?v=38"><link rel="apple-touch-icon" sizes="180x180" href="./icons/pulse-180.png?v=38"><link rel="manifest" href="./manifest.webmanifest?v=38"><meta name="apple-mobile-web-app-title" content="Pulse"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><script src="./vendor/qrcode.min.js?v=54" defer></script><script src="./community.js?v=54" defer></script><script src="./dj.js?v=54" defer></script><script src="./lyrics.js?v=54" defer></script><script src="./karaoke.js?v=54" defer></script><script src="./experience.js?v=54" defer></script><link rel="stylesheet" href="./experience.css?v=54"><script src="./playback-memory.js?v=54" defer></script><script src="./admin.js?v=54" defer></script><script src="./release.js?v=54" defer></script><script id="artworkBootstrap" type="application/json">{
+  "mayotentype|онлайн": {
+    "url": "covers/fff666624c38b7f76aabb7a78e0c1b9927f8d5532fdbb8436eaf5a5993543739.webp",
+    "source": "Embedded",
+    "sourceUrl": ""
+  },
+  "nirvana|school": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/71/fc/61/71fc6147-fa50-2e25-4e42-db8b45e345ab/Nirvana_Bleach_20th_1425px.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/kz/album/school/669728060?i=669728226&uo=4"
+  },
+  "монеточка|козырныйтуз": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/41/b4/e5/41b4e59d-4527-087b-1321-d20fe5fef821/191773100025.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/%D0%BA%D0%BE%D0%B7%D1%8B%D1%80%D0%BD%D1%8B%D0%B9-%D1%82%D1%83%D0%B7/1233787790?i=1233787794&uo=4"
+  },
+  "noizemc|намарсеклассно": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/62/69/58/62695844-c8f2-da28-e5ab-f7497ba5285b/0.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/%D0%BD%D0%B0-%D0%BC%D0%B0%D1%80%D1%81%D0%B5-%D0%BA%D0%BB%D0%B0%D1%81%D1%81%D0%BD%D0%BE/1681685705?i=1681685922&uo=4"
+  },
+  "snoopdogg|laylow": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music/v4/bc/f9/55/bcf95544-ac2e-836b-52c1-1d8981021ed0/00094633904453.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/lay-low-feat-master-p-nate-dogg-butch-cassidy-tha-eastsidaz/713295838?i=713295843&uo=4"
+  },
+  "oxxxymiron|улет": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/3b/0f/e0/3b0fe0b5-62f0-ce7c-7ba8-e334de359999/196626023797.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/%D1%83%D0%BB%D0%B5%D1%82/1598186067?i=1598186541&uo=4"
+  },
+  "eminem|notafraid": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music128/v4/95/a4/2c/95a42c0d-f3c8-c70d-3e3a-93cfa4a516d4/00602527394558.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/kz/album/not-afraid/1440781199?i=1440781847&uo=4"
+  },
+  "nirvana|versechorusverseouttake": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music118/v4/9b/b4/fa/9bb4fa8d-035f-44e8-2de7-5cb8ecb0d88f/00602527685885.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/verse-chorus-verse-outtake/1440833316?i=1440834579&uo=4"
+  },
+  "imaginedragons|bones": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/33/87/c8/3387c827-adaa-681d-bd10-ce7d8e888b9c/22UMGIM21054.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/bones/1612321587?i=1612321591&uo=4"
+  },
+  "oxxxymironmironfyodorov|песньпесней": {
+    "url": "covers/eee5e0b508ca9c6d3998ee4d412edd1132e6a7f72ccd580f037151e679497565.webp",
+    "source": "Embedded",
+    "sourceUrl": ""
+  },
+  "mayot|досихпор": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/00/8f/03/008f03b5-42ef-91af-7188-3099bad658ed/cover.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/kz/album/%D0%B4%D0%BE-%D1%81%D0%B8%D1%85-%D0%BF%D0%BE%D1%80/1698975492?i=1698975725&uo=4"
+  },
+  "noizemc|руганьиззастены": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/62/69/58/62695844-c8f2-da28-e5ab-f7497ba5285b/0.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/%D1%80%D1%83%D0%B3%D0%B0%D0%BD%D1%8C-%D0%B8%D0%B7-%D0%B7%D0%B0-%D1%81%D1%82%D0%B5%D0%BD%D1%8B/1681685705?i=1681685909&uo=4"
+  },
+  "sodaluv|звездопад": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/25/10/ac/2510acb4-19cc-2a4f-1ce9-986d821070fc/cover.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/kz/album/%D0%B7%D0%B2%D0%B5%D0%B7%D0%B4%D0%BE%D0%BF%D0%B0%D0%B4/1749508777?i=1749508781&uo=4"
+  },
+  "oxxxymiron|волапюк": {
+    "url": "covers/e1a47b3aa14f55cc1ca95dab00d05ec915c49fb362f3059e4b8f7d6bdcae9aab.webp",
+    "source": "Embedded",
+    "sourceUrl": ""
+  },
+  "noizemc|говорящиеголовы": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/ab/83/ab/ab83ab6a-6e2b-b367-ddc3-3abdc8fae392/0.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/%D0%B3%D0%BE%D0%B2%D0%BE%D1%80%D1%8F%D1%89%D0%B8%D0%B5-%D0%B3%D0%BE%D0%BB%D0%BE%D0%B2%D1%8B/1684747128?i=1684747133&uo=4"
+  },
+  "imaginedragons|higherground": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/2d/54/70/2d5470e7-ab60-f062-7ac8-e950e9726cba/22UMGIM37171.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/higher-ground/1617908569?i=1617910512&uo=4"
+  },
+  "drdre|housewife": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music118/v4/27/6b/4c/276b4c69-99cb-6209-2fd8-3edd17ccfd06/00602517641228.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/housewife-feat-hittman-kurupt/1444156266?i=1444157646&uo=4"
+  },
+  "монеточка|вышекрыш": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/9d/e2/3c/9de23c24-be86-47d3-a8f9-40ead317f660/cover.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/%D0%B2%D1%8B%D1%88%D0%B5-%D0%BA%D1%80%D1%8B%D1%88/1747545709?i=1747546484&uo=4"
+  },
+  "2pac|starinthroughmyrearview": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music128/v4/02/96/e4/0296e46f-7bc2-82e9-2c72-efe5666ccc14/00602567834410.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/kz/album/starin-through-my-rear-view/1434905424?i=1434905861&uo=4"
+  },
+  "noizemc|моеморе": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/5c/73/6f/5c736ffd-27c9-59e0-1748-120c107aa139/0.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/%D0%BC%D0%BE%D1%91-%D0%BC%D0%BE%D1%80%D0%B5/1681195309?i=1681195311&uo=4"
+  },
+  "монеточка|монополия": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/9d/e2/3c/9de23c24-be86-47d3-a8f9-40ead317f660/cover.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/%D0%BC%D0%BE%D0%BD%D0%BE%D0%BF%D0%BE%D0%BB%D0%B8%D1%8F/1747545709?i=1747546101&uo=4"
+  },
+  "2pac|betterdayz": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music118/v4/cf/6f/0f/cf6f0fb2-ad09-aaf2-fdff-96b4f751f13b/00602547286888.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/kz/album/better-dayz-feat-mr-biggs/1443727560?i=1443727902&uo=4"
+  },
+  "nirvana|rapeme": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/e3/20/03/e32003a4-99bc-1c70-40ba-001882f35dba/00602537526840.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/kz/album/rape-me/1440858699?i=1440859114&uo=4"
+  },
+  "noizemc|иордан": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/ab/83/ab/ab83ab6a-6e2b-b367-ddc3-3abdc8fae392/0.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/%D0%B8%D0%BE%D1%80%D0%B4%D0%B0%D0%BD-feat-atlantida-project/1684747128?i=1684747143&uo=4"
+  },
+  "2pac|hitemup": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/72/00/89/720089d8-c063-a323-e0cc-de921e50b968/00602527051789.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/hit-em-up/1440661662?i=1440661926&uo=4"
+  },
+  "eminem|beautifulpain": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music118/v4/50/a2/d5/50a2d5a8-8ba5-c8a0-421c-70635bf9e80d/00602537542710.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/beautiful-pain-feat-sia/1440862900?i=1440864719&uo=4"
+  },
+  "noizemc|чайлдфри": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/16/1e/81/161e812d-7eef-1795-5518-7decb3ca453e/0.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/%D1%87%D0%B0%D0%B9%D0%BB%D0%B4%D1%84%D1%80%D0%B8-feat-%D0%BC%D0%BE%D0%BD%D0%B5%D1%82%D0%BE%D1%87%D0%BA%D0%B0/1680623194?i=1680623203&uo=4"
+  },
+  "drdre|letsgethigh": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music118/v4/27/6b/4c/276b4c69-99cb-6209-2fd8-3edd17ccfd06/00602517641228.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/kz/album/lets-get-high-feat-hittman-ms-roq-kurupt/1444156266?i=1444157355&uo=4"
+  },
+  "eminem|badhusband": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music128/v4/78/07/35/78073533-a113-170d-bfab-acc3cec405d1/00602567238218.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/kz/album/bad-husband-feat-x-ambassadors/1440916179?i=1440916890&uo=4"
+  },
+  "drdre|stilldreinstrumental": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/07/d4/d9/07d4d90d-704e-c10e-2203-2b18318a2064/00606949057121.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/kz/album/still-d-r-e-instrumental/1440869002?i=1440869007&uo=4"
+  },
+  "brunomars|loarriesgotodo": {
+    "url": "covers/9f57fefb8122d5ca2474f89eead4d057c800a451fa46e996c03cf99779a78f45.webp",
+    "source": "Embedded",
+    "sourceUrl": ""
+  },
+  "imaginedragons|wakeup": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/11/ad/84/11ad84d7-2baa-cfe8-6616-02e7045d7ab0/24UMGIM43945.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/wake-up/1741841621?i=1741841778&uo=4"
+  },
+  "drdre|stilldre": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music118/v4/27/6b/4c/276b4c69-99cb-6209-2fd8-3edd17ccfd06/00602517641228.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/still-d-r-e-feat-snoop-dogg/1444156266?i=1444156738&uo=4"
+  },
+  "snoopdogg|aintnofunifthehomiescanthavenone": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/59/5c/49/595c49ca-20af-1a27-3716-fe1fe481c45e/617513535860_cover.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/aint-no-fun-if-the-homies-cant-have-none-feat-nate/1683195625?i=1683195634&uo=4"
+  },
+  "монеточка|нехочуничегознать": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music118/v4/52/42/a9/5242a9af-d3c8-a383-2be6-57d62125fae9/193483118956.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/%D0%BD%D0%B5-%D1%85%D0%BE%D1%87%D1%83-%D0%BD%D0%B8%D1%87%D0%B5%D0%B3%D0%BE-%D0%B7%D0%BD%D0%B0%D1%82%D1%8C/1440178408?i=1440178418&uo=4"
+  },
+  "50cent|soamazing": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/b6/50/07/b650079b-15db-74fb-5395-ff7ef7c5a45e/17UMGIM93593.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/so-amazing-feat-olivia/1444007100?i=1444007487&uo=4"
+  },
+  "2pac|alleyezonme": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/55/e5/7c/55e57cf2-8325-a088-7d54-3aeedad1143f/21UM1IM16263.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/kz/album/all-eyez-on-me-feat-big-syke/1588492978?i=1588494313&uo=4"
+  },
+  "50cent|inmyhood": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/b6/50/07/b650079b-15db-74fb-5395-ff7ef7c5a45e/17UMGIM93593.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/in-my-hood/1444007100?i=1444007106&uo=4"
+  },
+  "imaginedragons|trouble": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/c1/16/59/c116596f-f3fd-3499-6cc2-bcb5b4931e6e/14UMGIM61459.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/trouble/1445867303?i=1445867442&uo=4"
+  },
+  "eminem|supermaninstrumental": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/c9/02/cd/c902cdef-e179-5b70-8142-112a2abe7f27/22UMGIM49875.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/superman-instrumental/1625004609?i=1625005002&uo=4"
+  },
+  "sodaluv|старыйотель": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/5a/3e/86/5a3e86d5-0aed-9144-8e25-45525d0a1e8c/cover.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/kz/album/%D1%81%D1%82%D0%B0%D1%80%D1%8B%D0%B9-%D0%BE%D1%82%D0%B5%D0%BB%D1%8C/1720750699?i=1720750713&uo=4"
+  },
+  "eminem|spacebound": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music128/v4/95/a4/2c/95a42c0d-f3c8-c70d-3e3a-93cfa4a516d4/00602527394558.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/kz/album/space-bound/1440781199?i=1440782032&uo=4"
+  },
+  "imaginedragons|radioactive": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/1f/fa/09/1ffa092f-f52f-4a66-7d10-4cc5982dc747/12UMGIM46901.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/radioactive/1440873107?i=1440873126&uo=4"
+  },
+  "brunomars|lockedoutofheaven": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/e0/a4/7c/e0a47c6f-005a-9f9f-ce29-8e858e2bcfcb/075679957283.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/locked-out-of-heaven/573962245?i=573962551&uo=4"
+  },
+  "brunomars|grenade": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music114/v4/52/b1/45/52b1452b-229e-78db-231b-7b43fa0077cc/075679956491.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/grenade/576654788?i=576655094&uo=4"
+  },
+  "50cent|candyshop": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/b6/50/07/b650079b-15db-74fb-5395-ff7ef7c5a45e/17UMGIM93593.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/candy-shop-feat-olivia/1444007100?i=1444007299&uo=4"
+  },
+  "nirvana|dumb": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/e3/20/03/e32003a4-99bc-1c70-40ba-001882f35dba/00602537526840.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/kz/album/dumb/1440858699?i=1440859361&uo=4"
+  },
+  "nirvana|blew": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/71/fc/61/71fc6147-fa50-2e25-4e42-db8b45e345ab/Nirvana_Bleach_20th_1425px.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/kz/album/blew/669728060?i=669728223&uo=4"
+  },
+  "drdre|letmeride": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/59/5c/49/595c49ca-20af-1a27-3716-fe1fe481c45e/617513535860_cover.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/kz/album/let-me-ride/1683195625?i=1683195636&uo=4"
+  },
+  "imaginedragons|birds": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/3f/80/a8/3f80a8ef-5409-42ac-c126-c7354698c7fc/18UMGIM65849.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/birds/1437948883?i=1437949219&uo=4"
+  },
+  "imaginedragons|symphony": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/2d/54/70/2d5470e7-ab60-f062-7ac8-e950e9726cba/22UMGIM37171.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/symphony/1617908569?i=1617910174&uo=4"
+  },
+  "2pac|stillirise": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music118/v4/38/ab/27/38ab273b-b277-55e8-553a-b8fb59064c67/00606949041724.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/kz/album/still-i-rise-feat-tahe/1440907980?i=1440907986&uo=4"
+  },
+  "mayotalisha|взгляд": {
+    "url": "covers/4334956a563b30d925bb1201ab8da93073ae44cf2af1c7c3d4f95eaaabcebb67.webp",
+    "source": "Embedded",
+    "sourceUrl": ""
+  },
+  "2pac|whenweride": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/55/e5/7c/55e57cf2-8325-a088-7d54-3aeedad1143f/21UM1IM16263.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/kz/album/when-we-ride-feat-outlaw-immortals/1588492978?i=1588494138&uo=4"
+  },
+  "монеточка|переживу": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/65/17/26/65172673-c826-af45-8d3a-75a50709efc1/195497323722.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/%D0%BF%D0%B5%D1%80%D0%B5%D0%B6%D0%B8%D0%B2%D1%83/1533423729?i=1533424022&uo=4"
+  },
+  "imaginedragons|demons": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/1f/fa/09/1ffa092f-f52f-4a66-7d10-4cc5982dc747/12UMGIM46901.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/demons/1440873107?i=1440873339&uo=4"
+  },
+  "50cent|rydermusic": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/b6/50/07/b650079b-15db-74fb-5395-ff7ef7c5a45e/17UMGIM93593.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/ryder-music/1444007100?i=1444007310&uo=4"
+  },
+  "nirvana|comeasyouare": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/95/fd/b9/95fdb9b2-6d2b-92a6-97f2-51c1a6d77f1a/00602527874609.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/kz/album/come-as-you-are/1440783617?i=1440783636&uo=4"
+  },
+  "brunomars|ijustmight": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/ed/46/bf/ed46bf4e-7cb9-965a-54f3-03059977fe6c/075679589293.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/i-just-might/1866732792?i=1866732800&uo=4"
+  },
+  "brunomars|treasure": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/15/63/53/156353b8-d45b-a17d-f553-2d125aeb3cb3/075679957474.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/treasure/581806371?i=581806439&uo=4"
+  },
+  "eminem|youdontknow": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music128/v4/11/05/3b/11053bca-b7cb-40d1-75ae-bcedde19d762/00602517181441.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/you-dont-know/1440758318?i=1440758940&uo=4"
+  },
+  "nirvana|dive": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/12/5b/e8/125be895-d884-33c3-54e2-df1da7699384/00602567822837.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/dive/1434917065?i=1434917068&uo=4"
+  },
+  "snoopdogg|wet": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music113/v4/83/d2/24/83d22483-c0c5-69e9-b97c-2ee693bfff59/20UMGIM31897.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/wet/1511210365?i=1511210627&uo=4"
+  },
+  "50cent|indaclub": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/6e/56/af/6e56af83-bdff-56c2-7c6a-b30cd0d356ce/06UMGIM08757.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/in-da-club/1440907378?i=1440907550&uo=4"
+  },
+  "монеточка|этобыловроссии": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/9d/e2/3c/9de23c24-be86-47d3-a8f9-40ead317f660/cover.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/%D1%8D%D1%82%D0%BE-%D0%B1%D1%8B%D0%BB%D0%BE-%D0%B2-%D1%80%D0%BE%D1%81%D1%81%D0%B8%D0%B8/1747545709?i=1747545723&uo=4"
+  },
+  "drdre|thenextepisode": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music118/v4/27/6b/4c/276b4c69-99cb-6209-2fd8-3edd17ccfd06/00602517641228.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/the-next-episode-feat-snoop-dogg/1444156266?i=1444157225&uo=4"
+  },
+  "eminem|rainman": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music118/v4/49/2c/16/492c1618-544d-2587-094c-009b059ba96f/00602567850359.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/rain-man/1425129724?i=1425131548&uo=4"
+  },
+  "моргенштерн|домлондонпраганицца": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/25/ed/27/25ed27b8-9244-0fa1-96db-7167ebdbf82a/cover.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/kz/album/%D0%B4%D0%BE%D0%BC-%D0%BB%D0%BE%D0%BD%D0%B4%D0%BE%D0%BD-%D0%BF%D1%80%D0%B0%D0%B3%D0%B0-%D0%BD%D0%B8%D1%86%D1%86%D0%B0/1795685902?i=1795685914&uo=4"
+  },
+  "eminem|beautiful": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music128/v4/27/96/e3/2796e35a-484d-f1de-5098-dbde88d5fb56/00602527032139.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/beautiful/1440738082?i=1440738383&uo=4"
+  },
+  "50cent|bigrichtown": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music128/v4/00/59/15/005915c0-fefd-5f2a-4556-d8b213a9777e/00859712374998.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/big-rich-town-feat-joe/1445280548?i=1445280794&uo=4"
+  },
+  "mayot|спотыкаюсьнаней": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/a8/12/be/a812be41-59e7-b6f0-72ad-feb3d794d3a5/cover.png/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/kz/album/%D1%81%D0%BF%D0%BE%D1%82%D1%8B%D0%BA%D0%B0%D1%8E%D1%81%D1%8C-%D0%BD%D0%B0-%D0%BD%D0%B5%D0%B9/1812433000?i=1812433001&uo=4"
+  },
+  "noizemc|вояджер1": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/c5/45/f7/c545f7a5-688b-e2c8-c397-baab53a9cd10/0.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/%D0%B2%D0%BE%D1%8F%D0%B4%D0%B6%D0%B5%D1%80-1/1680376614?i=1680376615&uo=4"
+  },
+  "50cent|babybyme": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/05/99/52/05995244-97d5-3f3d-7c7d-638aa87e68c3/17UMGIM08624.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/baby-by-me/1440877068?i=1440878373&uo=4"
+  },
+  "snoopdogg|youngwildfree": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/56/5a/01/565a01a5-d5b8-3474-b904-e07a281813a6/mzi.mncoqnsb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/young-wild-free-feat-bruno-mars/485205827?i=485206074&uo=4"
+  },
+  "2pac|hennessey": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music128/v4/13/57/ce/1357ceee-70f8-8562-6000-3fb15d22086f/00602547433527.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/kz/album/hennessey-feat-obie-trice/1443462950?i=1443463859&uo=4"
+  },
+  "монеточка|каждыйраз": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/a1/21/c6/a121c6f8-4614-bd1b-0c9e-5ddaaebd40e9/192562536353.jpg/600x600bb.jpg",
+    "source": "Apple Music",
+    "sourceUrl": "https://music.apple.com/us/album/%D0%BA%D0%B0%D0%B6%D0%B4%D1%8B%D0%B9-%D1%80%D0%B0%D0%B7/1381474770?i=1381474773&uo=4"
+  },
+  "mayot|jakepaul": {
+    "url": "covers/ce9f2ad3583df010109f1e4be835c92ea3bc01a534a41c2fd8bc026e0863bbfe.webp",
+    "source": "Embedded",
+    "sourceUrl": ""
+  },
+  "mayotseemee|швабра": {
+    "url": "covers/d42de02b8dc916b941058bd675a44c196eccce619e8e22477548b9b3e8d14bea.webp",
+    "source": "Embedded",
+    "sourceUrl": ""
+  },
+  "sodaluvthrillpill|зажигалка": {
+    "url": "covers/c21f435f2bfa5a5e6e570e1cba726533a69dd610e71ed169838b4392e3e95766.webp",
+    "source": "Embedded",
+    "sourceUrl": ""
+  },
+  "монеточка|кискискис": {
+    "url": "covers/acd2df20ae1449a5c3b1d1f9688e1d69fadc81bd1cd3a93211667d14e6cacb9c.webp",
+    "source": "Embedded",
+    "sourceUrl": ""
+  },
+  "sodaluvтравма|champagne5quirt2": {
+    "url": "covers/a611baed0b0619d83277742cf50975420a92f86615b4cb9c9982a99104ebc100.webp",
+    "source": "Embedded",
+    "sourceUrl": ""
+  },
+  "mayotyungwaysqweezey|созвездияprodbysqweezeyxnastyboy24kxrealbeatzkitchen": {
+    "url": "covers/738aadb271b3bc9df3a6bbf83f2190ae30f17afac46b46ff5e8ddf6d1bd3e310.webp",
+    "source": "Embedded",
+    "sourceUrl": ""
+  },
+  "eminem|3amtravisbarkerremixexplicitversion": {
+    "url": "covers/5a6209cdea5e5f46ba9fcd3995f6ed645b1f6d3b3a030e6b53a2c5c5db5052a2.webp",
+    "source": "Embedded",
+    "sourceUrl": ""
+  },
+  "morgenshtern4teen|sohigh": {
+    "url": "covers/274c6e6a923e5231f879f23b963e5e0df6b6c5bdc5ff84d50e768c851f044585.webp",
+    "source": "Embedded",
+    "sourceUrl": ""
+  },
+  "oxxxymiron|делонесколькихминут3раунд17ib": {
+    "url": "https://avatars.yandex.net/get-music-content/9707577/4b0c1a44.a.26559421-1/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/95034430"
+  },
+  "noizemc|изокна": {
+    "url": "https://avatars.yandex.net/get-music-content/8871869/b35dc4aa.a.25433372-1/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/40053614"
+  },
+  "sodaluv|ктосказал": {
+    "url": "https://avatars.yandex.net/get-music-content/5496390/4e6b9aec.a.19794014-3/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/96571437"
+  },
+  "sodaluv|убийство": {
+    "url": "https://avatars.yandex.net/get-music-content/15499524/ca0c2f85.a.36043067-1/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/137747768"
+  },
+  "mayot|имэтонадо": {
+    "url": "https://avatars.yandex.net/get-music-content/20189877/0692ae37.a.41325100-1/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/149652651"
+  },
+  "sodaluv|память": {
+    "url": "https://avatars.yandex.net/get-music-content/6202531/fefb6a31.a.22749010-1/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/105220177"
+  },
+  "монеточка|гошарубчинский": {
+    "url": "https://avatars.yandex.net/get-music-content/32236/40b720e2.a.3979584-1/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/32635711"
+  },
+  "sodaluv|звонок": {
+    "url": "https://avatars.yandex.net/get-music-content/6202531/fefb6a31.a.22749010-1/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/105220184"
+  },
+  "snoopdogg|sweat": {
+    "url": "https://avatars.yandex.net/get-music-content/28589/789e82c0.a.640509-1/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/5843203"
+  },
+  "моргенштерн|aristocrat": {
+    "url": "https://avatars.yandex.net/get-music-content/4387391/f49e64ab.a.15814421-2/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/83836666"
+  },
+  "noizemc|невседома": {
+    "url": "https://avatars.yandex.net/get-music-content/15317937/2ea340f0.a.35858220-1/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/137292071"
+  },
+  "mayot|звездаупала": {
+    "url": "https://avatars.yandex.net/get-music-content/2359742/c705e78a.a.11828535-3/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/70155220"
+  },
+  "oxxxymiron|вкнигевсебылоподругому": {
+    "url": "https://avatars.yandex.net/get-music-content/9707577/4b0c1a44.a.26559421-1/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/95034433"
+  },
+  "моргенштерн|elproblema": {
+    "url": "https://avatars.yandex.net/get-music-content/16616584/69a382c8.a.12142187-2/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/71335767"
+  },
+  "mayot|клуб": {
+    "url": "https://avatars.yandex.net/get-music-content/14082060/221e135d.a.33398863-1/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/125535655"
+  },
+  "oxxxymiron|восточныймордор": {
+    "url": "https://avatars.yandex.net/get-music-content/49707/d17ba4a5.a.298230-1/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/28599797"
+  },
+  "noizemc|ненавижу": {
+    "url": "https://avatars.yandex.net/get-music-content/8316823/f58c37c0.a.25433338-1/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/40053588"
+  },
+  "моргенштерн|сколькостоитлюбовь": {
+    "url": "https://avatars.yandex.net/get-music-content/10129881/2cd14a0f.a.23155591-4/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/106310237"
+  },
+  "моргенштерн|последняялюбовь": {
+    "url": "https://avatars.yandex.net/get-music-content/10874616/8bd5edbe.a.30101276-1/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/123450076"
+  },
+  "oxxxymiron|жуквмуравейнике": {
+    "url": "https://avatars.yandex.net/get-music-content/49707/d17ba4a5.a.298230-1/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/28599810"
+  },
+  "oxxxymiron|городподподошвой": {
+    "url": "https://avatars.yandex.net/get-music-content/28589/0c106866.a.2976568-1/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/28420997"
+  },
+  "моргенштерн|cadillac": {
+    "url": "https://avatars.yandex.net/get-music-content/16616584/37030fd6.a.11010830-2/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/67155218"
+  },
+  "полматери|кхмкхм": {
+    "url": "https://avatars.yandex.net/get-music-content/20900757/a80c0e8b.a.34322224-3/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/133694178"
+  },
+  "полматери|намканец": {
+    "url": "https://avatars.yandex.net/get-music-content/21049049/d3b4d18a.a.13004970-5/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/74398470"
+  },
+  "полматери|голод": {
+    "url": "https://avatars.yandex.net/get-music-content/22503874/9a5a08bd.a.44589852-1/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/140866083"
+  },
+  "полматери|ивгазоныивсугробы": {
+    "url": "https://avatars.yandex.net/get-music-content/17655650/fcf7635c.a.16442117-3/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/85891336"
+  },
+  "полматери|толькодлятебя": {
+    "url": "https://avatars.yandex.net/get-music-content/10139807/043d3eb1.a.27532032-1/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/117726871"
+  },
+  "моргенштерн|пойдет": {
+    "url": "https://avatars.yandex.net/get-music-content/16450533/7574f29f.a.25875175-2/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/113871254"
+  },
+  "полматери|маша": {
+    "url": "https://avatars.yandex.net/get-music-content/10139807/043d3eb1.a.27532032-1/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/109975076"
+  },
+  "полматери|янеудачник": {
+    "url": "https://avatars.yandex.net/get-music-content/17770778/b52ad375.a.22365218-5/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/104147079"
+  },
+  "моргенштерн|bestie": {
+    "url": "https://avatars.yandex.net/get-music-content/17784780/d2e89c8c.a.23812350-2/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/108127244"
+  },
+  "sodaluv|дебаты": {
+    "url": "https://avatars.yandex.net/get-music-content/5413882/78bd856e.a.19883144-2/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/96843938"
+  },
+  "полматери|тачкичетыре": {
+    "url": "https://avatars.yandex.net/get-music-content/17740720/514338f4.a.16203197-3/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/85095956"
+  },
+  "полматери|ярчезвезд": {
+    "url": "https://avatars.yandex.net/get-music-content/20608190/5a9609ce.a.11845634-7/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/70230156"
+  },
+  "полматери|хочусдохнуть": {
+    "url": "https://avatars.yandex.net/get-music-content/20974004/caf55470.a.23756795-3/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/72154104"
+  },
+  "oxxxymiron|африканскиебусы": {
+    "url": "https://avatars.yandex.net/get-music-content/5485872/98a66686.a.19739328-1/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/96366203"
+  },
+  "моргенштерн|olalarockremix": {
+    "url": "https://avatars.yandex.net/get-music-content/9737237/5f3062bd.a.26508460-1/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/115282446"
+  },
+  "2pac|iwonderifheavengotaghettohiphopversion": {
+    "url": "https://avatars.yandex.net/get-music-content/42108/2ff21a4d.a.246148-1/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/2475889"
+  },
+  "sodaluv|ялрс": {
+    "url": "https://avatars.yandex.net/get-music-content/5853241/a74e4991.a.24135754-2/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/track/109051381"
+  },
+  "drdre|fuckyou": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music118/v4/27/6b/4c/276b4c69-99cb-6209-2fd8-3edd17ccfd06/00602517641228.rgb.jpg/600x600bb.jpg",
+    "source": "Apple Music · 2001",
+    "sourceUrl": "https://music.apple.com/us/album/the-next-episode-feat-snoop-dogg/1444156266?i=1444157225&uo=4"
+  },
+  "morgenshtern|testgenre": {
+    "url": "icons/pulse-512.png",
+    "source": "Pulse test recording",
+    "sourceUrl": ""
+  },
+  "pulseqa|wave": {
+    "url": "icons/pulse-512.png",
+    "source": "Pulse test recording",
+    "sourceUrl": ""
+  },
+  "безисполнителя|slavamarlowтыгоришькакогонь2featgazanкобяковtolysummerвовасолодков": {
+    "url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/77/58/69/7758694c-abac-25a0-f86b-269260f05732/0.jpg/500x500bb.jpg",
+    "source": "Official BandLink · Apple Music",
+    "sourceUrl": "https://bnd.lc/tgkogon2"
+  },
+  "50cent|whenyouhearthat": {
+    "url": "https://image-cdn-fa.spotifycdn.com/image/ab67616d00001e02ad0a9978d0ee34ff20f0b632",
+    "source": "Spotify · Bulletproof: The Soundtrack",
+    "sourceUrl": "https://open.spotify.com/album/6qXuGH6TdhlFOCr7aavXtu"
+  },
+  "noizemc|": {
+    "url": "https://avatars.yandex.net/get-music-content/14854709/d2f16cf5.p.160970/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/artist/160970"
+  },
+  "nirvana|": {
+    "url": "https://avatars.yandex.net/get-music-content/5496390/06f54371.p.9262/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/artist/9262"
+  },
+  "монеточка|": {
+    "url": "https://avatars.yandex.net/get-music-content/17696724/e602fc42.p.4623000/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/artist/4623000"
+  },
+  "oxxxymiron|": {
+    "url": "https://avatars.yandex.net/get-music-content/18172800/fb571b91.p.249991/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/artist/249991"
+  },
+  "eminem|": {
+    "url": "https://avatars.yandex.net/get-music-content/14082060/0fbc9e6e.p.1053/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/artist/1053"
+  },
+  "snoopdogg|": {
+    "url": "https://avatars.yandex.net/get-music-content/14854709/a18d03ba.p.6165/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/artist/6165"
+  },
+  "morgenshtern|": {
+    "url": "https://avatars.yandex.net/get-music-content/20900757/76737762.p.5781113/600x600",
+    "source": "Яндекс Музыка",
+    "sourceUrl": "https://music.yandex.ru/artist/5781113"
+  }
+}
+</script><link rel="stylesheet" href="./telegram.css?v=54"><script src="./telegram.js?v=54" defer></script></head><body>
+<aside class="sidebar"><a class="brand" href="./">pulse</a><nav aria-label="Навигация"><button data-view="home">⌂ Главная</button><button data-view="search">⌕ Поиск</button><button data-view="library">♫ Медиатека</button><button data-view="playlists">☷ Плейлисты</button><button data-view="recent">◷ История</button></nav><div class="side-bottom"><button data-view="settings">⚙ Настройки</button><button data-profile-menu aria-label="Открыть профиль" aria-controls="profileMenu" aria-expanded="false">◉ <span data-username>Гость</span></button></div></aside>
+<div id="profileMenu" class="profile-menu" hidden><div class="profile-menu-heading"><span data-profile-avatar class="menu-avatar">♫</span><span data-username>Гость</span></div><button data-profile-route="profile">Мой профиль</button><button data-profile-route="friends">Друзья и сообщения</button></div><main><header><label class="search">⌕ <input id="query" type="search" aria-label="Поиск музыки" placeholder="Треки, исполнители" autocomplete="off"></label><button class="icon" id="themeButton" aria-label="Сменить оформление">◐</button><button class="icon profile-trigger" data-profile-menu aria-label="Открыть профиль" aria-controls="profileMenu" aria-expanded="false">◉</button></header>
+<section id="home" class="view"><div class="hero"><div><small>Твоя музыка</small><h1>Мой вайб</h1><button class="primary" id="vibe">Слушать</button></div><div class="vinyl" aria-hidden="true"><span>p</span></div></div><div class="section-title"><h2>Новое от твоих исполнителей</h2></div><p id="catalogStatus" class="muted"></p><div id="newFavoriteTracks" class="track-grid"></div><div id="vibeSection"><div class="section-title"><h2>Твой вайб</h2><button id="refreshVibe" aria-label="Обновить подборку">Обновить</button></div><p id="vibeCaption" class="muted"></p><div id="vibeTracks" class="track-grid"></div></div><div id="artistsSection"><div class="section-title"><h2>Исполнители</h2><button data-view="artists">Все →</button></div><div id="homeArtists" class="artist-strip"></div></div><div class="section-title"><h2>Твои исполнители · миксы</h2></div><div id="artistMixes" class="artist-strip"></div><div class="section-title"><h2>Под настроение</h2></div><div id="genreMixes" class="track-grid"></div><div class="section-title"><h2>Коллекция</h2><a href="./import.html">Добавить музыку ↗</a></div><div id="homeTracks" class="track-grid"></div><div class="section-title"><h2>Недавно слушал</h2><button data-view="recent">Все →</button></div><div id="homeHistory"></div></section>
+<section id="search" class="view" hidden><h2>Поиск</h2><p id="resultCount" class="muted"></p><div id="searchArtists" class="artist-strip"></div><div id="searchTracks"></div></section>
+<section id="library" class="view" hidden><div class="section-title"><h2>Медиатека</h2><a class="primary" href="./import.html">＋ Музыка</a></div><div class="chips"><button id="allTracks" class="selected">Все треки</button><button id="likedTracks">Любимые</button><button data-view="playlists">Плейлисты</button></div><div id="libraryTracks"></div></section>
+<section id="artists" class="view" hidden><div id="artistDirectory"><div class="section-title"><h2>Исполнители</h2><button id="resolveGenres">Определить жанры</button></div><p id="genreStatus" class="muted" role="status"></p><div id="artistCards" class="track-grid"></div></div><div id="artistDetail" hidden><button id="artistBack" class="artist-back">← Назад</button><div class="artist-hero"><div id="artistPortrait"></div><div class="artist-heading"><small>Исполнитель</small><h1 id="artistName"></h1><p id="artistStats" class="muted"></p><p id="artistGenres" class="muted"></p><div class="artist-actions"><button id="playArtist" class="primary">▶ Слушать</button><button id="shuffleArtist" class="artist-shuffle" aria-label="Перемешать треки исполнителя">Перемешать</button></div></div></div><div class="section-title"><h2 id="artistTracksTitle">Популярное у тебя</h2><button id="artistShowAll">Все треки</button></div><div id="artistTracks"></div><div id="artistReleasesSection"><div class="section-title"><h2>Релизы в коллекции</h2></div><div id="artistReleases" class="artist-releases"></div></div><div id="artistRelatedSection"><div class="section-title"><h2>Похожие исполнители</h2></div><div id="artistRelated" class="artist-strip"></div></div></div></section><section id="playlists" class="view" hidden><div class="section-title"><h2>Плейлисты</h2><button class="primary" id="newPlaylist">＋ Создать</button></div><div id="playlistCards" class="track-grid"></div><h3 id="playlistTitle"></h3><div id="playlistTracks"></div></section>
+<section id="recent" class="view" hidden><h2>История</h2><div id="historyTracks"></div></section>
+<section id="settings" class="view" hidden><h2>Настройки</h2><button id="adminAccess" class="primary" data-view="admin" hidden>♛ Админские возможности</button><div class="settings-grid"><div class="panel"><h3>Оформление</h3><label class="setting">Стиль<select id="theme"><option value="dark">Тёмный</option><option value="midnight">Полночь</option><option value="light">Светлый</option></select></label><label class="setting">Акцент<input type="color" id="accent" value="#a59aff"></label><label class="setting">Анимации<input id="animations" type="checkbox" checked></label><label class="setting">Новое в моём вайбе<input id="discovery" type="range" min="0" max="80" value="30" aria-label="Доля открытий в моём вайбе"></label><small id="discoveryValue">30% открытий</small><p id="beatStatus" class="muted" role="status">Реакция на бит: модуль ещё не загрузился</p><small id="appVersion" data-build="54">Сборка 54</small><button id="updateApp" type="button">Обновить приложение</button><p id="fontStatus" class="muted" role="status">Проверяем шрифты…</p></div><div class="panel"><h3>Звук</h3><p class="muted">Оригинальное качество файла</p><label class="setting">Громкость<input id="volume" type="range" min="0" max="1" step="0.01" value="0.8"></label><label class="setting">Таймер сна<select id="sleepTimer"><option value="0">Выключен</option><option value="15">15 минут</option><option value="30">30 минут</option><option value="60">1 час</option></select></label><small id="sleepStatus" role="status"></small><label class="setting">DJ-переходы<input id="djEnabled" type="checkbox"></label><p id="djStatus" class="muted"></p><h3>Эквалайзер</h3><div id="equalizer"></div><button id="resetEQ">Сбросить</button><p id="audioStatus" class="muted" role="status"></p></div></div></section>
+<section id="community" class="view" hidden><h2 id="profileHeading">Мой профиль</h2><div class="chips profile-tabs" aria-label="Разделы профиля"><button data-profile-route="profile" class="selected">Профиль</button><button data-profile-route="friends">Друзья и сообщения</button></div><p id="communityStatus" class="muted"></p><div id="profilePane" class="settings-grid"><div class="panel"><h3>Аккаунт</h3><p data-username>Гость</p><p id="syncStatus" class="muted">Войди для синхронизации</p><button class="primary" data-account id="accountAction">Войти / регистрация</button><button id="logout" hidden>Выйти</button></div><form id="profileForm" class="panel"><h3>Мой профиль</h3><span id="profilePreview" class="person-avatar">♫</span><label class="avatar-picker">Загрузить фото<input id="avatarFile" type="file" accept="image/jpeg,image/png,image/webp,image/heic"></label><p id="avatarStatus" class="muted" role="status"></p><label>Имя<input id="profileName" required maxlength="80"></label><label>О себе<input id="profileBio" maxlength="300"></label><label>Цвет аватара<input id="profileColor" type="color" value="#a59aff"></label><label>Символ<input id="profileEmoji" maxlength="8" value="♫"></label><button class="primary">Сохранить</button></form></div><div id="friendsPane" hidden><details class="panel invite-panel"><summary>Добавить друга · мой QR-код</summary><div id="friendQR"></div><input id="inviteLink" readonly aria-label="Моя ссылка"><button id="copyInvite">Скопировать ссылку</button><form id="inviteForm"><label>Ссылка или код друга<input id="inviteCode" required></label><button class="primary">Добавить друга</button></form></details><details id="requestsPanel"><summary>Заявки в друзья</summary><div id="friendRequests"></div></details><div class="messenger"><aside class="chat-sidebar"><h3>Сообщения</h3><input id="friendSearch" type="search" placeholder="Найти друга" aria-label="Найти друга"><div id="friendsList"></div></aside><div id="chatEmpty" class="chat-empty">Выбери друга, чтобы начать разговор</div><div id="chatPanel" class="panel" hidden><div class="chat-heading"><button id="chatBack" class="icon" aria-label="К списку друзей">←</button><h3 id="chatName"></h3><small>Личная переписка</small></div><button id="olderMessages" hidden>Предыдущие сообщения</button><div id="messages" role="log" aria-label="Переписка" aria-live="polite"></div><p id="chatError" role="alert"></p><form id="sendMessage"><textarea id="messageInput" required maxlength="2000" rows="2" placeholder="Сообщение" aria-label="Сообщение"></textarea><button id="sendButton" class="primary">Отправить</button></form></div></div></div></section><section id="admin" class="view" hidden><h2>Админ-панель</h2><div class="chips"><button data-admin-tab="users" class="selected">Участники</button><button data-admin-tab="tracks">Треки</button><button data-admin-tab="trash">Корзина</button></div><input id="adminSearch" type="search" placeholder="Имя или email" aria-label="Поиск в админ-панели"><div id="adminOwner" class="chips" hidden><span id="adminOwnerName"></span><button id="adminClearOwner">Все исполнители загрузок</button></div><p id="adminStatus" role="status"></p><div id="adminUsers"></div><div id="adminTracks" hidden></div></section><section id="import" class="view" hidden><small>Import Studio</small><h1>Твоя коллекция.</h1><div id="dropzone" class="dropzone"><h2>Перетащи папку с музыкой</h2><p class="muted">Новые загрузки доступны всем пользователям Pulse · до 50 МБ на трек</p><div class="chips"><button id="pickFolder" class="primary">Выбрать папку</button><button id="pickFiles">Выбрать файлы</button></div><input id="folderInput" type="file" webkitdirectory multiple hidden><input id="fileInput" type="file" accept="audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg,.opus" multiple hidden></div><p id="uploadStatus" role="status" aria-live="polite"></p><progress id="uploadProgress" value="0" max="1" hidden></progress><ul id="uploadErrors"></ul><a class="primary" href="./">Открыть плеер →</a></section></main>
+<footer class="player" aria-label="Плеер"><div class="now" role="button" tabindex="0" aria-label="Развернуть текущий трек" aria-haspopup="dialog"><span class="art" aria-hidden="true">♫</span><div><b id="nowTitle">Выбери трек</b><small id="nowArtist">Твоя коллекция</small></div><button class="icon" id="likeCurrent" aria-label="Добавить в любимые">♡</button></div><div class="transport"><div class="controls"><button class="icon" id="previous" aria-label="Предыдущий трек">⏮</button><button class="play" id="play" aria-label="Воспроизвести">▶</button><button class="icon" id="next" aria-label="Следующий трек">⏭</button></div><div class="timeline"><output id="currentTime">0:00</output><input id="seek" type="range" aria-label="Перемотка трека" min="0" max="1000" value="0" disabled><output id="duration">0:00</output></div></div><label class="transport-volume"><span aria-hidden="true">◖</span><input id="transportVolume" type="range" min="0" max="1" step="0.01" value="0.8" aria-label="Громкость плеера"><output id="volumePercent">80%</output></label><span id="playerStatus" class="muted" role="status"></span></footer>
+<nav class="mobile-nav" aria-label="Навигация на телефоне"><button data-view="home"><span>⌂</span>Главная</button><button data-view="search"><span>⌕</span>Поиск</button><button data-view="library"><span>♫</span>Медиатека</button><button data-view="playlists"><span>☷</span>Плейлисты</button><button data-view="settings"><span>⚙</span>Настройки</button></nav>
+<dialog id="authDialog"><form id="authForm"><div class="section-title"><h2 id="authTitle">Вход</h2><button type="button" data-close="authDialog" aria-label="Закрыть">✕</button></div><div class="chips"><button type="button" data-auth="login" class="selected">Вход</button><button type="button" data-auth="register">Регистрация</button></div><label id="nameLabel" hidden>Имя<input id="name" autocomplete="nickname" maxlength="80"></label><label>Email<input id="email" type="email" autocomplete="email" required maxlength="254"></label><label>Пароль<input id="password" type="password" autocomplete="current-password" minlength="8" maxlength="200" required></label><p id="authError" role="alert"></p><button class="primary" id="authSubmit">Войти</button></form></dialog>
+<dialog id="playlistDialog"><form id="playlistForm"><div class="section-title"><h2>Новый плейлист</h2><button type="button" data-close="playlistDialog" aria-label="Закрыть">✕</button></div><label>Название<input id="playlistName" maxlength="100" required></label><button class="primary">Создать</button></form></dialog>
+<dialog id="addDialog"><div class="section-title"><h2>Добавить в плейлист</h2><button data-close="addDialog" aria-label="Закрыть">✕</button></div><div id="addOptions"></div><button id="createFromAdd">＋ Новый плейлист</button></dialog><dialog id="trackDialog"><form id="trackForm"><div class="section-title"><h2>О треке</h2><button type="button" data-close="trackDialog" aria-label="Закрыть">✕</button></div><label>Название<input id="editTitle" required maxlength="120"></label><label>Исполнитель<input id="editArtist" required maxlength="80"></label><label>Жанры<input id="editGenres" placeholder="Рэп, хип-хоп" maxlength="120"></label><p class="muted">Можно уточнить исполнителя и жанр вручную</p><p id="editError" role="alert"></p><button class="primary" id="saveTrack">Сохранить</button></form></dialog><dialog id="importDialog"><form id="importForm"><div class="section-title"><h2>Исполнители треков</h2><button type="button" data-close="importDialog" aria-label="Закрыть">✕</button></div><label>Один исполнитель для всех<input id="batchArtist" maxlength="80" placeholder="Имя исполнителя"></label><button type="button" id="applyArtist">Применить ко всем</button><div id="importArtists"></div><button class="primary" type="submit">Загрузить музыку</button></form></dialog><dialog id="nowPlaying" class="now-playing"><div class="np-header"><button id="collapsePlayer" class="icon" aria-label="Свернуть плеер">⌄</button><span>Сейчас играет</span><button id="npLike" class="icon" aria-label="Добавить трек в любимые">♡</button></div><div class="np-layout"><div class="np-track"><div id="npArtwork"></div><h2 id="npTitle"></h2><button id="npArtist" class="muted artist-link" aria-label="Открыть исполнителя"></button><div class="timeline"><output id="npTime">0:00</output><input id="npSeek" type="range" min="0" max="1000" value="0" aria-label="Перемотка в полном плеере"><output id="npDuration">0:00</output></div><div class="controls np-controls"><button id="npPrevious" class="icon" aria-label="Предыдущая песня">⏮</button><button id="npPlay" class="play" aria-label="Пауза или воспроизведение">▶</button><button id="npNext" class="icon" aria-label="Следующая песня">⏭</button></div><label class="setting">Караоке<input id="karaokeEnabled" type="checkbox"></label><p id="karaokeStatus" class="muted" role="status"></p><button id="cancelKaraoke" hidden>Отменить обработку</button><p id="volumeHint" class="muted"></p></div><section class="lyrics-panel"><div class="section-title"><h3>Текст песни</h3><button id="retryLyrics" aria-label="Обновить текст">↻</button></div><p id="lyricsStatus" class="muted" role="status"></p><div id="lyricsLines" class="lyrics-lines"></div><a id="lyricsSource" target="_blank" rel="noopener noreferrer" hidden>LRCLIB ↗</a></section></div></dialog><dialog id="adminRemoveDialog"><h2>Удалить трек?</h2><p id="adminRemoveTitle"></p><p class="muted">Трек исчезнет из библиотеки. Его можно восстановить из корзины.</p><div class="chips"><button data-close="adminRemoveDialog">Отмена</button><button id="adminConfirmRemove" class="danger">Удалить</button></div></dialog><div id="toast" role="status" hidden></div><audio id="audio" preload="auto" playsinline crossorigin="anonymous"></audio>
+</body></html>

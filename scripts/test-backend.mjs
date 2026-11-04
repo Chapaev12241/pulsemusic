@@ -3,6 +3,7 @@ const {default:worker}=await import('data:text/javascript;base64,'+readFileSync(
 const sqlite=new DatabaseSync(':memory:');sqlite.exec(readFileSync('drizzle/0000_pulse.sql','utf8').replaceAll('--> statement-breakpoint',''));sqlite.exec(readFileSync('drizzle/0001_community.sql','utf8').replaceAll('--> statement-breakpoint',''));
 sqlite.exec(readFileSync('drizzle/0002_artwork.sql','utf8'));
 sqlite.exec(readFileSync('drizzle/0003_admin.sql','utf8').replaceAll('--> statement-breakpoint',''));
+sqlite.exec(readFileSync('drizzle/0004_telegram.sql','utf8').replaceAll('--> statement-breakpoint',''));
 const DB={async batch(statements){const results=[];for(const statement of statements)results.push(await statement.run());return results},
   prepare(sql){
     return {async all(){return {results:sqlite.prepare(sql).all()}},bind(...args){
