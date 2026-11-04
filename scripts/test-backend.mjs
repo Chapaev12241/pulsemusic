@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';import {DatabaseSync} from 'node:sqlite'
 const {default:worker}=await import('data:text/javascript;base64,'+readFileSync('dist/server/index.js').toString('base64'));
 const sqlite=new DatabaseSync(':memory:');sqlite.exec(readFileSync('drizzle/0000_pulse.sql','utf8').replaceAll('--> statement-breakpoint',''));sqlite.exec(readFileSync('drizzle/0001_community.sql','utf8').replaceAll('--> statement-breakpoint',''));
 sqlite.exec(readFileSync('drizzle/0002_artwork.sql','utf8'));
+sqlite.exec(readFileSync('drizzle/0003_admin.sql','utf8').replaceAll('--> statement-breakpoint',''));
 const DB={async batch(statements){const results=[];for(const statement of statements)results.push(await statement.run());return results},
   prepare(sql){
     return {async all(){return {results:sqlite.prepare(sql).all()}},bind(...args){
@@ -62,5 +63,26 @@ assert.equal((await call('/api/lyrics?title=Test')).status,400);
 for(let i=0;i<105;i++)await DB.prepare('INSERT INTO pulse_messages(sender,recipient,body,created_at) VALUES(?,?,?,?)').bind(one.user.id,two.user.id,'Page '+i,new Date().toISOString()).run();
 const latest=await(await call('/api/community/messages?with='+two.user.id,{token:one.token})).json();assert.equal(latest.messages.length,100);assert.equal(latest.hasMore,true);const older=await(await call('/api/community/messages?with='+two.user.id+'&before='+latest.messages[0].id,{token:one.token})).json();assert(older.messages.length>0);assert(older.messages.at(-1).id<latest.messages[0].id);
 
+
+assert.equal((await call('/api/admin/users')).status,401);
+assert.equal((await call('/api/admin/users',{token:two.token})).status,403);
+assert.equal((await call('/api/admin/tracks/'+id+'/remove',{token:two.token,method:'POST',body:{}})).status,403);
+const ownerRequest=new Request('https://test.local/api/auth/me',{headers:{authorization:'Bearer '+one.token}});
+const ownerResponse=await worker.fetch(ownerRequest,{DB,BUCKET,PULSE_ADMIN_EMAIL:'one@example.invalid',PULSE_ADMIN_CREATED_BEFORE:new Date(Date.now()+1000).toISOString()});assert.equal((await ownerResponse.json()).user.role,'admin');
+assert.equal((await call('/api/admin/users',{token:one.token})).status,200);
+assert.equal((await call('/api/admin/users/'+one.user.id+'/ban',{token:one.token,method:'POST',body:{banned:true}})).status,400);
+assert.equal((await call('/api/admin/users/'+two.user.id+'/ban',{token:one.token,method:'POST',body:{banned:true}})).status,200);
+assert.equal((await call('/api/state',{token:two.token})).status,401);
+assert.equal((await call('/api/auth/login',{method:'POST',body:{email:'two@example.invalid',password}})).status,403);
+assert.equal((await call('/api/admin/users/'+two.user.id+'/ban',{token:one.token,method:'POST',body:{banned:false}})).status,200);
+assert.equal((await call('/api/auth/login',{method:'POST',body:{email:'two@example.invalid',password}})).status,200);
+assert.equal((await call('/api/admin/tracks/'+id+'/remove',{token:one.token,method:'POST',body:{}})).status,200);
+assert(!(await(await call('/api/catalog')).json()).tracks.some(t=>t.id===id));
+assert(!(await(await call('/api/music',{token:one.token})).json()).tracks.some(t=>t.id===id));
+assert.equal((await call('/api/public-stream/'+id)).status,404);
+assert.equal((await call('/api/admin/tracks/'+id+'/restore',{token:one.token,method:'POST',body:{}})).status,200);
+assert((await(await call('/api/catalog')).json()).tracks.some(t=>t.id===id));
+assert((await(await call('/api/admin/audit',{token:one.token})).json()).events.length>=4);
+const beforeFallback=globalThis.fetch;try{globalThis.fetch=async url=>String(url).startsWith('https://api.lyrics.ovh/')?new Response(JSON.stringify({lyrics:'Synthetic fallback text'}),{headers:{'content-type':'application/json'}}):new Response('{}',{status:404});const fallbackLyrics=await(await call('/api/lyrics?title=Fallback%20test&artist=Fallback%20artist&duration=45')).json();assert.equal(fallbackLyrics.source,'Lyrics.ovh');assert.equal(fallbackLyrics.syncedLyrics,'');assert.equal(fallbackLyrics.plainLyrics,'Synthetic fallback text')}finally{globalThis.fetch=beforeFallback}
 await call('/api/auth/logout',{token:one.token,method:'POST'});assert.equal((await call('/api/music',{token:one.token})).status,401);
 console.log('PASS: registration/login, two sessions, account isolation, cloud upload, duplicate detection, signed media, byte ranges, concurrent playlist/history/likes and logout; community profiles, friend acceptance, private messaging and public catalog isolation');

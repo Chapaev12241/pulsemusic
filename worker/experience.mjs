@@ -20,20 +20,9 @@ async function experienceRoute(r,env){
   const title=String(url.searchParams.get('title')||'').trim().slice(0,120),artist=String(url.searchParams.get('artist')||'').trim().slice(0,80),duration=Number(url.searchParams.get('duration'));
   if(!title||!artist)return json(r,{error:'Нужны название и исполнитель'},400);
   const params=new URLSearchParams({track_name:title,artist_name:artist});if(duration>0&&duration<=3600)params.set('duration',Math.round(duration));
-  const key='lyrics/'+hex(await crypto.subtle.digest('SHA-256',enc.encode(params.toString())));
+  const key='lyrics-v2/'+hex(await crypto.subtle.digest('SHA-256',enc.encode(params.toString())));
   const cached=await env.BUCKET.get(key);if(cached){const d=JSON.parse(await cached.text());if(d.until>Date.now())return json(r,d.result)}
-  const headers={'User-Agent':'PulseMusic/1.0 (https://chapaev12241.github.io/pulsemusic/)'};
-  let response;try{response=await fetch('https://lrclib.net/api/get?'+params,{headers,signal:AbortSignal.timeout(8000)})}catch{}
-  let data=response?.ok?await response.json():{};
-  if(!data.syncedLyrics&&!data.plainLyrics&&!data.instrumental){
-   const search=new URLSearchParams({track_name:title,artist_name:artist});
-   const result=await fetch('https://lrclib.net/api/search?'+search,{headers,signal:AbortSignal.timeout(8000)});
-   if(!result.ok)return json(r,{error:'Источник текста временно недоступен'},502);
-   const normalize=s=>String(s||'').normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]/gu,'');
-   const candidates=(await result.json()).filter(t=>normalize(t.trackName)===normalize(title)&&normalize(t.artistName)===normalize(artist)&&(!(duration>0)||Math.abs(t.duration-duration)<=3));
-   candidates.sort((a,b)=>(duration>0?Math.abs(a.duration-duration)-Math.abs(b.duration-duration):0)||Number(!!b.syncedLyrics)-Number(!!a.syncedLyrics));data=candidates[0]||{};
-  }
-  const result={found:!!(data.syncedLyrics||data.plainLyrics),instrumental:!!data.instrumental,syncedLyrics:String(data.syncedLyrics||'').slice(0,100000),plainLyrics:String(data.plainLyrics||'').slice(0,100000),source:'LRCLIB',sourceUrl:data.id?'https://lrclib.net/api/get/'+Number(data.id):'https://lrclib.net/'};
+  const result=await findSongLyrics(title,artist,duration);
   await env.BUCKET.put(key,JSON.stringify({until:Date.now()+(result.found?30*86400000:3600000),result}));return json(r,result);
  }
  return null;
