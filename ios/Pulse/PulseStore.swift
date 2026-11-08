@@ -1,6 +1,7 @@
 import SwiftUI
 import CryptoKit
 import AVFoundation
+import Combine
 
 @MainActor
 final class PulseStore: ObservableObject {
@@ -17,6 +18,9 @@ final class PulseStore: ObservableObject {
     @Published var currentID = ""
     @Published var paused = true
     let playback = PulsePlayback()
+    let social = PulseSocialStore()
+    let equalizer = PulseEqualizerSettings()
+    private var equalizerSubscription: AnyCancellable?
     @Published var dj = UserDefaults.standard.object(forKey: "pulse_dj_native") as? Bool ?? true {
         didSet { UserDefaults.standard.set(dj, forKey: "pulse_dj_native"); player.command(["action": "dj", "enabled": dj]) }
     }
@@ -35,7 +39,10 @@ final class PulseStore: ObservableObject {
     var currentTrack: PulseTrack? { tracks.first { $0.id == currentID } }
     var signedIn: Bool { user != nil }
 
-    init() { player.onState = { [weak self] value in self?.receivePlayback(value) } }
+    init() {
+        player.onState = { [weak self] value in self?.receivePlayback(value) }
+        equalizerSubscription = equalizer.$config.sink { [weak self] value in self?.player.setEqualizer(value) }
+    }
     // NativePlayer delivers callbacks on the main queue. This boundary is also
     // exercised by the regression test for library invalidations.
     func receivePlayback(_ value: [String: Any]) {
@@ -64,6 +71,7 @@ final class PulseStore: ObservableObject {
                 else { clearSession() }
             } catch { self.error = "Не удалось восстановить вход: \(error.localizedDescription)" }
         }
+        configureSocial()
         await refresh()
     }
     func signIn(email: String, password: String, name: String, register: Bool) async -> Bool {
@@ -75,6 +83,7 @@ final class PulseStore: ObservableObject {
             try PulseKeychain.save(session.token)
             clearSession(deleteKeychain: false)
             token = session.token; user = session.user
+            configureSocial()
             error = nil
             await refresh()
             return true
@@ -91,7 +100,7 @@ final class PulseStore: ObservableObject {
     private func clearSession(deleteKeychain: Bool = true) {
         generation = UUID(); mutation?.cancel(); mutation = nil
         player.command(["action": "stop"])
-        token = ""; user = nil; ownedTracks = []; ownedIDs = []; state = PulseLibraryState()
+        token = ""; user = nil; social.configure(token: "", userID: ""); ownedTracks = []; ownedIDs = []; state = PulseLibraryState()
         tracks = publicTracks; lastSync = nil
         if deleteKeychain { PulseKeychain.clear() }
     }
@@ -123,6 +132,8 @@ final class PulseStore: ObservableObject {
             let merged = PulseLibrary.merge(publicTracks: publicTracks, ownedTracks: ownedTracks)
             if tracks != merged { tracks = merged }
             lastSync = Date()
+            configureSocial()
+            Task { await self.social.refresh() }
             if !currentID.isEmpty {
                 if currentTrack == nil { player.command(["action": "stop"]) }
                 else { player.command(["action": "update", "token": token, "tracks": tracks.map(\.nativeValue)]) }
@@ -137,6 +148,7 @@ final class PulseStore: ObservableObject {
             }
         }
     }
+    private func configureSocial() { social.configure(token: token, userID: user?.id ?? "") }
     func play(_ track: PulseTrack, within queue: [PulseTrack]) {
         player.command(["action": "play", "id": track.id, "tracks": queue.map(\.nativeValue), "token": token, "dj": dj])
     }

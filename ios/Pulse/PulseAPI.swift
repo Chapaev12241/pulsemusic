@@ -4,8 +4,10 @@ import Security
 enum PulseAPI {
     // Uses the existing production accounts, D1 database and R2 music bucket.
     static let base = URL(string: "https://pulse-vibe-music.desyatnichenkoiosyf2.chatgpt.site")!
-    static func request<T: Decodable>(_ path: String, token: String = "", method: String = "GET", body: Data? = nil, headers: [String: String] = [:], session: URLSession = .shared) async throws -> T {
-        var request = URLRequest(url: base.appendingPathComponent(path), timeoutInterval: 60)
+    static func request<T: Decodable>(_ path: String, token: String = "", method: String = "GET", body: Data? = nil, headers: [String: String] = [:], query: [URLQueryItem] = [], session: URLSession = .shared) async throws -> T {
+        var components = URLComponents(url: base.appendingPathComponent(path), resolvingAgainstBaseURL: false)!
+        if !query.isEmpty { components.queryItems = query }
+        var request = URLRequest(url: components.url!, timeoutInterval: 60)
         request.httpMethod = method
         request.httpBody = body
         request.setValue("application/json", forHTTPHeaderField: "Accept")

@@ -17,10 +17,13 @@ enum PulseTheme {
     }
 }
 struct PulsePrimaryButton: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reducedMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label.font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.black.opacity(0.9))
             .padding(.horizontal, 20).frame(minHeight: 44).background(PulseTheme.gradient, in: RoundedRectangle(cornerRadius: 13))
             .opacity(configuration.isPressed ? 0.8 : 1)
+            .scaleEffect(configuration.isPressed && !reducedMotion ? 0.97 : 1)
+            .animation(reducedMotion ? nil : .easeOut(duration: 0.14), value: configuration.isPressed)
     }
 }
 struct PulseIconButton: ButtonStyle {

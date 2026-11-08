@@ -4,6 +4,8 @@ import SwiftUI
 struct PulseApp: App {
     @StateObject private var store = PulseStore()
     @Environment(\.scenePhase) private var phase
+    @Environment(\.accessibilityReduceMotion) private var systemReducedMotion
+    @AppStorage("pulse_reduce_motion") private var appReducedMotion = false
     init() { PulseTheme.registerFonts() }
     var body: some Scene {
         WindowGroup("Pulse") {
@@ -12,6 +14,7 @@ struct PulseApp: App {
                 #if os(macOS)
                 .background(PulseTouchBarHost(store: store).frame(width: 0, height: 0))
                 #endif
+                .environment(\.accessibilityReduceMotion, systemReducedMotion || appReducedMotion)
                 .preferredColorScheme(.dark)
                 .tint(PulseTheme.accent)
                 .task { await store.start() }

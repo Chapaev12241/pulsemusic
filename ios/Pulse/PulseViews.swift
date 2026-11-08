@@ -3,6 +3,8 @@ import UniformTypeIdentifiers
 
 struct PulseRootView: View {
     @EnvironmentObject private var store: PulseStore
+    @Environment(\.accessibilityReduceMotion) private var systemReducedMotion
+    @AppStorage("pulse_reduce_motion") private var appReducedMotion = false
     @State private var collection: PulseCollection = .home
     @State private var query = ""
     @State private var showAccount = false
@@ -13,6 +15,7 @@ struct PulseRootView: View {
     private var visibleTracks: [PulseTrack] {
         let values: [PulseTrack]
         switch collection {
+        case .friends, .settings: values = []
         case .home, .catalog: values = store.tracks
         case .library: values = store.tracks.filter { store.ownedIDs.contains($0.id) }
         case .liked: values = PulseLibrary.ordered(store.state.liked, in: store.tracks)
@@ -31,7 +34,11 @@ struct PulseRootView: View {
                 #endif
                 VStack(spacing: 0) {
                     header
-                    ScrollView {
+                    if collection == .friends {
+                        if store.signedIn { PulseFriendsView(social: store.social) }
+                        else { emptyState.frame(maxHeight: .infinity).padding(contentPadding) }
+                    } else if collection == .settings { PulseSettingsView(store: store) }
+                    else { ScrollView {
                         LazyVStack(alignment: .leading, spacing: 26) {
                             if collection == .home && query.isEmpty {
                                 PulseHomeView(select: select, play: { items in if let first = items.first { store.play(first, within: items) } })
@@ -47,6 +54,7 @@ struct PulseRootView: View {
                         .padding(.horizontal, contentPadding).padding(.top, 10).padding(.bottom, 24)
                     }
                     .refreshable { await store.refresh() }
+                    }
                 }
             }
             Rectangle().fill(PulseTheme.line).frame(height: 1)
@@ -55,6 +63,7 @@ struct PulseRootView: View {
             mobileNavigation
             #endif
         }
+        .animation(systemReducedMotion || appReducedMotion ? nil : .easeInOut(duration: 0.18), value: collection)
         .background(PulseTheme.background).foregroundStyle(Color(red: 0.95, green: 0.94, blue: 0.94))
         #if os(macOS)
         .frame(minWidth: 840, minHeight: 580)
@@ -106,19 +115,13 @@ struct PulseRootView: View {
             .padding(.horizontal, 14).frame(height: 46).background(PulseTheme.panel, in: RoundedRectangle(cornerRadius: 14))
             .overlay(RoundedRectangle(cornerRadius: 14).stroke(PulseTheme.line))
             Button { Task { await store.refresh() } } label: { Image(systemName: "arrow.clockwise") }.buttonStyle(PulseIconButton()).disabled(store.syncing).help("Обновить медиатеку")
-            Button { showAccount = true } label: {
-                ZStack {
-                    Circle().fill(PulseTheme.accent.opacity(0.2))
-                    if let user = store.user { Text(String(user.name.prefix(1)).uppercased()).font(.system(size: 16, weight: .semibold)).foregroundStyle(PulseTheme.accent) }
-                    else { Image(systemName: "person").foregroundStyle(PulseTheme.accent) }
-                }.frame(width: 40, height: 40)
-            }.buttonStyle(.plain).accessibilityLabel("Аккаунт")
+            PulseAccountBadge(social: store.social, fallbackName: store.user?.name, action: { showAccount = true }, compact: true)
         }.padding(.horizontal, contentPadding).padding(.vertical, 20)
     }
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 28) {
             Text("Pulse").font(PulseTheme.heading(46)).padding(.horizontal, 14).padding(.top, 14)
-            VStack(spacing: 6) {
+            ScrollView(.vertical) { VStack(spacing: 6) {
                 ForEach(PulseCollection.allCases) { item in
                     Button { select(item) } label: {
                         HStack(spacing: 12) {
@@ -132,8 +135,7 @@ struct PulseRootView: View {
                         .overlay(alignment: .leading) { if collection == item { Capsule().fill(PulseTheme.accent).frame(width: 3, height: 18) } }
                     }.buttonStyle(.plain)
                 }
-            }
-            Spacer(minLength: 20)
+            } }.scrollIndicators(.hidden)
             VStack(alignment: .leading, spacing: 12) {
                 Button(action: importMusic) { Label(store.uploading ? "Загружаем…" : "Добавить музыку", systemImage: "plus").frame(maxWidth: .infinity) }.buttonStyle(PulsePrimaryButton()).disabled(store.uploading)
                 HStack(spacing: 8) {
@@ -141,26 +143,17 @@ struct PulseRootView: View {
                     Text("Одна музыка. Все устройства.").font(.system(size: 10)).foregroundStyle(PulseTheme.muted)
                 }
             }.padding(.horizontal, 8)
-            Button { showAccount = true } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: "person.crop.circle").font(.title2).foregroundStyle(PulseTheme.accent)
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(store.user?.name ?? "Войти в Pulse").font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
-                        Text(store.signedIn ? "Аккаунт синхронизирован" : "Сохрани свой вайб").font(.system(size: 10)).foregroundStyle(PulseTheme.muted)
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.right").font(.caption2).foregroundStyle(PulseTheme.muted)
-                }.padding(12).background(PulseTheme.panel, in: RoundedRectangle(cornerRadius: 14))
-            }.buttonStyle(.plain)
+            PulseAccountBadge(social: store.social, fallbackName: store.user?.name, action: { showAccount = true })
+                .padding(12).background(PulseTheme.panel, in: RoundedRectangle(cornerRadius: 14))
         }.padding(16)
     }
     private var mobileNavigation: some View {
         HStack(spacing: 0) {
-            ForEach([PulseCollection.home, .catalog, .library, .liked, .playlists]) { item in
+            ForEach([PulseCollection.home, .catalog, .library, .playlists, .friends]) { item in
                 Button { select(item) } label: {
                     VStack(spacing: 5) {
                         Image(systemName: item.symbol).font(.system(size: 19))
-                        Text(item == .catalog ? "Поиск" : item.title).font(.system(size: 9))
+                        Text(item == .catalog ? "Поиск" : item == .friends ? "Друзья" : item.title).font(.system(size: 9))
                     }.frame(maxWidth: .infinity).frame(height: 52).foregroundStyle(collection == item ? PulseTheme.accent : PulseTheme.muted)
                 }.buttonStyle(.plain)
             }
@@ -362,6 +355,7 @@ struct PulseTrackCard: View {
     let track: PulseTrack
     let play: () -> Void
     @State private var hover = false
+    @Environment(\.accessibilityReduceMotion) private var reducedMotion
     var body: some View {
         Button(action: play) {
             VStack(alignment: .leading, spacing: 10) {
@@ -373,7 +367,7 @@ struct PulseTrackCard: View {
                 Text(track.artist).font(.system(size: 10)).foregroundStyle(PulseTheme.muted).lineLimit(1)
             }.frame(width: 150, alignment: .leading).padding(12).background(PulseTheme.panel, in: RoundedRectangle(cornerRadius: 20))
                 .overlay(RoundedRectangle(cornerRadius: 20).stroke(hover ? PulseTheme.accent.opacity(0.45) : PulseTheme.line))
-        }.buttonStyle(.plain).onHover { hover = $0 }.contextMenu { PulseTrackActions(track: track) }
+        }.buttonStyle(.plain).scaleEffect(hover && !reducedMotion ? 1.015 : 1).animation(reducedMotion ? nil : .easeOut(duration: 0.18), value: hover).onHover { hover = $0 }.contextMenu { PulseTrackActions(track: track) }
     }
 }
 struct PulseTrackRow: View {

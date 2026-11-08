@@ -29,6 +29,7 @@ final class NativePlayer {
     private var index = 0
     private var player = AVPlayer()
     private var outgoing: AVPlayer?
+    private let equalizer = PulseEQController()
     private var observation: NSKeyValueObservation?
     private var itemObservation: NSKeyValueObservation?
     private var clock: Any?
@@ -45,8 +46,11 @@ final class NativePlayer {
     #if os(iOS)
     private let session = AVAudioSession.sharedInstance()
     #endif
-    private var artworkTask: URLSessionDataTask?
-    private var artworkURL: URL?
+    private var artworkTask: Task<Void, Never>?
+    private var artworkKey: String?
+    private var artworkRevision = 0
+    private var lastNowPlayingUpdate = 0.0
+    private var lastNowPlayingSignature = ""
     private var artworkImage: MPMediaItemArtwork?
 
     init() {
@@ -89,6 +93,11 @@ final class NativePlayer {
     }
     private func bind(_ command: MPRemoteCommand, action: @escaping () -> Void) {
         remoteTargets.append((command, command.addTarget { _ in DispatchQueue.main.async { action() }; return .success }))
+    }
+    func setEqualizer(_ config: PulseEQConfiguration) {
+        equalizer.configure(config)
+        equalizer.onError = { [weak self] message in self?.emit(error: message) }
+        equalizer.attach(to: player.currentItem); equalizer.attach(to: outgoing?.currentItem)
     }
     func command(_ body: [String: Any]) {
         switch body["action"] as? String {
@@ -157,6 +166,7 @@ final class NativePlayer {
         if let clock = clock { player.removeTimeObserver(clock); self.clock = nil }
         if crossfade { outgoing = player } else { player.pause() }
         player = AVPlayer(url: queue[target].url)
+        equalizer.attach(to: player.currentItem)
         player.automaticallyWaitsToMinimizeStalling = true
         player.currentItem?.preferredForwardBufferDuration = 15
         index = target; listened = 0; lastTime = 0; recorded = false
@@ -225,28 +235,30 @@ final class NativePlayer {
         }
         historyTask?.resume()
     }
-    private func loadArtwork(_ url: URL?) {
-        guard artworkURL != url else { return }
-        artworkTask?.cancel(); artworkURL = url; artworkImage = nil
-        guard let url = url else { return }
-        var request = URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad, timeoutInterval: 15)
-        request.setValue("image/*", forHTTPHeaderField: "Accept")
-        artworkTask = URLSession.shared.dataTask(with: request) { [weak self] data, response, _ in
-            guard let data = data, data.count <= 5_000_000, (response as? HTTPURLResponse)?.statusCode == 200,
-                  let source = CGImageSourceCreateWithData(data as CFData, nil),
-                  let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: 600] as CFDictionary) else { return }
-            #if os(iOS)
-            let image = UIImage(cgImage: cg)
-            #else
-            let image = NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
-            #endif
-            DispatchQueue.main.async {
-                guard let self = self, self.artworkURL == url else { return }
-                self.artworkImage = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
-                self.emit()
-            }
+    private func loadArtwork(_ track: Track?) {
+        let key = track.map { $0.id + "|" + ($0.artwork?.absoluteString ?? "") }
+        guard artworkKey != key else { return }
+        artworkTask?.cancel(); artworkKey = key; artworkImage = nil; artworkRevision += 1
+        guard let track else { return }
+        if let url = Bundle.main.url(forResource: "now-playing-fallback", withExtension: "png"),
+           let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+           let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: 512] as CFDictionary) {
+            artworkImage = Self.systemArtwork(image)
         }
-        artworkTask?.resume()
+        let value = PulseTrack(id: track.id, title: track.title, artist: track.artist, album: track.album, genres: nil, artwork: track.artwork?.absoluteString, audio: track.url.absoluteString)
+        artworkTask = Task { @MainActor [weak self] in
+            let image = await PulseArtworkCache.shared.image(for: value)
+            guard let self, !Task.isCancelled, self.artworkKey == key, let image else { return }
+            self.artworkImage = Self.systemArtwork(image); self.artworkRevision += 1; self.emit()
+        }
+    }
+    private static func systemArtwork(_ cg: CGImage) -> MPMediaItemArtwork {
+        #if os(iOS)
+        let image = UIImage(cgImage: cg)
+        #else
+        let image = NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
+        #endif
+        return MPMediaItemArtwork(boundsSize: image.size) { _ in image }
     }
     private func emit(error: String? = nil) {
         let seconds = player.currentTime().seconds
@@ -255,11 +267,25 @@ final class NativePlayer {
         var result: [String: Any] = ["id": track?.id ?? "", "time": seconds.isFinite ? seconds : 0, "duration": duration, "paused": !playing, "buffering": playing && player.timeControlStatus != .playing]
         if let error = error { result["error"] = error }
         if let track = track {
-            loadArtwork(track.artwork)
+            loadArtwork(track)
             var info: [String: Any] = [MPMediaItemPropertyTitle: track.title, MPMediaItemPropertyArtist: track.artist, MPMediaItemPropertyAlbumTitle: track.album, MPMediaItemPropertyPlaybackDuration: duration, MPNowPlayingInfoPropertyElapsedPlaybackTime: seconds.isFinite ? seconds : 0, MPNowPlayingInfoPropertyPlaybackRate: player.rate]
             if let artworkImage = artworkImage { info[MPMediaItemPropertyArtwork] = artworkImage }
-            MPNowPlayingInfoCenter.default().nowPlayingInfo = info
-        } else { loadArtwork(nil); MPNowPlayingInfoCenter.default().nowPlayingInfo = nil }
+            info[MPNowPlayingInfoPropertyMediaType] = MPNowPlayingInfoMediaType.audio.rawValue
+            info[MPNowPlayingInfoPropertyIsLiveStream] = false
+            info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = 1.0
+            info[MPNowPlayingInfoPropertyExternalContentIdentifier] = track.id
+            info[MPNowPlayingInfoPropertyPlaybackQueueIndex] = index
+            info[MPNowPlayingInfoPropertyPlaybackQueueCount] = queue.count
+            let signature = track.id + "|" + String(player.rate) + "|" + String(artworkRevision)
+            let now = ProcessInfo.processInfo.systemUptime
+            if signature != lastNowPlayingSignature || now - lastNowPlayingUpdate >= 1 {
+                MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+                lastNowPlayingSignature = signature; lastNowPlayingUpdate = now
+                #if os(macOS)
+                MPNowPlayingInfoCenter.default().playbackState = playing ? .playing : .paused
+                #endif
+            }
+        } else { loadArtwork(nil); MPNowPlayingInfoCenter.default().nowPlayingInfo = nil; lastNowPlayingSignature = "" }
         onState?(result)
     }
 }

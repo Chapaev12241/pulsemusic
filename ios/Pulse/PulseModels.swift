@@ -32,7 +32,7 @@ struct PulseAPIError: LocalizedError {
     var errorDescription: String? { message }
 }
 enum PulseCollection: String, CaseIterable, Identifiable {
-    case home, catalog, library, liked, playlists, history
+    case home, catalog, library, liked, playlists, history, friends, settings
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -42,6 +42,8 @@ enum PulseCollection: String, CaseIterable, Identifiable {
         case .liked: return "Избранное"
         case .playlists: return "Плейлисты"
         case .history: return "История"
+        case .friends: return "Друзья и чаты"
+        case .settings: return "Настройки"
         }
     }
     var symbol: String {
@@ -52,6 +54,8 @@ enum PulseCollection: String, CaseIterable, Identifiable {
         case .liked: return "heart.fill"
         case .playlists: return "rectangle.stack.fill"
         case .history: return "clock"
+        case .friends: return "bubble.left.and.bubble.right"
+        case .settings: return "slider.horizontal.3"
         }
     }
 }

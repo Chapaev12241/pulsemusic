@@ -4,6 +4,8 @@ struct PulsePlayerBar: View {
     @ObservedObject var store: PulseStore
     @ObservedObject private var playback: PulsePlayback
     @State private var expanded = false
+    @Environment(\.accessibilityReduceMotion) private var systemReducedMotion
+    @AppStorage("pulse_reduce_motion") private var appReducedMotion = false
     init(store: PulseStore) { self.store = store; playback = store.playback }
     var body: some View {
         Group {
@@ -13,12 +15,13 @@ struct PulsePlayerBar: View {
             mobilePlayer
             #endif
         }
+        .animation(systemReducedMotion || appReducedMotion ? nil : .easeOut(duration: 0.2), value: store.currentID)
         .background(PulseTheme.panel)
         .sheet(isPresented: $expanded) { PulseExpandedPlayer(store: store).preferredColorScheme(.dark).tint(PulseTheme.accent) }
     }
     private var desktopPlayer: some View {
         HStack(spacing: 28) {
-            nowPlaying.frame(maxWidth: .infinity, alignment: .leading)
+            nowPlaying.contentShape(Rectangle()).onTapGesture { if store.currentTrack != nil { expanded = true } }.frame(maxWidth: .infinity, alignment: .leading)
             VStack(spacing: 8) {
                 controls(large: false)
                 PulseTimeline(store: store)
@@ -47,6 +50,9 @@ struct PulsePlayerBar: View {
                 Rectangle().fill(PulseTheme.accent).frame(width: geometry.size.width * (playback.duration > 0 ? min(1, playback.time / playback.duration) : 0))
             }.frame(height: 2).background(PulseTheme.line)
         }
+        .simultaneousGesture(DragGesture(minimumDistance: 24).onEnded { value in
+            if let direction = PulseTrackSwipe.direction(horizontal: value.translation.width, vertical: value.translation.height) { store.next(direction) }
+        })
     }
     private var nowPlaying: some View {
         HStack(spacing: 12) {
@@ -100,6 +106,8 @@ struct PulseExpandedPlayer: View {
     @ObservedObject var store: PulseStore
     @ObservedObject private var playback: PulsePlayback
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reducedMotion
+    @State private var swipeDirection = 1
     init(store: PulseStore) { self.store = store; playback = store.playback }
     var body: some View {
         GeometryReader { geometry in
@@ -116,6 +124,12 @@ struct PulseExpandedPlayer: View {
                     }
                     Spacer(minLength: 10)
                     PulseArtworkView(track: store.currentTrack, size: min(geometry.size.width - 48, 360), radius: 24)
+                        .id(store.currentID)
+                        .transition(.opacity.combined(with: .offset(x: CGFloat(swipeDirection) * 22)))
+                        .animation(reducedMotion ? nil : .easeInOut(duration: 0.22), value: store.currentID)
+                        .gesture(DragGesture(minimumDistance: 24).onEnded { value in
+                            if let direction = PulseTrackSwipe.direction(horizontal: value.translation.width, vertical: value.translation.height) { swipeDirection = direction; store.next(direction) }
+                        })
                     VStack(alignment: .leading, spacing: 10) {
                         Text(store.currentTrack?.title ?? "Выбери трек").font(.system(size: 25, weight: .semibold))
                         Text(store.currentTrack?.artist ?? "Pulse").font(.system(size: 16)).foregroundStyle(PulseTheme.muted)
@@ -127,10 +141,14 @@ struct PulseExpandedPlayer: View {
                         Button { store.next(1) } label: { Image(systemName: "forward.end.fill").font(.title2) }
                     }.buttonStyle(.plain)
                     Toggle("DJ · плавные переходы", isOn: $store.dj).font(.system(size: 13)).tint(PulseTheme.accent)
+                    PulseLyricsView(store: store)
                     Text("Твоя музыка. Твой вайб.").font(PulseTheme.heading(24)).foregroundStyle(PulseTheme.muted)
                     Spacer(minLength: 20)
                 }.padding(24).frame(minHeight: geometry.size.height)
             }
         }.background(PulseTheme.background)
+        #if os(macOS)
+        .frame(width: 650, height: 730)
+        #endif
     }
 }

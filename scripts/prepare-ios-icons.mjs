@@ -18,3 +18,5 @@ writeFileSync(mac+'/Contents.json',JSON.stringify({images,info:{author:'xcode',v
 
 for(const name of ['Soledago.ttf','Docker One.ttf'])copyFileSync(name,'ios/Pulse/'+name);
 copyFileSync('docs/artwork-index.json','ios/Pulse/artwork-index.json');
+
+copyFileSync('docs/icons/pulse-512.png','ios/Pulse/now-playing-fallback.png');
