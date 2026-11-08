@@ -29,7 +29,7 @@ struct PulseAccountView: View {
 }
 struct PulseLoginView: View {
     @ObservedObject var store: PulseStore
-    @Environment(\.accessibilityReduceMotion) private var reducedMotion
+    @Environment(\.pulseReducedMotion) private var reducedMotion
     @State private var register = false
     @State private var email = ""
     @State private var password = ""

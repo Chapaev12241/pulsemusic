@@ -4,7 +4,7 @@ struct PulsePlayerBar: View {
     @ObservedObject var store: PulseStore
     @ObservedObject private var playback: PulsePlayback
     @State private var expanded = false
-    @Environment(\.accessibilityReduceMotion) private var systemReducedMotion
+    @Environment(\.pulseReducedMotion) private var systemReducedMotion
     @AppStorage("pulse_reduce_motion") private var appReducedMotion = false
     init(store: PulseStore) { self.store = store; playback = store.playback }
     var body: some View {
@@ -106,7 +106,7 @@ struct PulseExpandedPlayer: View {
     @ObservedObject var store: PulseStore
     @ObservedObject private var playback: PulsePlayback
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.accessibilityReduceMotion) private var reducedMotion
+    @Environment(\.pulseReducedMotion) private var reducedMotion
     @State private var swipeDirection = 1
     init(store: PulseStore) { self.store = store; playback = store.playback }
     var body: some View {

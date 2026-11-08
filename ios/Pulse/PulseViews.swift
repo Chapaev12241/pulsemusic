@@ -3,7 +3,7 @@ import UniformTypeIdentifiers
 
 struct PulseRootView: View {
     @EnvironmentObject private var store: PulseStore
-    @Environment(\.accessibilityReduceMotion) private var systemReducedMotion
+    @Environment(\.pulseReducedMotion) private var systemReducedMotion
     @AppStorage("pulse_reduce_motion") private var appReducedMotion = false
     @State private var collection: PulseCollection = .home
     @State private var query = ""
@@ -355,7 +355,7 @@ struct PulseTrackCard: View {
     let track: PulseTrack
     let play: () -> Void
     @State private var hover = false
-    @Environment(\.accessibilityReduceMotion) private var reducedMotion
+    @Environment(\.pulseReducedMotion) private var reducedMotion
     var body: some View {
         Button(action: play) {
             VStack(alignment: .leading, spacing: 10) {

@@ -69,7 +69,7 @@ final class PulseLyricsStore: ObservableObject {
 struct PulseLyricsView: View {
     @ObservedObject var store: PulseStore
     @StateObject private var lyrics = PulseLyricsStore()
-    @Environment(\.accessibilityReduceMotion) private var reducedMotion
+    @Environment(\.pulseReducedMotion) private var reducedMotion
     @State private var active: Int?
     @State private var follow = true
     var body: some View {

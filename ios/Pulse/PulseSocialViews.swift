@@ -236,7 +236,7 @@ struct PulseChatView: View {
     @ObservedObject private var social: PulseSocialStore
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.accessibilityReduceMotion) private var reducedMotion
+    @Environment(\.pulseReducedMotion) private var reducedMotion
     @State private var draft = ""
     @State private var follow = true
     init(friend: PulseProfile, social: PulseSocialStore) { _chat = StateObject(wrappedValue: PulseChatStore(friend: friend, social: social)); self.social = social }

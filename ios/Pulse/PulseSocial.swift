@@ -141,7 +141,7 @@ enum PulseAvatarEncoder {
         }
         for quality in [0.85, 0.65, 0.45, 0.25] {
             let output = NSMutableData()
-            guard let destination = CGImageDestinationCreateWithData(output, UTType.jpeg.identifier as CFString, 1, nil) else { break }
+            guard let destination = CGImageDestinationCreateWithData(output as CFMutableData, UTType.jpeg.identifier as CFString, 1, nil) else { break }
             CGImageDestinationAddImage(destination, image, [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary)
             if CGImageDestinationFinalize(destination), output.length <= 256000 { return output as Data }
         }

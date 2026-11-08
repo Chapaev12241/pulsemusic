@@ -17,7 +17,7 @@ enum PulseTheme {
     }
 }
 struct PulsePrimaryButton: ButtonStyle {
-    @Environment(\.accessibilityReduceMotion) private var reducedMotion
+    @Environment(\.pulseReducedMotion) private var reducedMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label.font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.black.opacity(0.9))
             .padding(.horizontal, 20).frame(minHeight: 44).background(PulseTheme.gradient, in: RoundedRectangle(cornerRadius: 13))
@@ -32,4 +32,9 @@ struct PulseIconButton: ButtonStyle {
             .background(configuration.isPressed ? PulseTheme.raised : .clear, in: RoundedRectangle(cornerRadius: 12))
             .contentShape(Rectangle())
     }
+}
+
+private struct PulseReducedMotionKey: EnvironmentKey { static let defaultValue = false }
+extension EnvironmentValues {
+    var pulseReducedMotion: Bool { get { self[PulseReducedMotionKey.self] } set { self[PulseReducedMotionKey.self] = newValue } }
 }
