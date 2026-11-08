@@ -1,4 +1,4 @@
-import {mkdirSync,writeFileSync} from 'node:fs';
+import {mkdirSync,writeFileSync,copyFileSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 const source='docs/icons/pulse-512.png';
 const folder='ios/Pulse/Assets.xcassets/AppIcon.appiconset';
@@ -14,3 +14,6 @@ for(const size of [16,32,128,256,512])for(const scale of [1,2]){
  images.push({filename,idiom:'mac',size:`${size}x${size}`,scale:`${scale}x`});
 }
 writeFileSync(mac+'/Contents.json',JSON.stringify({images,info:{author:'xcode',version:1}},null,2));
+
+for(const name of ['Soledago.ttf','Docker One.ttf'])copyFileSync(name,'ios/Pulse/'+name);
+copyFileSync('docs/artwork-index.json','ios/Pulse/artwork-index.json');

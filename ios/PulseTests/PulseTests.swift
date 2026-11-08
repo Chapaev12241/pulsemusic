@@ -1,4 +1,5 @@
 import XCTest
+import Combine
 #if os(iOS)
 @testable import Pulse
 #else
@@ -82,4 +83,23 @@ private final class PulseTestURLProtocol: URLProtocol {
         } catch { client?.urlProtocol(self, didFailWithError: error) }
     }
     override func stopLoading() { }
+}
+
+final class PulsePerformanceTests: XCTestCase {
+    @MainActor
+    func testTransportTicksDoNotPublishLibraryChanges() async {
+        let store = PulseStore()
+        var libraryChanges = 0
+        let observation = store.objectWillChange.sink { libraryChanges += 1 }
+        for tick in 1...120 {
+            store.playback.receive(["time": Double(tick) / 4, "duration": 240.0, "paused": false, "id": "test"])
+        }
+        XCTAssertEqual(store.playback.time, 30)
+        XCTAssertEqual(libraryChanges, 0, "Playback ticks must not invalidate the library view")
+        withExtendedLifetime(observation) { }
+    }
+    func testArtworkCacheKeysMatchWebsiteNormalization() {
+        XCTAssertEqual(PulseArtworkCache.key(artist: " NOIZE MC ", title: "Ёж — Live!"), "noizemc|ежlive")
+        XCTAssertEqual(PulseArtworkCache.key(artist: "Nirvana", title: "School"), "nirvana|school")
+    }
 }

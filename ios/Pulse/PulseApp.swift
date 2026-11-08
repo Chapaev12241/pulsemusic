@@ -4,12 +4,13 @@ import SwiftUI
 struct PulseApp: App {
     @StateObject private var store = PulseStore()
     @Environment(\.scenePhase) private var phase
+    init() { PulseTheme.registerFonts() }
     var body: some Scene {
-        WindowGroup {
+        WindowGroup("Pulse") {
             PulseRootView()
                 .environmentObject(store)
                 .preferredColorScheme(.dark)
-                .tint(.purple)
+                .tint(PulseTheme.accent)
                 .task { await store.start() }
                 .onChange(of: phase) { _, value in
                     if value == .active { Task { await store.refresh() } }

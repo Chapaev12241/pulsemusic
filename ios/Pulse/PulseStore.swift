@@ -16,9 +16,7 @@ final class PulseStore: ObservableObject {
     @Published var lastSync: Date?
     @Published var currentID = ""
     @Published var paused = true
-    @Published var buffering = false
-    @Published var time = 0.0
-    @Published var duration = 0.0
+    let playback = PulsePlayback()
     @Published var dj = UserDefaults.standard.object(forKey: "pulse_dj_native") as? Bool ?? true {
         didSet { UserDefaults.standard.set(dj, forKey: "pulse_dj_native"); player.command(["action": "dj", "enabled": dj]) }
     }
@@ -43,11 +41,11 @@ final class PulseStore: ObservableObject {
             guard let self else { return }
             if value["historySaved"] as? Bool == true { Task { await self.refresh() }; return }
             if let message = value["error"] as? String { self.error = message; return }
-            self.currentID = value["id"] as? String ?? ""
-            self.paused = value["paused"] as? Bool ?? true
-            self.buffering = value["buffering"] as? Bool ?? false
-            self.time = value["time"] as? Double ?? 0
-            self.duration = value["duration"] as? Double ?? 0
+            self.playback.receive(value)
+            let id = value["id"] as? String ?? ""
+            let paused = value["paused"] as? Bool ?? true
+            if self.currentID != id { self.currentID = id }
+            if self.paused != paused { self.paused = paused }
         }
     }
     func start() async {
@@ -123,7 +121,8 @@ final class PulseStore: ObservableObject {
                     user = identity.user
                 }
             }
-            tracks = PulseLibrary.merge(publicTracks: publicTracks, ownedTracks: ownedTracks)
+            let merged = PulseLibrary.merge(publicTracks: publicTracks, ownedTracks: ownedTracks)
+            if tracks != merged { tracks = merged }
             lastSync = Date()
             if !currentID.isEmpty {
                 if currentTrack == nil { player.command(["action": "stop"]) }
