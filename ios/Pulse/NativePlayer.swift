@@ -7,7 +7,7 @@ import AppKit
 #endif
 import ImageIO
 
-// The audio clock and queue live outside WKWebView, including when WebKit is suspended.
+// The audio clock, queue, system controls and listening history run natively.
 final class NativePlayer {
     struct Track {
         let id: String, title: String, artist: String, album: String
@@ -103,7 +103,10 @@ final class NativePlayer {
         case "update":
             bearer = body["token"] as? String ?? ""
             let fresh = Dictionary(uniqueKeysWithValues: (body["tracks"] as? [[String: Any]] ?? []).compactMap(Track.init).map { ($0.id, $0) })
-            queue = queue.map { fresh[$0.id] ?? $0 }
+            let currentID = queue.indices.contains(index) ? queue[index].id : ""
+            queue = queue.compactMap { fresh[$0.id] }
+            if let target = queue.firstIndex(where: { $0.id == currentID }) { index = target }
+            else if !currentID.isEmpty { command(["action": "stop"]) }
         case "resume":
             guard queue.indices.contains(index) else { return }
             if player.currentItem?.status == .failed { start(index, crossfade: false) } else { resume() }

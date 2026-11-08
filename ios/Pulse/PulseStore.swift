@@ -101,8 +101,11 @@ final class PulseStore: ObservableObject {
     func refresh() async {
         guard !syncing, !mutating else { return }
         syncing = true
-        defer { syncing = false }
         let stamp = generation, sessionToken = token, revision = stateRevision
+        defer {
+            syncing = false
+            if stamp != generation { Task { await self.refresh() } }
+        }
         do {
             let catalog: PulseCatalog = try await PulseAPI.request("api/catalog")
             guard stamp == generation else { return }
@@ -159,6 +162,7 @@ final class PulseStore: ObservableObject {
             do {
                 let saved: PulseLibraryState = try await PulseAPI.request("api/state", token: sessionToken, method: "POST", body: PulseAPI.json(["op": operation]))
                 guard self.generation == stamp else { return }
+                self.stateRevision += 1
                 self.state = saved
             } catch { if self.generation == stamp { self.error = error.localizedDescription } }
         }

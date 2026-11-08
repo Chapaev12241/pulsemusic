@@ -11,7 +11,7 @@ struct PulseApp: App {
                 .preferredColorScheme(.dark)
                 .tint(.purple)
                 .task { await store.start() }
-                .onChange(of: phase) { value in
+                .onChange(of: phase) { _, value in
                     if value == .active { Task { await store.refresh() } }
                 }
         }

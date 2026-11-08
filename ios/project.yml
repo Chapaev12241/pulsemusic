@@ -65,6 +65,8 @@ targets:
       base:
         GENERATE_INFOPLIST_FILE: YES
         CODE_SIGN_IDENTITY: '-'
+        TEST_HOST: '$(BUILT_PRODUCTS_DIR)/Pulse.app/Contents/MacOS/Pulse'
+        BUNDLE_LOADER: '$(TEST_HOST)'
     dependencies:
       - target: PulseMac
 schemes:
