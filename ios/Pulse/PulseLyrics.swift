@@ -126,7 +126,8 @@ struct PulseLyricsView: View {
 }
 
 enum PulseTrackSwipe {
-    static func direction(horizontal: CGFloat, vertical: CGFloat) -> Int? {
+    static func direction(horizontal: CGFloat, vertical: CGFloat, start: CGPoint? = nil, excluding: CGRect = .null) -> Int? {
+        if let start, excluding.insetBy(dx: -8, dy: -8).contains(start) { return nil }
         guard abs(horizontal) >= 64, abs(horizontal) > abs(vertical) * 1.6 else { return nil }
         return horizontal < 0 ? 1 : -1
     }

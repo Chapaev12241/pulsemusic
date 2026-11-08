@@ -143,3 +143,11 @@ final class PulseChatSessionTests: XCTestCase {
         XCTAssertTrue(chat.messages.isEmpty)
     }
 }
+
+final class PulseSeekGestureTests: XCTestCase {
+    func testSeekingNeverTriggersTrackSwipe() {
+        let slider = CGRect(x: 20, y: 300, width: 320, height: 36)
+        XCTAssertNil(PulseTrackSwipe.direction(horizontal: -150, vertical: 0, start: CGPoint(x: 100, y: 315), excluding: slider))
+        XCTAssertEqual(PulseTrackSwipe.direction(horizontal: -150, vertical: 0, start: CGPoint(x: 100, y: 120), excluding: slider), 1)
+    }
+}

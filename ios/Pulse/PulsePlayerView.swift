@@ -108,6 +108,7 @@ struct PulseExpandedPlayer: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.pulseReducedMotion) private var reducedMotion
     @State private var swipeDirection = 1
+    @State private var seekFrame = CGRect.null
     init(store: PulseStore) { self.store = store; playback = store.playback }
     var body: some View {
         GeometryReader { geometry in
@@ -127,14 +128,13 @@ struct PulseExpandedPlayer: View {
                         .id(store.currentID)
                         .transition(.opacity.combined(with: .offset(x: CGFloat(swipeDirection) * 22)))
                         .animation(reducedMotion ? nil : .easeInOut(duration: 0.22), value: store.currentID)
-                        .gesture(DragGesture(minimumDistance: 24).onEnded { value in
-                            if let direction = PulseTrackSwipe.direction(horizontal: value.translation.width, vertical: value.translation.height) { swipeDirection = direction; store.next(direction) }
-                        })
+
                     VStack(alignment: .leading, spacing: 10) {
                         Text(store.currentTrack?.title ?? "Выбери трек").font(.system(size: 25, weight: .semibold))
                         Text(store.currentTrack?.artist ?? "Pulse").font(.system(size: 16)).foregroundStyle(PulseTheme.muted)
                     }.frame(maxWidth: .infinity, alignment: .leading)
                     PulseTimeline(store: store)
+                        .background(GeometryReader { proxy in Color.clear.preference(key: PulseSeekFrameKey.self, value: proxy.frame(in: .named("PulseFullPlayer"))) })
                     HStack(spacing: 40) {
                         Button { store.next(-1) } label: { Image(systemName: "backward.end.fill").font(.title2) }
                         Button { store.togglePlayback() } label: { Image(systemName: playback.paused ? "play.fill" : "pause.fill").font(.title).foregroundStyle(.black).frame(width: 68, height: 68).background(Color.white, in: Circle()) }
@@ -146,9 +146,20 @@ struct PulseExpandedPlayer: View {
                     Spacer(minLength: 20)
                 }.padding(24).frame(minHeight: geometry.size.height)
             }
-        }.background(PulseTheme.background)
+        }
+        .coordinateSpace(name: "PulseFullPlayer")
+        .onPreferenceChange(PulseSeekFrameKey.self) { seekFrame = $0 }
+        .simultaneousGesture(DragGesture(minimumDistance: 24, coordinateSpace: .named("PulseFullPlayer")).onEnded { value in
+            if let direction = PulseTrackSwipe.direction(horizontal: value.translation.width, vertical: value.translation.height, start: value.startLocation, excluding: seekFrame) { swipeDirection = direction; store.next(direction) }
+        })
+        .background(PulseTheme.background)
         #if os(macOS)
         .frame(width: 650, height: 730)
         #endif
     }
+}
+
+private struct PulseSeekFrameKey: PreferenceKey {
+    static let defaultValue = CGRect.null
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) { value = nextValue() }
 }

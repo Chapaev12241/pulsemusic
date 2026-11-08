@@ -162,8 +162,9 @@ final class PulseEQController {
         let identity = ObjectIdentifier(item)
         guard installing.insert(identity).inserted else { return }
         Task { @MainActor [weak self, weak item] in
-            guard let self, let item else { return }
+            guard let self else { return }
             defer { self.installing.remove(identity) }
+            guard let item else { return }
             do {
                 let tracks = try await item.asset.loadTracks(withMediaType: .audio)
                 guard let track = tracks.first, let tap = PulseEQKernel.makeTap(parameters: self.parameters) else { self.onError?("Для этого трека эквалайзер недоступен"); return }
