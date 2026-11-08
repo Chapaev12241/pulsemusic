@@ -50,6 +50,8 @@ final class PulseSocialStore: ObservableObject {
     private(set) var userID = ""
     private var token = ""
     private var generation = UUID()
+    private let session: URLSession
+    init(session: URLSession = .shared) { self.session = session }
     var signedIn: Bool { !token.isEmpty }
     func configure(token: String, userID: String) {
         guard self.token != token || self.userID != userID else { return }
@@ -59,9 +61,14 @@ final class PulseSocialStore: ObservableObject {
     private func request<T: Decodable>(_ path: String, method: String = "GET", body: Data? = nil, headers: [String: String] = [:], query: [URLQueryItem] = []) async throws -> T {
         guard signedIn else { throw PulseAPIError(status: 401, message: "Войди в аккаунт") }
         let stamp = generation
-        let value: T = try await PulseAPI.request(path, token: token, method: method, body: body, headers: headers, query: query)
-        guard generation == stamp else { throw CancellationError() }
-        return value
+        do {
+            let value: T = try await PulseAPI.request(path, token: token, method: method, body: body, headers: headers, query: query, session: session)
+            guard generation == stamp else { throw CancellationError() }
+            return value
+        } catch {
+            guard generation == stamp else { throw CancellationError() }
+            throw error
+        }
     }
     func refresh() async {
         guard signedIn, !loading else { return }

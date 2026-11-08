@@ -68,7 +68,7 @@ final class PulseAPIContractTests: XCTestCase {
     }
 }
 
-private final class PulseTestURLProtocol: URLProtocol {
+final class PulseTestURLProtocol: URLProtocol {
     static var handler: ((URLRequest) throws -> (Int, Data))?
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }

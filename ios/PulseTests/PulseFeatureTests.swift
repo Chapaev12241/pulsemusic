@@ -1,6 +1,8 @@
 import XCTest
 import AVFoundation
 import AudioToolbox
+import ImageIO
+import UniformTypeIdentifiers
 #if os(iOS)
 @testable import Pulse
 #else
@@ -68,4 +70,60 @@ final class PulseEqualizerTests: XCTestCase {
             XCTAssertLessThanOrEqual(PulseEQConfiguration(enabled: true, gains: preset.gains).headroomDB, 0)
         }
     }
+}
+
+final class PulseFeatureContractTests: XCTestCase {
+    private func session() -> URLSession {
+        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [PulseTestURLProtocol.self]
+        return URLSession(configuration: config)
+    }
+    override func tearDown() { PulseTestURLProtocol.handler = nil; super.tearDown() }
+    func testLyricsQueryPreservesCyrillicAndAmpersands() async throws {
+        PulseTestURLProtocol.handler = { request in
+            XCTAssertEqual(request.url?.path, "/api/lyrics")
+            let values = Dictionary(uniqueKeysWithValues: URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!.queryItems!.map { ($0.name, $0.value!) })
+            XCTAssertEqual(values["artist"], "Ёж & DJ")
+            XCTAssertEqual(values["title"], "A+B? C")
+            return (200, Data(#"{"found":false,"instrumental":false,"syncedLyrics":"","plainLyrics":"","source":"","sourceUrl":""}"#.utf8))
+        }
+        let result: PulseLyricsResponse = try await PulseAPI.request("api/lyrics", query: [URLQueryItem(name: "artist", value: "Ёж & DJ"), URLQueryItem(name: "title", value: "A+B? C")], session: session())
+        XCTAssertFalse(result.found)
+    }
+    @MainActor
+    func testSwitchingAccountsClearsSocialProfile() async {
+        PulseTestURLProtocol.handler = { request in
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer account-a-token")
+            return (200, Data(#"{"profile":{"id":"account-a","name":"A","bio":"Private draft","color":"#a59aff","emoji":"♫","avatar":null},"friends":[],"incoming":[],"outgoing":[]}"#.utf8))
+        }
+        let store = PulseSocialStore(session: session())
+        store.configure(token: "account-a-token", userID: "account-a")
+        await store.refresh()
+        XCTAssertEqual(store.profile?.id, "account-a")
+        store.configure(token: "account-b-token", userID: "account-b")
+        XCTAssertNil(store.profile)
+        XCTAssertTrue(store.friends.isEmpty)
+        store.configure(token: "", userID: "")
+        XCTAssertFalse(store.signedIn)
+    }
+    func testSystemArtworkFallbackIsBundled() {
+        XCTAssertNotNil(Bundle.main.url(forResource: "now-playing-fallback", withExtension: "png"))
+    }
+}
+
+final class PulseAvatarEncodingTests: XCTestCase {
+    func testAvatarMeetsServerJPEGContract() throws {
+        let context = CGContext(data: nil, width: 900, height: 700, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        context.setFillColor(red: 0.5, green: 0.3, blue: 0.9, alpha: 1); context.fill(CGRect(x: 0, y: 0, width: 900, height: 700))
+        let image = context.makeImage()!, encoded = NSMutableData()
+        let destination = CGImageDestinationCreateWithData(encoded as CFMutableData, UTType.png.identifier as CFString, 1, nil)!
+        CGImageDestinationAddImage(destination, image, nil); XCTAssertTrue(CGImageDestinationFinalize(destination))
+        let result = try PulseAvatarEncoder.jpeg(encoded as Data)
+        XCTAssertLessThanOrEqual(result.count, 256000)
+        XCTAssertEqual(Array(result.prefix(3)), [255,216,255])
+        let decoded = CGImageSourceCreateWithData(result as CFData, nil)!
+        let properties = CGImageSourceCopyPropertiesAtIndex(decoded, 0, nil)! as NSDictionary
+        XCTAssertLessThanOrEqual(properties[kCGImagePropertyPixelWidth] as! Int, 512)
+        XCTAssertLessThanOrEqual(properties[kCGImagePropertyPixelHeight] as! Int, 512)
+    }
+    func testInvalidAvatarDataIsRejected() { XCTAssertThrowsError(try PulseAvatarEncoder.jpeg(Data("not-an-image".utf8))) }
 }

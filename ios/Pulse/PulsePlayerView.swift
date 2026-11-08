@@ -63,7 +63,7 @@ struct PulsePlayerBar: View {
             }
             #if os(macOS)
             if let track = store.currentTrack {
-                Button { store.like(track) } label: { Image(systemName: store.state.liked.contains(track.id) ? "heart.fill" : "heart").foregroundStyle(PulseTheme.accent).frame(width: 30, height: 36) }.buttonStyle(.plain).accessibilityLabel("Избранное")
+                PulseHeartButton(store: store, track: track)
             }
             #endif
         }
@@ -119,7 +119,7 @@ struct PulseExpandedPlayer: View {
                         Text("СЕЙЧАС ИГРАЕТ").font(.system(size: 10, weight: .medium)).tracking(2).foregroundStyle(PulseTheme.muted)
                         Spacer()
                         if let track = store.currentTrack {
-                            Button { store.like(track) } label: { Image(systemName: store.state.liked.contains(track.id) ? "heart.fill" : "heart").frame(width: 36, height: 36) }.buttonStyle(.plain).foregroundStyle(PulseTheme.accent)
+                            PulseHeartButton(store: store, track: track)
                         }
                     }
                     Spacer(minLength: 10)

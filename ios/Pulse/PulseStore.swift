@@ -24,8 +24,8 @@ final class PulseStore: ObservableObject {
     @Published var dj = UserDefaults.standard.object(forKey: "pulse_dj_native") as? Bool ?? true {
         didSet { UserDefaults.standard.set(dj, forKey: "pulse_dj_native"); player.command(["action": "dj", "enabled": dj]) }
     }
-    @Published var volume = 0.8 {
-        didSet { player.command(["action": "volume", "value": volume]) }
+    @Published var volume = min(1, max(0, UserDefaults.standard.object(forKey: "pulse_native_volume") as? Double ?? 0.8)) {
+        didSet { UserDefaults.standard.set(volume, forKey: "pulse_native_volume"); player.command(["action": "volume", "value": volume]) }
     }
     private var token = PulseKeychain.load()
     private var generation = UUID()
@@ -41,6 +41,7 @@ final class PulseStore: ObservableObject {
 
     init() {
         player.onState = { [weak self] value in self?.receivePlayback(value) }
+        player.command(["action": "volume", "value": volume])
         equalizerSubscription = equalizer.$config.sink { [weak self] value in self?.player.setEqualizer(value) }
     }
     // NativePlayer delivers callbacks on the main queue. This boundary is also

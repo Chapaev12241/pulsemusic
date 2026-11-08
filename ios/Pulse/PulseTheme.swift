@@ -38,3 +38,19 @@ private struct PulseReducedMotionKey: EnvironmentKey { static let defaultValue =
 extension EnvironmentValues {
     var pulseReducedMotion: Bool { get { self[PulseReducedMotionKey.self] } set { self[PulseReducedMotionKey.self] = newValue } }
 }
+
+struct PulseHeartButton: View {
+    @ObservedObject var store: PulseStore
+    let track: PulseTrack
+    @Environment(\.pulseReducedMotion) private var reducedMotion
+    private var liked: Bool { store.state.liked.contains(track.id) }
+    var body: some View {
+        Button { store.like(track) } label: {
+            Image(systemName: liked ? "heart.fill" : "heart")
+                .foregroundStyle(liked ? PulseTheme.accent : PulseTheme.muted)
+                .scaleEffect(liked && !reducedMotion ? 1.12 : 1)
+                .animation(reducedMotion ? nil : .spring(response: 0.25, dampingFraction: 0.55), value: liked)
+                .frame(width: 32, height: 40)
+        }.buttonStyle(.plain).accessibilityLabel("Избранное: \(track.title)")
+    }
+}

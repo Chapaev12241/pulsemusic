@@ -398,9 +398,7 @@ struct PulseTrackRow: View {
             #if os(macOS)
             Text(track.album ?? "").font(.system(size: 10)).foregroundStyle(PulseTheme.muted).lineLimit(1).frame(maxWidth: 180, alignment: .leading)
             #endif
-            Button { store.like(track) } label: {
-                Image(systemName: store.state.liked.contains(track.id) ? "heart.fill" : "heart").foregroundStyle(store.state.liked.contains(track.id) ? PulseTheme.accent : PulseTheme.muted).frame(width: 30, height: 40)
-            }.buttonStyle(.plain).accessibilityLabel("Избранное: \(track.title)")
+            PulseHeartButton(store: store, track: track)
             Menu { PulseTrackActions(track: track) } label: { Image(systemName: "ellipsis").foregroundStyle(PulseTheme.muted).frame(width: 28, height: 40) }.fixedSize()
                 #if os(macOS)
                 .menuStyle(.borderlessButton)

@@ -19,8 +19,8 @@ domain's certificate. All API and audio requests use the existing HTTPS API host
   replacing it with an empty cloud library.
 
 The server remains authoritative. Changes made on another device appear on the
-next sync. Offline audio downloads, native equalizer, chats and lyrics are not part
-of this release. The website remains available for those existing web features.
+next sync. Offline audio downloads are not included. Native profiles, friends, chats,
+synchronized lyrics and a ten-band audio equalizer are included in version 1.3.
 
 ## Download personal builds
 
@@ -97,3 +97,25 @@ and volume. Play can start the loaded library when no track is selected. Favorit
 are available after login. Transport state and volume stay in sync with the app.
 Automated AppKit tests check window attachment, control availability, restoration
 and volume routing; physical Touch Bar hardware remains a device check.
+
+## Version 1.3
+
+Profiles, photo avatars, display names, bios, colors, symbols, invite links and QR
+codes use the same community API as the website. Friends and chats poll every four
+seconds only while their screen is open and the app is active. History pagination,
+2000-character messages, request acceptance and session separation are preserved.
+
+Lyrics use the existing server providers and support LRC line timing, seeking and
+manual scrolling. iPhone mini-player and full-player artwork accept horizontal
+track swipes; vertical and short drags are ignored. Motion respects both system
+Reduce Motion and the app preference.
+
+The equalizer uses an MTAudioProcessingTap on AVPlayer's file-based audio tracks.
+Ten peaking filters process Float32 PCM; disabled/neutral settings bypass DSP.
+The render callback uses preallocated filter state and a non-blocking configuration
+snapshot. Presets provide conservative bass, vocal, warm, rock, electronic, acoustic
+and low-volume balances; there is no single best preset for all headphones.
+
+Now Playing artwork shares the same image resolver as the interface, with a bundled
+fallback and metadata updates for Lock Screen and Dynamic Island. Physical iPhone
+checks are required for background audio, system surfaces, audio routing and gestures.

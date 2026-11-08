@@ -3,6 +3,9 @@ import CoreImage.CIFilterBuiltins
 import UniformTypeIdentifiers
 #if os(iOS)
 import PhotosUI
+import UIKit
+#else
+import AppKit
 #endif
 
 extension Color {
@@ -125,6 +128,7 @@ struct PulseProfileEditor: View {
                     TextField("Символ аватара", text: $emoji)
                 }
                 Section("Цвет аватара") {
+                    ColorPicker("Свой цвет", selection: Binding(get: { Color(pulseHex: color) }, set: { color = PulseColorValue.hex($0) }), supportsOpacity: false)
                     HStack {
                         ForEach(["#a59aff", "#88baff", "#ff93b7", "#83d7b0", "#e9bd77", "#dc9dea"], id: \.self) { value in
                             Button { color = value } label: { Circle().fill(Color(pulseHex: value)).frame(width: 31, height: 31).overlay(Circle().stroke(color == value ? Color.white : .clear, lineWidth: 3)) }.buttonStyle(.plain).accessibilityLabel("Цвет \(value)")
@@ -291,4 +295,17 @@ struct PulseChatView: View {
         }.padding(14).background(PulseTheme.panel)
     }
     private func send() { let text = draft; Task { if await chat.send(text) { if draft == text { draft = "" }; follow = true } } }
+}
+
+enum PulseColorValue {
+    static func hex(_ color: Color) -> String {
+        #if os(iOS)
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 1
+        UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
+        #else
+        let value = NSColor(color).usingColorSpace(.sRGB) ?? .black
+        let r = value.redComponent, g = value.greenComponent, b = value.blueComponent
+        #endif
+        return String(format: "#%02x%02x%02x", Int((min(1, max(0, r)) * 255).rounded()), Int((min(1, max(0, g)) * 255).rounded()), Int((min(1, max(0, b)) * 255).rounded()))
+    }
 }
