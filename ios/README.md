@@ -85,3 +85,15 @@ metadata API. File reading and SHA-256 hashing run off the main actor during imp
 
 These are structural optimizations. Device frame-rate and energy measurements
 remain physical-device checks; no battery-life or frame-rate benchmark is claimed.
+
+## Mac icon and Touch Bar
+
+The Mac icon has its own rounded artwork with transparent padding for macOS 14/15.
+The iPhone icon remains full-bleed artwork, masked by iOS. The icon check validates
+transparent corners for all ten generated Mac representations.
+
+Touch Bar controls attach to the app window: previous, play/pause, next, favorite
+and volume. Play can start the loaded library when no track is selected. Favorites
+are available after login. Transport state and volume stay in sync with the app.
+Automated AppKit tests check window attachment, control availability, restoration
+and volume routing; physical Touch Bar hardware remains a device check.

@@ -9,6 +9,9 @@ struct PulseApp: App {
         WindowGroup("Pulse") {
             PulseRootView()
                 .environmentObject(store)
+                #if os(macOS)
+                .background(PulseTouchBarHost(store: store).frame(width: 0, height: 0))
+                #endif
                 .preferredColorScheme(.dark)
                 .tint(PulseTheme.accent)
                 .task { await store.start() }

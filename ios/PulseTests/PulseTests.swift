@@ -104,3 +104,41 @@ final class PulsePerformanceTests: XCTestCase {
         XCTAssertEqual(PulseArtworkCache.key(artist: "Nirvana", title: "School"), "nirvana|school")
     }
 }
+
+#if os(macOS)
+import AppKit
+final class PulseTouchBarTests: XCTestCase {
+    @MainActor
+    func testWindowBarAndTransportAvailability() async {
+        let store = PulseStore()
+        let controller = PulseTouchBarController(store: store)
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 300, height: 200), styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        defer { window.close() }
+        let original = window.touchBar
+        controller.attach(to: window)
+        XCTAssertTrue(window.touchBar === controller.bar)
+        XCTAssertEqual(controller.bar.defaultItemIdentifiers.count, 5)
+        let item = controller.touchBar(controller.bar, makeItemForIdentifier: PulseTouchBarController.Item.play) as? NSCustomTouchBarItem
+        let button = item?.view as? NSButton
+        XCTAssertEqual(button?.isEnabled, false)
+        let data = Data(#"{"id":"test","title":"Test","artist":"Artist","audio":"https://example.invalid/audio"}"#.utf8)
+        store.tracks = [try! JSONDecoder().decode(PulseTrack.self, from: data)]
+        controller.refresh()
+        XCTAssertEqual(button?.isEnabled, true)
+        controller.detach()
+        XCTAssertTrue(window.touchBar === original)
+    }
+    @MainActor
+    func testVolumeSliderUsesPlayerSetting() async {
+        let store = PulseStore()
+        let controller = PulseTouchBarController(store: store)
+        let item = controller.touchBar(controller.bar, makeItemForIdentifier: PulseTouchBarController.Item.volume) as? NSCustomTouchBarItem
+        let slider = (item?.view as? NSStackView)?.arrangedSubviews.compactMap { $0 as? NSSlider }.first
+        XCTAssertNotNil(slider)
+        slider?.doubleValue = 0.35
+        if let slider { controller.changeVolume(slider) }
+        XCTAssertEqual(store.volume, 0.35, accuracy: 0.001)
+    }
+}
+#endif

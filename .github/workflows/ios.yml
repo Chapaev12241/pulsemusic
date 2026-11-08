@@ -1,7 +1,7 @@
 name: Apple apps
 on:
   push:
-    paths: ['ios/**', 'scripts/prepare-ios-icons.mjs', '.github/workflows/ios.yml']
+    paths: ['ios/**', 'scripts/prepare-ios-icons.mjs', 'scripts/test-mac-icon.swift', 'docs/icons/pulse-mac.*', '.github/workflows/ios.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -17,6 +17,8 @@ jobs:
         run: brew install xcodegen
       - name: Generate icons
         run: node scripts/prepare-ios-icons.mjs
+      - name: Check rounded Mac icons
+        run: xcrun swift scripts/test-mac-icon.swift
       - name: Generate Xcode project
         working-directory: ios
         run: xcodegen generate
