@@ -13,6 +13,7 @@ struct PulseSettingsView: View {
                 VStack(alignment: .leading, spacing: 18) {
                     Toggle("Эквалайзер", isOn: Binding(get: { equalizer.config.enabled }, set: equalizer.setEnabled)).font(.headline)
                     Text("10 полос · настройки сохраняются на этом устройстве").font(.caption).foregroundStyle(PulseTheme.muted)
+                    PulseEQStatusView(playback: store.playback, equalizer: equalizer)
                     Picker("Звучание", selection: Binding(get: { equalizer.config.preset }, set: { id in if let preset = PulseEQPreset.all.first(where: { $0.id == id }) { equalizer.select(preset) } })) {
                         ForEach(PulseEQPreset.all) { Text($0.name).tag($0.id) }
                         Text("Свой баланс").tag("custom")
@@ -59,5 +60,15 @@ struct PulseSettingsView: View {
                 }.stroke(PulseTheme.gradient, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
             }
         }.padding(12).background(PulseTheme.raised, in: RoundedRectangle(cornerRadius: 14)).opacity(equalizer.config.enabled ? 1 : 0.35)
+    }
+}
+
+private struct PulseEQStatusView: View {
+    @ObservedObject var playback: PulsePlayback
+    @ObservedObject var equalizer: PulseEqualizerSettings
+    private var neutral: Bool { !equalizer.config.safeGains.contains { abs($0) > 0.001 } }
+    var body: some View {
+        Label(!equalizer.config.enabled ? "Эквалайзер выключен" : neutral ? "Нейтральный баланс · без коррекции" : playback.equalizerActive ? "Эквалайзер обрабатывает звук" : "Готов к воспроизведению", systemImage: playback.equalizerActive ? "waveform" : "slider.horizontal.3")
+            .font(.caption).foregroundStyle(playback.equalizerActive ? PulseTheme.accent : PulseTheme.muted)
     }
 }

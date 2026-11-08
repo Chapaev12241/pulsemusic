@@ -142,21 +142,23 @@ struct PulseProfileEditor: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Отмена") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Сохранить") { Task { if await social.updateProfile(name: name.trimmingCharacters(in: .whitespacesAndNewlines), bio: bio, color: color, emoji: emoji) { dismiss() } } }.disabled(social.saving || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    Button("Сохранить") { Task { if await social.updateProfile(name: name.trimmingCharacters(in: .whitespacesAndNewlines), bio: bio, color: color, emoji: emoji) { dismiss() } } }.disabled(social.saving || social.userID != profile.id || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
         }
         #if os(macOS)
         .frame(width: 490, height: 620)
         #endif
+        .onChange(of: social.userID) { _, value in if value != profile.id { dismiss() } }
         .onChange(of: name) { _, value in if value.count > 80 { name = String(value.prefix(80)) } }
         .onChange(of: bio) { _, value in if value.count > 300 { bio = String(value.prefix(300)) } }
         .onChange(of: emoji) { _, value in if value.count > 4 { emoji = String(value.prefix(4)) } }
         #if os(iOS)
-        .onChange(of: photo) { _, value in Task { if let data = try? await value?.loadTransferable(type: Data.self) { _ = await social.updateAvatar(data) } } }
+        .onChange(of: photo) { _, value in Task { guard social.userID == profile.id else { return }; if let data = try? await value?.loadTransferable(type: Data.self) { _ = await social.updateAvatar(data) } } }
         #endif
         .fileImporter(isPresented: $importing, allowedContentTypes: [.image]) { result in
             if case .success(let url) = result { Task {
+                guard social.userID == profile.id else { return }
                 let access = url.startAccessingSecurityScopedResource(); defer { if access { url.stopAccessingSecurityScopedResource() } }
                 do { let data = try await Task.detached { try Data(contentsOf: url) }.value; _ = await social.updateAvatar(data) }
                 catch { social.error = error.localizedDescription }
@@ -254,6 +256,7 @@ struct PulseChatView: View {
         #if os(macOS)
         .frame(width: 590, height: 660)
         #endif
+        .onChange(of: social.userID) { _, _ in if !chat.sessionValid { dismiss() } }
         .task {
             while !Task.isCancelled && chat.sessionValid {
                 if scenePhase == .active { await chat.load() }

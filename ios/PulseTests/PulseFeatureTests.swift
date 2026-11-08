@@ -93,7 +93,7 @@ final class PulseFeatureContractTests: XCTestCase {
     func testSwitchingAccountsClearsSocialProfile() async {
         PulseTestURLProtocol.handler = { request in
             XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer account-a-token")
-            return (200, Data(#"{"profile":{"id":"account-a","name":"A","bio":"Private draft","color":"#a59aff","emoji":"♫","avatar":null},"friends":[],"incoming":[],"outgoing":[]}"#.utf8))
+            return (200, Data(##"{"profile":{"id":"account-a","name":"A","bio":"Private draft","color":"#a59aff","emoji":"♫","avatar":null},"friends":[],"incoming":[],"outgoing":[]}"##.utf8))
         }
         let store = PulseSocialStore(session: session())
         store.configure(token: "account-a-token", userID: "account-a")
@@ -126,4 +126,20 @@ final class PulseAvatarEncodingTests: XCTestCase {
         XCTAssertLessThanOrEqual(properties[kCGImagePropertyPixelHeight] as! Int, 512)
     }
     func testInvalidAvatarDataIsRejected() { XCTAssertThrowsError(try PulseAvatarEncoder.jpeg(Data("not-an-image".utf8))) }
+}
+
+final class PulseChatSessionTests: XCTestCase {
+    @MainActor
+    func testOldChatCannotSendFromNewAccount() async {
+        let social = PulseSocialStore()
+        social.configure(token: "old-token", userID: "old-owner")
+        let friend = PulseProfile(id: "friend", name: "Friend", bio: "", color: "#a59aff", emoji: "♫", avatar: nil, role: nil)
+        let chat = PulseChatStore(friend: friend, social: social)
+        XCTAssertTrue(chat.sessionValid)
+        social.configure(token: "new-token", userID: "new-owner")
+        XCTAssertFalse(chat.sessionValid)
+        let result = await chat.send("This must never be sent")
+        XCTAssertFalse(result)
+        XCTAssertTrue(chat.messages.isEmpty)
+    }
 }

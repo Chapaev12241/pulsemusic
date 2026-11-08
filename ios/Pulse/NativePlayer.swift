@@ -265,6 +265,7 @@ final class NativePlayer {
         let playing = wantsPlayback && player.currentItem != nil
         let track = queue.indices.contains(index) ? queue[index] : nil
         var result: [String: Any] = ["id": track?.id ?? "", "time": seconds.isFinite ? seconds : 0, "duration": duration, "paused": !playing, "buffering": playing && player.timeControlStatus != .playing]
+        result["equalizerActive"] = equalizer.hasProcessedAudio && playing && player.rate > 0
         if let error = error { result["error"] = error }
         if let track = track {
             loadArtwork(track)

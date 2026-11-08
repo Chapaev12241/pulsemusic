@@ -9,7 +9,9 @@ final class PulsePlayback: ObservableObject {
     @Published var paused = true
     @Published var buffering = false
     @Published var currentID = ""
+    @Published var equalizerActive = false
     func receive(_ value: [String: Any]) {
+        if let next = value["equalizerActive"] as? Bool, next != equalizerActive { equalizerActive = next }
         if let next = value["time"] as? Double, next != time { time = next }
         if let next = value["duration"] as? Double, next != duration { duration = next }
         if let next = value["paused"] as? Bool, next != paused { paused = next }

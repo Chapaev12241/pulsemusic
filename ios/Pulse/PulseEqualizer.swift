@@ -61,6 +61,7 @@ struct PulseEQSnapshot {
 // it uses its previous fixed-size snapshot. No heap allocations in process().
 final class PulseEQParameters {
     private let lock = OSAllocatedUnfairLock(initialState: PulseEQSnapshot())
+    private let activity = OSAllocatedUnfairLock(initialState: UInt64(0))
     func update(_ config: PulseEQConfiguration) {
         let gains = config.safeGains
         lock.withLock { value in
@@ -71,6 +72,9 @@ final class PulseEQParameters {
         }
     }
     func read() -> PulseEQSnapshot? { lock.withLockIfAvailable { $0 } }
+    func record(frames: Int) { _ = activity.withLockIfAvailable { $0 &+= UInt64(max(0, frames)) } }
+    func resetActivity() { activity.withLock { $0 = 0 } }
+    var processedFrames: UInt64 { activity.withLock { $0 } }
 }
 final class PulseEQKernel {
     struct Coefficients { var b0 = 1.0, b1 = 0.0, b2 = 0.0, a1 = 0.0, a2 = 0.0 }
@@ -89,6 +93,7 @@ final class PulseEQKernel {
         supported = format.mFormatID == kAudioFormatLinearPCM && format.mFormatFlags & kAudioFormatFlagIsFloat != 0 && format.mBitsPerChannel == 32 && channels > 0 && channels <= 8 && sampleRate > 0
         states = Array(repeating: State(), count: max(1, min(8, channels)) * 10)
         revision = UInt64.max
+        _ = PulseEQConfiguration.frequencies.count
     }
     static func peak(frequency: Double, gain: Float, sampleRate: Double) -> Coefficients {
         let a = pow(10.0, Double(gain) / 40), omega = 2 * Double.pi * min(frequency, sampleRate * 0.45) / sampleRate
@@ -125,6 +130,7 @@ final class PulseEQKernel {
             }
             channelBase += stride
         }
+        parameters.record(frames: frames)
     }
     static func makeTap(parameters: PulseEQParameters) -> MTAudioProcessingTap? {
         let pointer = Unmanaged.passRetained(PulseEQKernel(parameters: parameters)).toOpaque()
@@ -149,7 +155,8 @@ final class PulseEQController {
     private var enabled = false
     private var installing = Set<ObjectIdentifier>()
     var onError: ((String) -> Void)?
-    func configure(_ value: PulseEQConfiguration) { parameters.update(value); enabled = value.enabled }
+    var hasProcessedAudio: Bool { enabled && parameters.processedFrames > 0 }
+    func configure(_ value: PulseEQConfiguration) { parameters.update(value); parameters.resetActivity(); enabled = value.enabled }
     func attach(to item: AVPlayerItem?) {
         guard enabled, let item, item.audioMix == nil else { return }
         let identity = ObjectIdentifier(item)

@@ -47,6 +47,7 @@ final class PulseLyricsStore: ObservableObject {
     @Published private(set) var error: String?
     private var generation = UUID()
     private static var cache: [String: PulseLyricsResponse] = [:]
+    private static var cacheOrder: [String] = []
     func load(_ track: PulseTrack?, duration: Double, force: Bool = false) async {
         let stamp = UUID(); generation = stamp; result = nil; lines = []; error = nil
         guard let track else { loading = false; return }
@@ -59,7 +60,11 @@ final class PulseLyricsStore: ObservableObject {
                 var query = [URLQueryItem(name: "title", value: track.title), URLQueryItem(name: "artist", value: track.artist)]
                 if duration.isFinite && duration > 0 { query.append(URLQueryItem(name: "duration", value: String(Int(duration.rounded())))) }
                 value = try await PulseAPI.request("api/lyrics", query: query)
-                if value.found || value.instrumental { Self.cache[track.id] = value }
+                if value.found || value.instrumental {
+                    Self.cache[track.id] = value
+                    Self.cacheOrder.removeAll { $0 == track.id }; Self.cacheOrder.append(track.id)
+                    if Self.cacheOrder.count > 32 { Self.cache.removeValue(forKey: Self.cacheOrder.removeFirst()) }
+                }
             }
             guard generation == stamp, !Task.isCancelled else { return }
             result = value; lines = PulseLRC.parse(value.syncedLyrics)
