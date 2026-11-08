@@ -20,6 +20,8 @@ targets:
       path: Generated/iOS-Info.plist
       properties:
         CFBundleDisplayName: Pulse
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
         UIBackgroundModes: [audio]
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
@@ -38,6 +40,8 @@ targets:
       path: Generated/macOS-Info.plist
       properties:
         CFBundleDisplayName: Pulse
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSApplicationCategoryType: public.app-category.music
         NSHighResolutionCapable: true
     settings:
