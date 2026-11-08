@@ -1,6 +1,10 @@
 import AVFoundation
 import MediaPlayer
+#if os(iOS)
 import UIKit
+#else
+import AppKit
+#endif
 import ImageIO
 
 // The audio clock and queue live outside WKWebView, including when WebKit is suspended.
@@ -38,7 +42,9 @@ final class NativePlayer {
     private var recorded = false
     private var generation = 0
     private var historyTask: URLSessionDataTask?
+    #if os(iOS)
     private let session = AVAudioSession.sharedInstance()
+    #endif
     private var artworkTask: URLSessionDataTask?
     private var artworkURL: URL?
     private var artworkImage: MPMediaItemArtwork?
@@ -55,6 +61,7 @@ final class NativePlayer {
         }
         remoteTargets.append((commands.changePlaybackPositionCommand, seek))
         let center = NotificationCenter.default
+        #if os(iOS)
         notifications.append(center.addObserver(forName: AVAudioSession.interruptionNotification, object: session, queue: .main) { [weak self] notification in
             guard let type = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
                   type == AVAudioSession.InterruptionType.began.rawValue else { return }
@@ -63,11 +70,16 @@ final class NativePlayer {
         notifications.append(center.addObserver(forName: AVAudioSession.routeChangeNotification, object: session, queue: .main) { [weak self] notification in
             if notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt == AVAudioSession.RouteChangeReason.oldDeviceUnavailable.rawValue { self?.pause() }
         })
+        #endif
         notifications.append(center.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: nil, queue: .main) { [weak self] notification in
             guard let self = self, let item = notification.object as? AVPlayerItem, item === self.player.currentItem else { return }
             if self.wantsPlayback { self.next(1) }
         })
+        #if os(iOS)
         notifications.append(center.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in self?.emit() })
+        #else
+        notifications.append(center.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in self?.emit() })
+        #endif
     }
     deinit {
         fade?.invalidate(); artworkTask?.cancel()
@@ -85,9 +97,16 @@ final class NativePlayer {
             guard let id = body["id"] as? String, let target = items.firstIndex(where: { $0.id == id }) else { return }
             bearer = body["token"] as? String ?? ""
             dj = body["dj"] as? Bool ?? true
-            if queue.indices.contains(index), queue[index].id == id, player.currentItem != nil {
+            if queue.indices.contains(index), queue[index].id == id, player.currentItem != nil, player.currentItem?.status != .failed {
                 queue = items; index = target; resume()
             } else { queue = items; start(target, crossfade: false) }
+        case "update":
+            bearer = body["token"] as? String ?? ""
+            let fresh = Dictionary(uniqueKeysWithValues: (body["tracks"] as? [[String: Any]] ?? []).compactMap(Track.init).map { ($0.id, $0) })
+            queue = queue.map { fresh[$0.id] ?? $0 }
+        case "resume":
+            guard queue.indices.contains(index) else { return }
+            if player.currentItem?.status == .failed { start(index, crossfade: false) } else { resume() }
         case "pause": pause()
         case "next": next(1)
         case "previous": next(-1)
@@ -100,8 +119,10 @@ final class NativePlayer {
         }
     }
     private func activate() throws {
+        #if os(iOS)
         try session.setCategory(.playback, mode: .default, policy: .longFormAudio)
         try session.setActive(true)
+        #endif
     }
     private func resume() {
         guard player.currentItem != nil else { return }
@@ -211,7 +232,11 @@ final class NativePlayer {
             guard let data = data, data.count <= 5_000_000, (response as? HTTPURLResponse)?.statusCode == 200,
                   let source = CGImageSourceCreateWithData(data as CFData, nil),
                   let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: 600] as CFDictionary) else { return }
+            #if os(iOS)
             let image = UIImage(cgImage: cg)
+            #else
+            let image = NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
+            #endif
             DispatchQueue.main.async {
                 guard let self = self, self.artworkURL == url else { return }
                 self.artworkImage = MPMediaItemArtwork(boundsSize: image.size) { _ in image }

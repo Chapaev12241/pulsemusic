@@ -1,33 +1,71 @@
-# Pulse for iPhone
+# Pulse for iPhone and Mac
 
-Native AVPlayer playback with a persistent WKWebView for the existing Pulse interface.
-The playback queue, 3-second equal-power crossfade, lock-screen controls, audio session
-and listening-history requests run natively, independently of JavaScript background suspension.
-The web deployment and existing accounts/storage are not migrated or reset.
-Sign in to your existing Pulse account inside the app; Safari and the app have separate sessions.
+Native SwiftUI applications sharing the production Pulse API, accounts, D1 database
+and R2 audio storage with the website. No web view and no dependency on the custom
+domain's certificate. All API and audio requests use the existing HTTPS API host.
 
-## Build without a Mac
+## Features
 
-Open the repository's **Actions → iOS app**. Each change under `ios/` builds on a GitHub macOS runner.
-Download `Pulse-iPhone-unsigned` from a successful run and extract `Pulse-unsigned.ipa`.
-This artifact is NOT signed and cannot be installed by tapping it in Safari.
+- Existing email/password login, registration and logout; token stored in Keychain.
+- Public catalog and personal uploads, search, likes, history and playlists.
+- Synchronization on launch, on foreground return, every 30 seconds while running,
+  after import and after listening-history saves. Pull to refresh and toolbar refresh.
+- Multi-file audio import, SHA-256 duplicate detection, embedded title/artist/album
+  metadata and per-file results. Existing 50 MB per-file server limit applies.
+- AVPlayer playback, seek, volume on Mac, queue, optional 3-second crossfade,
+  system media controls, artwork, and iPhone background audio.
+- Private state is cleared on logout; transient network failures retain the session
+  and last in-memory library. The app reports failed synchronization rather than
+  replacing it with an empty cloud library.
 
-For a free Apple ID, use [AltStore Classic for Windows](https://faq.altstore.io/altstore-classic/how-to-install-altstore-windows)
-to sign and install the IPA on your own iPhone. Free signatures expire after 7 days;
-refresh them through AltServer on Windows. Follow AltStore's instructions for Developer Mode.
-Enter Apple credentials only in the signing tool, never in a GitHub issue, repository or chat.
-TestFlight distribution instead requires Apple Developer Program membership and signing setup.
+The server remains authoritative. Changes made on another device appear on the
+next sync. Offline audio downloads, native equalizer, chats and lyrics are not part
+of this release. The website remains available for those existing web features.
 
-## Physical iPhone acceptance checks
+## Download personal builds
 
-Cloud compilation does not verify real-device background behavior. Check on your iPhone:
+Open **Actions → Apple apps → latest successful run** in GitHub.
 
-1. Sign in to the existing account; verify library and playlists match the website.
-2. Turn on DJ in settings; play two tracks longer than 20 seconds. Listen to a full automatic transition.
-3. Lock the screen and repeat; then use lock-screen next/pause/seek.
-4. Test headphones disconnect and a phone call: playback must pause without forced resuming.
-5. Return after 30 seconds of listening; verify history on a second device.
-6. Test unavailable network and a stale private URL; no lost account or music data.
+- `Pulse-Mac`: contains a universal `Pulse-Mac.dmg` and `Pulse-Mac.zip` for Intel
+  and Apple Silicon, macOS 14 or later. Drag Pulse to Applications. This personal
+  build is ad-hoc signed, not notarized; macOS may require approval in
+  System Settings → Privacy & Security before opening it. Do not disable Gatekeeper.
+- `Pulse-iPhone-unsigned`: contains `Pulse-unsigned.ipa`, iOS 17 or later.
+  An unsigned IPA cannot be installed by tapping it. Use a personal signing tool
+  such as AltStore Classic/AltServer, or open the project in Xcode, select your
+  Personal Team and run on your connected iPhone. Free signing has renewal limits;
+  consult Apple's current Personal Team terms. Never share Apple credentials in chat.
 
-DJ is an equal-power crossfade, not beat matching or a trained AI model.
-Native EQ is not implemented in this initial shell; the web EQ remains for desktop.
+App Store/TestFlight release requires Apple Developer distribution signing and is
+separate from these personal builds. No signing passwords or certificates are
+stored in this repository or workflow.
+
+## Build locally with Xcode
+
+Install Xcode and XcodeGen. From the repository root:
+
+```sh
+node scripts/prepare-ios-icons.mjs
+cd ios
+xcodegen generate
+open Pulse.xcodeproj
+```
+
+Choose scheme `Pulse` for iPhone or `PulseMac` for macOS. The CI workflow builds
+both platforms, runs shared model/state tests on macOS, and emits personal builds.
+
+## Device acceptance checks
+
+1. Sign in with the website account on both apps. Compare uploaded tracks,
+   likes and playlists with the website.
+2. Upload a new audio file on the site. Return to the app or wait 30 seconds;
+   confirm it appears. Repeat importing a file in the app, then refresh the site.
+3. Like a track and create a playlist on one device. Confirm the second device
+   receives them. Sign out and verify personal state disappears.
+4. Play music, seek, pause and skip from the app and system controls. Lock the
+   iPhone screen and check uninterrupted playback and listening history.
+5. Test headphone disconnection, incoming calls, network loss and recovery.
+   Confirm a network failure does not delete the account's library.
+
+Cloud builds do not replace physical-device checks of background audio, imports,
+Keychain persistence or installation signing.

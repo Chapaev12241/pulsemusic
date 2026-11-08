@@ -1,7 +1,7 @@
-name: iOS app
+name: Apple apps
 on:
   push:
-    paths: ['ios/**', '.github/workflows/ios.yml']
+    paths: ['ios/**', 'scripts/prepare-ios-icons.mjs', '.github/workflows/ios.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -10,18 +10,29 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
-      - name: Test playback bridge
-        run: node scripts/test-native-bridge.mjs
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
       - name: Install XcodeGen
         run: brew install xcodegen
-      - name: Generate project
+      - name: Generate icons
         run: node scripts/prepare-ios-icons.mjs
       - name: Generate Xcode project
         working-directory: ios
         run: xcodegen generate
-      - name: Build simulator
+      - name: Build iPhone simulator
         working-directory: ios
         run: xcodebuild -project Pulse.xcodeproj -scheme Pulse -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build-simulator CODE_SIGNING_ALLOWED=NO build
+      - name: Build and test Mac app
+        working-directory: ios
+        run: xcodebuild -project Pulse.xcodeproj -scheme PulseMac -configuration Debug -destination 'platform=macOS' -derivedDataPath build-tests CODE_SIGNING_ALLOWED=NO test
+      - name: Build universal Mac app
+        working-directory: ios
+        run: |
+          xcodebuild -project Pulse.xcodeproj -scheme PulseMac -configuration Release -destination 'generic/platform=macOS' -derivedDataPath build-mac ARCHS='arm64 x86_64' ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO build
+          codesign --force --deep --sign - build-mac/Build/Products/Release/Pulse.app
+          ditto -c -k --sequesterRsrc --keepParent build-mac/Build/Products/Release/Pulse.app Pulse-Mac.zip
+          hdiutil create -volname Pulse -srcfolder build-mac/Build/Products/Release/Pulse.app -ov -format UDZO Pulse-Mac.dmg
       - name: Build unsigned iPhone app
         working-directory: ios
         run: |
@@ -32,11 +43,13 @@ jobs:
           zip -qry ../Pulse-unsigned.ipa Payload
       - uses: actions/upload-artifact@v4
         with:
-          name: Pulse-iPhone-unsigned
-          path: ios/Pulse-unsigned.ipa
+          name: Pulse-Mac
+          path: |
+            ios/Pulse-Mac.zip
+            ios/Pulse-Mac.dmg
           retention-days: 14
       - uses: actions/upload-artifact@v4
         with:
-          name: Pulse-simulator
-          path: ios/build-simulator/Build/Products/Debug-iphonesimulator/Pulse.app
-          retention-days: 7
+          name: Pulse-iPhone-unsigned
+          path: ios/Pulse-unsigned.ipa
+          retention-days: 14
