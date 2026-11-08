@@ -33,3 +33,53 @@ final class PulseTests: XCTestCase {
         XCTAssertEqual(PulseAPI.base.host, "pulse-vibe-music.desyatnichenkoiosyf2.chatgpt.site")
     }
 }
+
+final class PulseAPIContractTests: XCTestCase {
+    private func session() -> URLSession {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [PulseTestURLProtocol.self]
+        return URLSession(configuration: config)
+    }
+    override func tearDown() { PulseTestURLProtocol.handler = nil; super.tearDown() }
+    func testLibraryRequestSendsBearerWithoutPuttingItInURL() async throws {
+        PulseTestURLProtocol.handler = { request in
+            XCTAssertEqual(request.url?.path, "/api/music")
+            XCTAssertNil(request.url?.query)
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-token")
+            return (200, Data(#"{"tracks":[]}"#.utf8))
+        }
+        let result: PulseCatalog = try await PulseAPI.request("api/music", token: "test-token", session: session())
+        XCTAssertTrue(result.tracks.isEmpty)
+    }
+    func testLoginErrorPreservesServerMessageAndStatus() async throws {
+        PulseTestURLProtocol.handler = { request in
+            XCTAssertEqual(request.httpMethod, "POST")
+            XCTAssertNil(request.value(forHTTPHeaderField: "Authorization"))
+            return (401, Data(#"{"error":"Неверный email или пароль"}"#.utf8))
+        }
+        do {
+            let _: PulseSession = try await PulseAPI.request("api/auth/login", method: "POST", body: Data("{}".utf8), session: session())
+            XCTFail("Expected a failed login")
+        } catch let error as PulseAPIError {
+            XCTAssertEqual(error.status, 401)
+            XCTAssertEqual(error.message, "Неверный email или пароль")
+        }
+    }
+}
+
+private final class PulseTestURLProtocol: URLProtocol {
+    static var handler: ((URLRequest) throws -> (Int, Data))?
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        do {
+            guard let handler = Self.handler, let url = request.url else { throw URLError(.badServerResponse) }
+            let (status, data) = try handler(request)
+            let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: data)
+            client?.urlProtocolDidFinishLoading(self)
+        } catch { client?.urlProtocol(self, didFailWithError: error) }
+    }
+    override func stopLoading() { }
+}

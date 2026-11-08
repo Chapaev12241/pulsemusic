@@ -32,7 +32,10 @@ jobs:
           xcodebuild -project Pulse.xcodeproj -scheme PulseMac -configuration Release -destination 'generic/platform=macOS' -derivedDataPath build-mac ARCHS='arm64 x86_64' ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO build
           codesign --force --deep --sign - build-mac/Build/Products/Release/Pulse.app
           ditto -c -k --sequesterRsrc --keepParent build-mac/Build/Products/Release/Pulse.app Pulse-Mac.zip
-          hdiutil create -volname Pulse -srcfolder build-mac/Build/Products/Release/Pulse.app -ov -format UDZO Pulse-Mac.dmg
+          mkdir -p MacPackage
+          ditto build-mac/Build/Products/Release/Pulse.app MacPackage/Pulse.app
+          ln -s /Applications MacPackage/Applications
+          hdiutil create -volname Pulse -srcfolder MacPackage -ov -format UDZO Pulse-Mac.dmg
       - name: Build unsigned iPhone app
         working-directory: ios
         run: |

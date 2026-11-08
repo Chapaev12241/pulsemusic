@@ -4,7 +4,7 @@ import Security
 enum PulseAPI {
     // Uses the existing production accounts, D1 database and R2 music bucket.
     static let base = URL(string: "https://pulse-vibe-music.desyatnichenkoiosyf2.chatgpt.site")!
-    static func request<T: Decodable>(_ path: String, token: String = "", method: String = "GET", body: Data? = nil, headers: [String: String] = [:]) async throws -> T {
+    static func request<T: Decodable>(_ path: String, token: String = "", method: String = "GET", body: Data? = nil, headers: [String: String] = [:], session: URLSession = .shared) async throws -> T {
         var request = URLRequest(url: base.appendingPathComponent(path), timeoutInterval: 60)
         request.httpMethod = method
         request.httpBody = body
@@ -12,7 +12,7 @@ enum PulseAPI {
         if !token.isEmpty { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         if body != nil { request.setValue("application/json", forHTTPHeaderField: "Content-Type") }
         for (name, value) in headers { request.setValue(value, forHTTPHeaderField: name) }
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         guard let response = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
         guard (200..<300).contains(response.statusCode) else {
             let error = try? JSONDecoder().decode(ErrorBody.self, from: data)

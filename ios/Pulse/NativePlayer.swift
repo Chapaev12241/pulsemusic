@@ -57,7 +57,7 @@ final class NativePlayer {
         bind(commands.previousTrackCommand) { [weak self] in self?.next(-1) }
         let seek = commands.changePlaybackPositionCommand.addTarget { [weak self] event in
             guard let event = event as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
-            self?.seek(event.positionTime); return .success
+            DispatchQueue.main.async { self?.seek(event.positionTime) }; return .success
         }
         remoteTargets.append((commands.changePlaybackPositionCommand, seek))
         let center = NotificationCenter.default
@@ -88,7 +88,7 @@ final class NativePlayer {
         remoteTargets.forEach { $0.0.removeTarget($0.1) }
     }
     private func bind(_ command: MPRemoteCommand, action: @escaping () -> Void) {
-        remoteTargets.append((command, command.addTarget { _ in action(); return .success }))
+        remoteTargets.append((command, command.addTarget { _ in DispatchQueue.main.async { action() }; return .success }))
     }
     func command(_ body: [String: Any]) {
         switch body["action"] as? String {
