@@ -37,6 +37,7 @@ struct PulseRootView: View {
                                 PulseHomeView(select: select, play: { items in if let first = items.first { store.play(first, within: items) } })
                             } else {
                                 collectionHeader
+                                if [.library, .liked, .history].contains(collection) { libraryFilters }
                                 if collection == .playlists { playlistPicker }
                                 if visibleTracks.isEmpty { emptyState }
                                 else { trackList }
@@ -77,6 +78,8 @@ struct PulseRootView: View {
             Button("Понятно") { store.error = nil }
         } message: { Text(store.error ?? "") }
         .onChange(of: query) { _, value in if !value.isEmpty && collection == .home { collection = .catalog } }
+        .onChange(of: store.state.playlists.map(\.id)) { _, ids in if !ids.contains(activePlaylist ?? "") { activePlaylist = ids.first } }
+        .onChange(of: collection) { _, next in if next == .playlists && activePlaylist == nil { activePlaylist = store.state.playlists.first?.id } }
     }
     private var contentPadding: CGFloat {
         #if os(macOS)
@@ -174,6 +177,19 @@ struct PulseRootView: View {
                 Button { if store.signedIn { newPlaylist = true } else { showAccount = true } } label: { Image(systemName: "plus").frame(width: 38, height: 38) }.buttonStyle(.plain).background(PulseTheme.raised, in: RoundedRectangle(cornerRadius: 12))
             } else {
                 Button(action: importMusic) { Image(systemName: "plus").frame(width: 38, height: 38) }.buttonStyle(.plain).background(PulseTheme.raised, in: RoundedRectangle(cornerRadius: 12)).accessibilityLabel("Добавить музыку")
+            }
+        }
+    }
+    private var libraryFilters: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 9) {
+                ForEach([PulseCollection.library, .liked, .history]) { item in
+                    Button { select(item) } label: {
+                        Text(item == .library ? "Загрузки" : item.title).font(.system(size: 11)).padding(.horizontal, 16).padding(.vertical, 10)
+                            .foregroundStyle(collection == item ? Color.black : PulseTheme.muted)
+                            .background(collection == item ? Color.white : PulseTheme.raised, in: Capsule())
+                    }.buttonStyle(.plain)
+                }
             }
         }
     }

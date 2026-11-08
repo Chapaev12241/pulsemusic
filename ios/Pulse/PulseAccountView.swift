@@ -47,6 +47,8 @@ struct PulseAccountView: View {
                 }
             }
             .formStyle(.grouped)
+            .scrollContentBackground(.hidden)
+            .background(PulseTheme.background)
             .navigationTitle(store.signedIn ? "Мой Pulse" : "Добро пожаловать")
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Готово") { dismiss() } } }
         }

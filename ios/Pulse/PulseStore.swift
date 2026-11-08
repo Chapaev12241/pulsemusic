@@ -35,18 +35,17 @@ final class PulseStore: ObservableObject {
     var currentTrack: PulseTrack? { tracks.first { $0.id == currentID } }
     var signedIn: Bool { user != nil }
 
-    init() {
-        player.onState = { [weak self] value in
-            // NativePlayer delivers callbacks on the main queue.
-            guard let self else { return }
-            if value["historySaved"] as? Bool == true { Task { await self.refresh() }; return }
-            if let message = value["error"] as? String { self.error = message; return }
-            self.playback.receive(value)
-            let id = value["id"] as? String ?? ""
-            let paused = value["paused"] as? Bool ?? true
-            if self.currentID != id { self.currentID = id }
-            if self.paused != paused { self.paused = paused }
-        }
+    init() { player.onState = { [weak self] value in self?.receivePlayback(value) } }
+    // NativePlayer delivers callbacks on the main queue. This boundary is also
+    // exercised by the regression test for library invalidations.
+    func receivePlayback(_ value: [String: Any]) {
+        if value["historySaved"] as? Bool == true { Task { await self.refresh() }; return }
+        if let message = value["error"] as? String { error = message; return }
+        playback.receive(value)
+        let id = value["id"] as? String ?? ""
+        let nextPaused = value["paused"] as? Bool ?? true
+        if currentID != id { currentID = id }
+        if paused != nextPaused { paused = nextPaused }
     }
     func start() async {
         if !started { started = true; await restore() }
@@ -182,8 +181,11 @@ final class PulseStore: ObservableObject {
                 guard let type = types[url.pathExtension.lowercased()] else { throw PulseAPIError(status: 415, message: "Неподдерживаемый формат") }
                 let values = try url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
                 guard values.isRegularFile == true, let size = values.fileSize, size > 0, size <= 50 * 1024 * 1024 else { throw PulseAPIError(status: 413, message: "Размер файла должен быть от 1 байта до 50 МБ") }
-                let data = try Data(contentsOf: url, options: .mappedIfSafe)
-                let id = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+                let (data, id) = try await Task.detached(priority: .userInitiated) {
+                    let data = try Data(contentsOf: url, options: .mappedIfSafe)
+                    let id = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+                    return (data, id)
+                }.value
                 let metadata = await Self.metadata(url)
                 let name = url.lastPathComponent.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "track"
                 let encodedMetadata = String(data: try PulseAPI.json(metadata), encoding: .utf8)!.addingPercentEncoding(withAllowedCharacters: .alphanumerics)!

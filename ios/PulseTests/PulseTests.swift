@@ -89,10 +89,11 @@ final class PulsePerformanceTests: XCTestCase {
     @MainActor
     func testTransportTicksDoNotPublishLibraryChanges() async {
         let store = PulseStore()
+        store.receivePlayback(["time": 0.0, "duration": 240.0, "paused": false, "id": "test"])
         var libraryChanges = 0
         let observation = store.objectWillChange.sink { libraryChanges += 1 }
         for tick in 1...120 {
-            store.playback.receive(["time": Double(tick) / 4, "duration": 240.0, "paused": false, "id": "test"])
+            store.receivePlayback(["time": Double(tick) / 4, "duration": 240.0, "paused": false, "id": "test"])
         }
         XCTAssertEqual(store.playback.time, 30)
         XCTAssertEqual(libraryChanges, 0, "Playback ticks must not invalidate the library view")

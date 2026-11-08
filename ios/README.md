@@ -69,3 +69,19 @@ both platforms, runs shared model/state tests on macOS, and emits personal build
 
 Cloud builds do not replace physical-device checks of background audio, imports,
 Keychain persistence or installation signing.
+
+## Native design and rendering
+
+The native interface follows the website's palette and Soledago headings, with a
+custom sidebar on Mac, bottom navigation on iPhone, home cards, artist collections
+and an expanded iPhone player. Playback clock updates are observed by the transport
+only, rather than invalidating the library four times per second. A regression
+test verifies 120 transport ticks produce no library object-change notifications.
+
+Artwork uses a shared coalescing cache, a maximum of two concurrent lookup jobs,
+512-pixel decoded thumbnails, a 64 MB decoded-image cache and a 100 MB disk cache.
+The website artwork index is bundled at build time; missing images use the existing
+metadata API. File reading and SHA-256 hashing run off the main actor during imports.
+
+These are structural optimizations. Device frame-rate and energy measurements
+remain physical-device checks; no battery-life or frame-rate benchmark is claimed.
