@@ -25,11 +25,13 @@ struct PulseRootView: View {
         return text.isEmpty ? values : values.filter { ($0.title + " " + $0.artist + " " + ($0.album ?? "")).localizedCaseInsensitiveContains(text) }
     }
     var body: some View {
+        VStack(spacing: 0) {
         NavigationSplitView {
             List(PulseCollection.allCases, selection: $collection) { item in
                 Label(item.title, systemImage: item.symbol).tag(item)
             }
             .navigationTitle("Pulse")
+            .navigationSplitViewColumnWidth(min: 200, ideal: 230, max: 300)
             .safeAreaInset(edge: .bottom) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(store.user?.name ?? "Твоя музыка рядом").font(.headline)
@@ -79,7 +81,11 @@ struct PulseRootView: View {
                 }
             }
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) { PulsePlayerBar() }
+        PulsePlayerBar()
+        }
+        #if os(macOS)
+        .frame(minWidth: 760, minHeight: 520)
+        #endif
         .sheet(isPresented: $showAccount) { PulseAccountView() }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.audio, .data], allowsMultipleSelection: true) { result in
             switch result {
