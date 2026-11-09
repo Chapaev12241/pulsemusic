@@ -23,5 +23,9 @@ jobs:
           node-version: '24'
       - name: Test importer
         run: node --test import-bot/test.mjs
+      - name: Check public source downloads
+        if: github.event_name == 'push'
+        continue-on-error: true
+        run: node import-bot/probe.mjs
       - name: Process queued imports
         run: node import-bot/runner.mjs

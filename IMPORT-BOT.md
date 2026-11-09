@@ -32,3 +32,11 @@ node scripts/test-telegram.mjs
 ```
 
 Tests use in-memory SQLite D1 and mocked R2/Telegram/JWKS; they never publish test music or message a real user. Live TuneMir check: artist Гуф resolves correctly; all 42 tracks across three pages; single Ice Baby MP3 downloads with ID3 signature, 10,176,701 bytes.
+
+## Additional sources and artist interpretation
+
+- MuzSo (`one.muzso.net`, bare `muzso.net` normalized to that host): local/remote artist pages, `/music/` and `/controls/` tracks, artist pagination, official public `/api/download/<id>` flow. Some responses are MP4/M4A despite `audio/mpeg`; the worker detects the container and converts locally using ffmpeg, never renames bytes as MP3.
+- MuzPace: direct `/mp3/<id>` pages, authoritative data-artist/data-title and fresh player CDN links. Public search currently returns HTTP 403; the bot does not bypass this and falls back to another supported source for artist-name requests. CDN access depends on source availability; failures produce partial/error status, never fake success.
+- Free text, commands, quoted names, Unicode spacing, case, punctuation, known aliases, Cyrillic/Latin transliteration and wrong keyboard layout are recognized. Examples: `Гуф`, `GUF`, `/artist «guf»`, `загрузи все песни Гуфа на сайт`, `добавь Гуфа с https://one.muzso.net`. Explicit names such as `All Saints` remain intact.
+- Artist identity must match source metadata; ambiguous identities require an exact link. Requests cannot overwrite real credits. Common aliases converge to one spelling; featured artists are retained and deduplicated, repeated artist prefixes are removed from titles. Version/remix text is preserved.
+- HTTP downloads have an overall 45-second deadline in addition to size and public-address restrictions.

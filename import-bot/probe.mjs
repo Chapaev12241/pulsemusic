@@ -1,0 +1,3 @@
+// Optional public-source smoke test; downloads stay in memory and are never uploaded.
+import {scanProvider,downloadWithFallback} from './providers.mjs';
+for(const [site,url] of [['MuzSo','https://one.muzso.net/music/emotix-ne-bizhi'],['MuzPace','https://muzpace.net/mp3/40385']]){try{const result=await scanProvider(url);if(result.tracks.length!==1)throw Error('primary track not isolated');const audio=await downloadWithFallback(result.tracks[0]);console.log(JSON.stringify({site,ok:true,artist:audio.artist,title:audio.title,bytes:audio.bytes.length,mp3:audio.bytes.subarray(0,3).toString()==='ID3'}))}catch(e){console.log(JSON.stringify({site,ok:false,reason:e.message}));process.exitCode=1}}
