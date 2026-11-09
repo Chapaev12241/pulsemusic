@@ -119,3 +119,29 @@ and low-volume balances; there is no single best preset for all headphones.
 Now Playing artwork shares the same image resolver as the interface, with a bundled
 fallback and metadata updates for Lock Screen and Dynamic Island. Physical iPhone
 checks are required for background audio, system surfaces, audio routing and gestures.
+
+## Version 1.4
+
+Search lives in its own tab and includes artists and their catalogs. Friends and
+chats are reached from the profile. Enhanced LRC preserves word timestamps and
+repeated-line offsets; ordinary line-only LRC uses labeled, estimated word timing.
+Only the current line renders word fill at 30 Hz. The swipe deck follows the
+finger, reveals the adjacent queue item and springs back on rejected drags.
+
+The vinyl scales to a live low-frequency PCM envelope independently of the EQ.
+Its animation and meter polling stop when the app is inactive or motion is reduced.
+Playback, beat and library observables remain separate.
+
+The DJ playlist analyzes up to sixteen files locally with AVAudioFile: tempo via
+onset autocorrelation, RMS energy, bass balance and zero-crossing brightness.
+A nearest-neighbor recommender builds a sound-compatible queue. This is local
+signal analysis and feature matching, not a remote generative AI service. BPM is
+approximate and tracks retain their original pitch and speed. Failed or oversized
+files are skipped, temporary audio is deleted, and features are cached on disk.
+
+DJ transitions use equal-power fades with per-item bass handoff, filter sweeps or
+an echo delay. The render callback uses preallocated channel state and delay memory.
+The next stream starts before the outgoing track ends, and fades wait for buffering.
+Normal playback keeps its existing simple crossfade. Like/bookmark remote commands
+toggle the same cloud favorite state as the app; iOS decides which system surfaces
+expose those commands. No custom Live Activity is claimed.

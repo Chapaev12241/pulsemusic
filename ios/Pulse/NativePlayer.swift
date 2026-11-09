@@ -95,9 +95,11 @@ final class NativePlayer {
             if self.wantsPlayback { self.next(1) }
         })
         #if os(iOS)
-        notifications.append(center.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in self?.emit() })
+        notifications.append(center.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in self?.emit(); if self?.wantsPlayback == true { self?.startMeter() } })
+        notifications.append(center.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: .main) { [weak self] _ in self?.meterTimer?.invalidate(); self?.onBeat?(0) })
         #else
-        notifications.append(center.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in self?.emit() })
+        notifications.append(center.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in self?.emit(); if self?.wantsPlayback == true { self?.startMeter() } })
+        notifications.append(center.addObserver(forName: NSApplication.willResignActiveNotification, object: nil, queue: .main) { [weak self] _ in self?.meterTimer?.invalidate(); self?.onBeat?(0) })
         #endif
     }
     deinit {
@@ -127,6 +129,11 @@ final class NativePlayer {
     }
     private func startMeter() {
         meterTimer?.invalidate()
+        #if os(iOS)
+        guard UIApplication.shared.applicationState == .active else { return }
+        #else
+        guard NSApplication.shared.isActive else { return }
+        #endif
         meterTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
             guard let self else { return }
             self.onBeat?(self.wantsPlayback && self.player.timeControlStatus == .playing ? self.equalizer.bassLevel : 0)

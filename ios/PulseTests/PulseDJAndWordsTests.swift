@@ -1,6 +1,7 @@
 import XCTest
 import AudioToolbox
 import MediaPlayer
+import AVFoundation
 #if os(iOS)
 @testable import Pulse
 #else
@@ -40,6 +41,25 @@ final class PulseDJAndWordsTests: XCTestCase {
         let silence = PulseDJAnalyzer.features(id: "silence", envelope: Array(repeating: 0, count: 500), envelopeRate: 50, rms: 0, bassRatio: 0, crossingRate: 0)
         XCTAssertNil(silence.bpm)
         XCTAssertEqual(silence.energy, 0)
+    }
+    func testStreamingAnalyzerDecodesDownloadedFileWithoutExtension() throws {
+        let wave = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".wav")
+        let downloaded = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".tmp")
+        defer { try? FileManager.default.removeItem(at: wave); try? FileManager.default.removeItem(at: downloaded) }
+        let format = AVAudioFormat(standardFormatWithSampleRate: 16000, channels: 1)!
+        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 16000 * 12)!
+        buffer.frameLength = buffer.frameCapacity
+        let samples = buffer.floatChannelData![0]
+        for i in 0..<Int(buffer.frameLength) {
+            let time = Double(i) / 16000
+            samples[i] = time.truncatingRemainder(dividingBy: 0.5) < 0.08 ? Float(sin(2 * .pi * 100 * time) * 0.3) : 0
+        }
+        do { let file = try AVAudioFile(forWriting: wave, settings: format.settings); try file.write(from: buffer) }
+        try FileManager.default.moveItem(at: wave, to: downloaded)
+        let result = try PulseDJAnalyzer.decode(id: "downloaded", url: downloaded)
+        XCTAssertEqual(result.bpm ?? 0, 120, accuracy: 5)
+        XCTAssertGreaterThan(result.bass, 0.3)
+        XCTAssertTrue(result.energy.isFinite)
     }
     func testDJOrdersCompatibleSoundBeforeClashingTempoAndPreservesEveryTrack() {
         let a = PulseDJFeatures(id: "seed", bpm: 120, confidence: 0.8, energy: 0.6, brightness: 0.4, bass: 0.6)

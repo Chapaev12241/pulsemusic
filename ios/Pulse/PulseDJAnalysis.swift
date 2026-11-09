@@ -79,7 +79,7 @@ actor PulseDJAnalyzer {
         if let data = try? JSONEncoder().encode(cache) { try? data.write(to: cacheURL, options: .atomic) }
         return value
     }
-    private static func decode(id: String, url: URL) throws -> PulseDJFeatures {
+    static func decode(id: String, url: URL) throws -> PulseDJFeatures {
         let file = try AVAudioFile(forReading: url, commonFormat: .pcmFormatFloat32, interleaved: false)
         let format = file.processingFormat, rate = format.sampleRate
         guard rate > 0, let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 4096) else { throw URLError(.cannotDecodeContentData) }

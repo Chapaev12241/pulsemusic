@@ -1,5 +1,6 @@
 import Foundation
 import AudioToolbox
+import AVFoundation
 import os.lock
 
 struct PulseDJFXSnapshot {
