@@ -166,10 +166,17 @@ final class PulseEQKernel {
                 guard status == noErr, framesOut.pointee > 0 else { return }
                 Unmanaged<PulseEQKernel>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).takeUnretainedValue().process(buffers, frames: Int(framesOut.pointee))
             })
+        #if compiler(>=6.2)
+        var tap: MTAudioProcessingTap?
+        let status = MTAudioProcessingTapCreate(kCFAllocatorDefault, &callbacks, kMTAudioProcessingTapCreationFlag_PostEffects, &tap)
+        guard status == noErr, let tap else { Unmanaged<PulseEQKernel>.fromOpaque(pointer).release(); return nil }
+        return tap
+        #else
         var tap: Unmanaged<MTAudioProcessingTap>?
         let status = MTAudioProcessingTapCreate(kCFAllocatorDefault, &callbacks, kMTAudioProcessingTapCreationFlag_PostEffects, &tap)
         guard status == noErr, let tap else { Unmanaged<PulseEQKernel>.fromOpaque(pointer).release(); return nil }
         return tap.takeRetainedValue()
+        #endif
     }
 }
 final class PulseEQController {
