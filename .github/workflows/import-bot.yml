@@ -4,7 +4,7 @@ on:
     branches: [main]
     paths: ['import-bot/**', '.github/workflows/import-bot.yml']
   schedule:
-    - cron: '2-57/5 * * * *'
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 permissions:
   contents: read
