@@ -62,6 +62,9 @@ struct PulseEQSnapshot {
 final class PulseEQParameters {
     private let lock = OSAllocatedUnfairLock(initialState: PulseEQSnapshot())
     private let activity = OSAllocatedUnfairLock(initialState: UInt64(0))
+    private let meter = OSAllocatedUnfairLock(initialState: Float(0))
+    func recordLevel(_ value: Float) { _ = meter.withLockIfAvailable { $0 = value.isFinite ? value : 0 } }
+    var level: Float { meter.withLock { $0 } }
     func update(_ config: PulseEQConfiguration) {
         let gains = config.safeGains
         lock.withLock { value in
@@ -80,6 +83,7 @@ final class PulseEQKernel {
     struct Coefficients { var b0 = 1.0, b1 = 0.0, b2 = 0.0, a1 = 0.0, a2 = 0.0 }
     struct State { var z1 = 0.0, z2 = 0.0 }
     let parameters: PulseEQParameters
+    private let effects: PulseDJFXKernel
     private var coefficients = Array(repeating: Coefficients(), count: 10)
     private var states: [State] = []
     private var channels = 0
@@ -87,11 +91,13 @@ final class PulseEQKernel {
     private var supported = false
     private var snapshot = PulseEQSnapshot()
     private var revision = UInt64.max
-    init(parameters: PulseEQParameters) { self.parameters = parameters }
+    private var lowPass: Float = 0
+    init(parameters: PulseEQParameters, effects: PulseDJFXParameters = PulseDJFXParameters()) { self.parameters = parameters; self.effects = PulseDJFXKernel(parameters: effects) }
     func prepare(_ format: AudioStreamBasicDescription) {
         channels = Int(format.mChannelsPerFrame); sampleRate = format.mSampleRate
         supported = format.mFormatID == kAudioFormatLinearPCM && format.mFormatFlags & kAudioFormatFlagIsFloat != 0 && format.mBitsPerChannel == 32 && channels > 0 && channels <= 8 && sampleRate > 0
         states = Array(repeating: State(), count: max(1, min(8, channels)) * 10)
+        effects.prepare(rate: sampleRate, channels: channels)
         revision = UInt64.max
         _ = PulseEQConfiguration.frequencies.count
     }
@@ -106,8 +112,23 @@ final class PulseEQKernel {
             snapshot = next; revision = next.revision
             for band in 0..<10 { coefficients[band] = Self.peak(frequency: PulseEQConfiguration.frequencies[band], gain: next.gains[band], sampleRate: sampleRate) }
         }
-        guard snapshot.enabled else { return }
         let list = UnsafeMutableAudioBufferListPointer(buffers)
+        // A decimated bass envelope drives the vinyl even with EQ bypassed.
+        // It reads PCM without changing the samples or downloading a second file.
+        if let buffer = list.first, buffer.mNumberChannels > 0, let raw = buffer.mData {
+            let stride = Int(buffer.mNumberChannels)
+            let count = min(frames, Int(buffer.mDataByteSize) / 4 / stride)
+            let samples = raw.assumingMemoryBound(to: Float.self)
+            let alpha = Float(min(1, 2 * Double.pi * 180 / (sampleRate / 4)))
+            var sum: Float = 0; var measured = 0
+            for frame in Swift.stride(from: 0, to: count, by: 4) {
+                let sample = samples[frame * stride]
+                lowPass += alpha * ((sample.isFinite ? sample : 0) - lowPass)
+                sum += lowPass * lowPass; measured += 1
+            }
+            parameters.recordLevel(measured > 0 ? sqrt(sum / Float(measured)) : 0)
+        }
+        guard snapshot.enabled else { effects.process(buffers, frames: frames); return }
         var channelBase = 0
         for buffer in list {
             let stride = Int(buffer.mNumberChannels)
@@ -131,9 +152,10 @@ final class PulseEQKernel {
             channelBase += stride
         }
         parameters.record(frames: frames)
+        effects.process(buffers, frames: frames)
     }
-    static func makeTap(parameters: PulseEQParameters) -> MTAudioProcessingTap? {
-        let pointer = Unmanaged.passRetained(PulseEQKernel(parameters: parameters)).toOpaque()
+    static func makeTap(parameters: PulseEQParameters, effects: PulseDJFXParameters = PulseDJFXParameters()) -> MTAudioProcessingTap? {
+        let pointer = Unmanaged.passRetained(PulseEQKernel(parameters: parameters, effects: effects)).toOpaque()
         var callbacks = MTAudioProcessingTapCallbacks(version: kMTAudioProcessingTapCallbacksVersion_0, clientInfo: pointer,
             init: { _, info, storage in storage.pointee = info },
             finalize: { tap in Unmanaged<PulseEQKernel>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).release() },
@@ -151,27 +173,41 @@ final class PulseEQKernel {
     }
 }
 final class PulseEQController {
+    private struct EffectEntry { weak var item: AVPlayerItem?; let parameters: PulseDJFXParameters }
+    private var effects: [ObjectIdentifier: EffectEntry] = [:]
     private let parameters = PulseEQParameters()
     private var enabled = false
     private var installing = Set<ObjectIdentifier>()
     var onError: ((String) -> Void)?
     var hasProcessedAudio: Bool { enabled && parameters.processedFrames > 0 }
+    var bassLevel: Double { min(1, Double(parameters.level) / 0.16) }
     func configure(_ value: PulseEQConfiguration) { parameters.update(value); parameters.resetActivity(); enabled = value.enabled }
+    func transition(item: AVPlayerItem?, value: PulseDJFXSnapshot) {
+        guard let item else { return }
+        effects[ObjectIdentifier(item)]?.parameters.update(value)
+    }
+    func resetTransition() {
+        effects = effects.filter { $0.value.item != nil }
+        for entry in effects.values { entry.parameters.update(PulseDJFXSnapshot()) }
+    }
     func attach(to item: AVPlayerItem?) {
-        guard enabled, let item, item.audioMix == nil else { return }
+        guard let item, item.audioMix == nil else { return }
         let identity = ObjectIdentifier(item)
         guard installing.insert(identity).inserted else { return }
+        effects = effects.filter { $0.value.item != nil }
+        let effectParameters = PulseDJFXParameters()
+        effects[identity] = EffectEntry(item: item, parameters: effectParameters)
         Task { @MainActor [weak self, weak item] in
             guard let self else { return }
             defer { self.installing.remove(identity) }
             guard let item else { return }
             do {
                 let tracks = try await item.asset.loadTracks(withMediaType: .audio)
-                guard let track = tracks.first, let tap = PulseEQKernel.makeTap(parameters: self.parameters) else { self.onError?("Для этого трека эквалайзер недоступен"); return }
+                guard let track = tracks.first, let tap = PulseEQKernel.makeTap(parameters: self.parameters, effects: effectParameters) else { if self.enabled { self.onError?("Для этого трека эквалайзер недоступен") }; return }
                 let input = AVMutableAudioMixInputParameters(track: track)
                 input.audioTapProcessor = tap
                 let mix = AVMutableAudioMix(); mix.inputParameters = [input]; item.audioMix = mix
-            } catch { self.onError?("Не удалось подключить эквалайзер к треку") }
+            } catch { if self.enabled { self.onError?("Не удалось подключить эквалайзер к треку") } }
         }
     }
 }

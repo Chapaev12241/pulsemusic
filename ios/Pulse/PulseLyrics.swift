@@ -8,30 +8,82 @@ struct PulseLyricsResponse: Decodable {
     let source: String
     let sourceUrl: String
 }
+struct PulseLyricWord: Equatable {
+    let text: String
+    let start: Double
+    let end: Double
+}
 struct PulseLyricLine: Identifiable, Equatable {
     let id: Int
     let time: Double
     let text: String
+    var marks: [PulseLyricWord] = []
 }
 enum PulseLRC {
     static func parse(_ text: String) -> [PulseLyricLine] {
         let timestamp = try! NSRegularExpression(pattern: #"\[(\d+):(\d{2}(?:\.\d+)?)\]"#)
-        let tags = try! NSRegularExpression(pattern: #"\[[^\]]*\]|<\d+:\d{2}(?:\.\d+)?>"#)
+        let tags = try! NSRegularExpression(pattern: #"\[[^\]]*\]"#)
+        let wordRE = try! NSRegularExpression(pattern: #"<(\d+):(\d{2}(?:\.\d+)?)>([^<]*)"#)
+        let wordTags = try! NSRegularExpression(pattern: #"<\d+:\d{2}(?:\.\d+)?>"#)
         let offsetRE = try! NSRegularExpression(pattern: #"\[offset:([+-]?\d+)\]"#, options: .caseInsensitive)
         let full = text as NSString
         let offset = offsetRE.firstMatch(in: text, range: NSRange(location: 0, length: full.length)).flatMap { Double(full.substring(with: $0.range(at: 1))) }.map { $0 / 1000 } ?? 0
-        var values: [(Double, String)] = []
+        func stamp(_ raw: NSString, _ match: NSTextCheckingResult) -> Double {
+            (Double(raw.substring(with: match.range(at: 1))) ?? 0) * 60 + (Double(raw.substring(with: match.range(at: 2))) ?? 0)
+        }
+        var values: [PulseLyricLine] = []
         for line in text.components(separatedBy: .newlines) {
             let raw = line as NSString, range = NSRange(location: 0, length: raw.length)
-            let body = tags.stringByReplacingMatches(in: line, range: range, withTemplate: "").trimmingCharacters(in: .whitespaces)
+            let times = timestamp.matches(in: line, range: range)
+            guard let first = times.first else { continue }
+            let clean = tags.stringByReplacingMatches(in: line, range: range, withTemplate: "")
+            let cleanRange = NSRange(location: 0, length: (clean as NSString).length)
+            let body = wordTags.stringByReplacingMatches(in: clean, range: cleanRange, withTemplate: "").trimmingCharacters(in: .whitespaces)
             guard !body.isEmpty else { continue }
-            for match in timestamp.matches(in: line, range: range) {
-                if let minutes = Double(raw.substring(with: match.range(at: 1))), let seconds = Double(raw.substring(with: match.range(at: 2))) {
-                    values.append((max(0, minutes * 60 + seconds + offset), body))
+            let rawMarks = wordRE.matches(in: clean, range: cleanRange)
+            let nsClean = clean as NSString
+            for time in times {
+                let delta = stamp(raw, time) - stamp(raw, first)
+                var marks = rawMarks.enumerated().compactMap { index, match -> PulseLyricWord? in
+                    let word = nsClean.substring(with: match.range(at: 3)).trimmingCharacters(in: .whitespaces)
+                    guard !word.isEmpty else { return nil }
+                    let end = index + 1 < rawMarks.count ? max(0, stamp(nsClean, rawMarks[index + 1]) + delta + offset) : 0
+                    return PulseLyricWord(text: word, start: max(0, stamp(nsClean, match) + delta + offset), end: end)
                 }
+                if let firstMark = rawMarks.first {
+                    let prefix = nsClean.substring(to: firstMark.range.location).trimmingCharacters(in: .whitespaces)
+                    if !prefix.isEmpty { marks.insert(PulseLyricWord(text: prefix, start: max(0, stamp(raw, time) + offset), end: max(0, stamp(nsClean, firstMark) + delta + offset)), at: 0) }
+                }
+                values.append(PulseLyricLine(id: 0, time: max(0, stamp(raw, time) + offset), text: body, marks: marks))
             }
         }
-        return values.sorted { $0.0 < $1.0 }.enumerated().map { PulseLyricLine(id: $0.offset, time: $0.element.0, text: $0.element.1) }
+        return values.sorted { $0.time < $1.time }.enumerated().map { PulseLyricLine(id: $0.offset, time: $0.element.time, text: $0.element.text, marks: $0.element.marks) }
+    }
+    // Enhanced LRC uses supplied word marks. Ordinary LRC gets an explicitly
+    // estimated syllable-weighted timeline, matching the website's behavior.
+    static func words(for line: PulseLyricLine, next: Double?, duration: Double) -> [PulseLyricWord] {
+        let tokens = line.text.split(whereSeparator: { $0.isWhitespace }).map(String.init)
+        guard !tokens.isEmpty else { return [] }
+        let boundary = next.flatMap { $0 > line.time ? $0 : nil } ?? (duration.isFinite && duration > line.time ? duration : line.time + max(2, Double(tokens.count) * 0.6))
+        let segments: [(String, Double, Double)]
+        if !line.marks.isEmpty {
+            segments = line.marks.enumerated().map { i, mark in
+                let end = mark.end > mark.start ? mark.end : i + 1 < line.marks.count ? line.marks[i + 1].start : min(boundary, mark.start + 1)
+                return (mark.text, mark.start, max(mark.start + 0.04, end))
+            }
+        } else {
+            segments = [(line.text, line.time, min(boundary, line.time + max(1.2, Double(tokens.count) * 0.7 + 0.6)))]
+        }
+        return segments.flatMap { text, start, end -> [PulseLyricWord] in
+            let parts = text.split(whereSeparator: { $0.isWhitespace }).map(String.init)
+            let vowels = Set("aeiouyаеёиоуыэюя")
+            let weights = parts.map { word in Double(max(1, word.lowercased().filter { vowels.contains($0) }.count)) + Double(min(14, word.count)) * 0.08 }
+            let total = max(1, weights.reduce(0, +)); var cursor = start
+            return parts.enumerated().map { i, word in
+                let begin = cursor; cursor += max(0.04, end - start) * weights[i] / total
+                return PulseLyricWord(text: word, start: begin, end: cursor)
+            }
+        }
     }
     static func activeIndex(at time: Double, lines: [PulseLyricLine]) -> Int? {
         var low = 0, high = lines.count
@@ -92,9 +144,13 @@ struct PulseLyricsView: View {
                         LazyVStack(alignment: .leading, spacing: 20) {
                             ForEach(lyrics.lines) { line in
                                 Button { store.seek(line.time); follow = true } label: {
-                                    Text(line.text).font(.system(size: 24, weight: active == line.id ? .semibold : .medium))
-                                        .foregroundStyle(active == line.id ? Color.white : PulseTheme.muted.opacity(active.map { line.id < $0 } == true ? 0.5 : 0.8))
-                                        .frame(maxWidth: .infinity, alignment: .leading).multilineTextAlignment(.leading).padding(.vertical, 2)
+                                    Group {
+                                        if active == line.id {
+                                            PulseLyricWordsView(playback: store.playback, words: PulseLRC.words(for: line, next: lyrics.lines.dropFirst(line.id + 1).first?.time, duration: store.playback.duration))
+                                        } else {
+                                            Text(line.text).font(.system(size: 24, weight: .semibold)).foregroundStyle(PulseTheme.muted.opacity(active.map { line.id < $0 } == true ? 0.5 : 0.8))
+                                        }
+                                    }.frame(maxWidth: .infinity, alignment: .leading).multilineTextAlignment(.leading).padding(.vertical, 2)
                                 }.buttonStyle(.plain).id(line.id)
                             }
                         }.padding(.vertical, 20)
@@ -111,6 +167,9 @@ struct PulseLyricsView: View {
                 }
             } else {
                 Text(lyrics.result?.instrumental == true ? "Инструментальная композиция" : lyrics.result?.plainLyrics.isEmpty == false ? lyrics.result!.plainLyrics : "Текст пока не найден").font(.system(size: 17)).lineSpacing(8).foregroundStyle(PulseTheme.muted).textSelection(.enabled)
+            }
+            if !lyrics.lines.isEmpty && lyrics.lines.contains(where: { $0.marks.isEmpty }) {
+                Text("Подсветка слов рассчитана по строкам").font(.caption2).foregroundStyle(PulseTheme.muted)
             }
             if let value = lyrics.result, let url = URL(string: value.sourceUrl), url.scheme == "https", !value.source.isEmpty {
                 Link("\(value.source) ↗", destination: url).font(.caption).foregroundStyle(PulseTheme.accent)

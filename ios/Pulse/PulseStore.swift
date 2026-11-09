@@ -20,7 +20,10 @@ final class PulseStore: ObservableObject {
     let playback = PulsePlayback()
     let social = PulseSocialStore()
     let equalizer = PulseEqualizerSettings()
+    let beat = PulseBeat()
+    let djLibrary = PulseDJStore()
     private var equalizerSubscription: AnyCancellable?
+    private var favoriteSubscription: AnyCancellable?
     @Published var dj = UserDefaults.standard.object(forKey: "pulse_dj_native") as? Bool ?? true {
         didSet { UserDefaults.standard.set(dj, forKey: "pulse_dj_native"); player.command(["action": "dj", "enabled": dj]) }
     }
@@ -38,11 +41,23 @@ final class PulseStore: ObservableObject {
     private let player = NativePlayer()
     var currentTrack: PulseTrack? { tracks.first { $0.id == currentID } }
     var signedIn: Bool { user != nil }
+    func adjacentTrack(_ direction: Int) -> PulseTrack? {
+        guard let id = player.adjacentID(direction) else { return nil }
+        return tracks.first { $0.id == id }
+    }
 
     init() {
         player.onState = { [weak self] value in self?.receivePlayback(value) }
+        player.onBeat = { [weak self] value in self?.beat.receive(value) }
+        player.onFavorite = { [weak self] id in
+            guard let self, let track = self.tracks.first(where: { $0.id == id }), self.signedIn else { return }
+            self.like(track)
+        }
         player.command(["action": "volume", "value": volume])
         equalizerSubscription = equalizer.$config.sink { [weak self] value in self?.player.setEqualizer(value) }
+        favoriteSubscription = Publishers.CombineLatest3($currentID, $user, $state).sink { [weak self] id, user, state in
+            self?.player.setFavoriteState(trackID: id, available: user != nil, liked: state.liked.contains(id))
+        }
     }
     // NativePlayer delivers callbacks on the main queue. This boundary is also
     // exercised by the regression test for library invalidations.
@@ -99,6 +114,7 @@ final class PulseStore: ObservableObject {
         await refresh()
     }
     private func clearSession(deleteKeychain: Bool = true) {
+        djLibrary.clear()
         generation = UUID(); mutation?.cancel(); mutation = nil
         player.command(["action": "stop"])
         token = ""; user = nil; social.configure(token: "", userID: ""); ownedTracks = []; ownedIDs = []; state = PulseLibraryState()
@@ -151,7 +167,12 @@ final class PulseStore: ObservableObject {
     }
     private func configureSocial() { social.configure(token: token, userID: user?.id ?? "") }
     func play(_ track: PulseTrack, within queue: [PulseTrack]) {
+        player.setDJTransitions([:])
         player.command(["action": "play", "id": track.id, "tracks": queue.map(\.nativeValue), "token": token, "dj": dj])
+    }
+    func playDJ(_ track: PulseTrack, within queue: [PulseTrack], transitions: [String: PulseDJMix]) {
+        dj = true; player.setDJTransitions(transitions)
+        player.command(["action": "play", "id": track.id, "tracks": queue.map(\.nativeValue), "token": token, "dj": true])
     }
     func togglePlayback() {
         player.command(["action": paused ? "resume" : "pause"])

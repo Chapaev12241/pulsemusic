@@ -6,7 +6,6 @@ struct PulseRootView: View {
     @Environment(\.pulseReducedMotion) private var systemReducedMotion
     @AppStorage("pulse_reduce_motion") private var appReducedMotion = false
     @State private var collection: PulseCollection = .home
-    @State private var query = ""
     @State private var showAccount = false
     @State private var importing = false
     @State private var newPlaylist = false
@@ -15,15 +14,14 @@ struct PulseRootView: View {
     private var visibleTracks: [PulseTrack] {
         let values: [PulseTrack]
         switch collection {
-        case .friends, .settings: values = []
+        case .search, .dj, .settings: values = []
         case .home, .catalog: values = store.tracks
         case .library: values = store.tracks.filter { store.ownedIDs.contains($0.id) }
         case .liked: values = PulseLibrary.ordered(store.state.liked, in: store.tracks)
         case .history: values = PulseLibrary.ordered(store.state.history.map(\.id), in: store.tracks)
         case .playlists: values = PulseLibrary.ordered(store.state.playlists.first { $0.id == activePlaylist }?.tracks ?? [], in: store.tracks)
         }
-        let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        return text.isEmpty ? values : values.filter { ($0.title + " " + $0.artist + " " + ($0.album ?? "")).localizedCaseInsensitiveContains(text) }
+        return values
     }
     var body: some View {
         VStack(spacing: 0) {
@@ -34,13 +32,12 @@ struct PulseRootView: View {
                 #endif
                 VStack(spacing: 0) {
                     header
-                    if collection == .friends {
-                        if store.signedIn { PulseFriendsView(social: store.social) }
-                        else { emptyState.frame(maxHeight: .infinity).padding(contentPadding) }
-                    } else if collection == .settings { PulseSettingsView(store: store) }
+                    if collection == .search { PulseSearchView(store: store) }
+                    else if collection == .dj { PulseDJView(store: store) }
+                    else if collection == .settings { PulseSettingsView(store: store) }
                     else { ScrollView {
                         LazyVStack(alignment: .leading, spacing: 26) {
-                            if collection == .home && query.isEmpty {
+                            if collection == .home {
                                 PulseHomeView(select: select, play: { items in if let first = items.first { store.play(first, within: items) } })
                             } else {
                                 collectionHeader
@@ -86,7 +83,6 @@ struct PulseRootView: View {
         .alert("Pulse", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {
             Button("Понятно") { store.error = nil }
         } message: { Text(store.error ?? "") }
-        .onChange(of: query) { _, value in if !value.isEmpty && collection == .home { collection = .catalog } }
         .onChange(of: store.state.playlists.map(\.id)) { _, ids in if !ids.contains(activePlaylist ?? "") { activePlaylist = ids.first } }
         .onChange(of: collection) { _, next in if next == .playlists && activePlaylist == nil { activePlaylist = store.state.playlists.first?.id } }
     }
@@ -97,23 +93,12 @@ struct PulseRootView: View {
         return 18
         #endif
     }
-    private func select(_ next: PulseCollection) { collection = next; query = "" }
+    private func select(_ next: PulseCollection) { collection = next }
     private func importMusic() { if store.signedIn { importing = true } else { showAccount = true } }
     private var header: some View {
         HStack(spacing: 12) {
-            #if os(iOS)
             Text("Pulse").font(PulseTheme.heading(32))
-            #endif
-            HStack(spacing: 10) {
-                Image(systemName: "magnifyingglass").foregroundStyle(PulseTheme.muted)
-                TextField("Трек, исполнитель, альбом", text: $query).textFieldStyle(.plain).font(.system(size: 13))
-                    #if os(iOS)
-                    .textInputAutocapitalization(.never).autocorrectionDisabled()
-                    #endif
-                if !query.isEmpty { Button { query = "" } label: { Image(systemName: "xmark.circle.fill") }.buttonStyle(.plain).foregroundStyle(PulseTheme.muted) }
-            }
-            .padding(.horizontal, 14).frame(height: 46).background(PulseTheme.panel, in: RoundedRectangle(cornerRadius: 14))
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(PulseTheme.line))
+            Spacer()
             Button { Task { await store.refresh() } } label: { Image(systemName: "arrow.clockwise") }.buttonStyle(PulseIconButton()).disabled(store.syncing).help("Обновить медиатеку")
             PulseAccountBadge(social: store.social, fallbackName: store.user?.name, action: { showAccount = true }, compact: true)
         }.padding(.horizontal, contentPadding).padding(.vertical, 20)
@@ -149,11 +134,11 @@ struct PulseRootView: View {
     }
     private var mobileNavigation: some View {
         HStack(spacing: 0) {
-            ForEach([PulseCollection.home, .catalog, .library, .playlists, .friends]) { item in
+            ForEach([PulseCollection.home, .search, .dj, .library, .playlists]) { item in
                 Button { select(item) } label: {
                     VStack(spacing: 5) {
                         Image(systemName: item.symbol).font(.system(size: 19))
-                        Text(item == .catalog ? "Поиск" : item == .friends ? "Друзья" : item.title).font(.system(size: 9))
+                        Text(item.title).font(.system(size: 9))
                     }.frame(maxWidth: .infinity).frame(height: 52).foregroundStyle(collection == item ? PulseTheme.accent : PulseTheme.muted)
                 }.buttonStyle(.plain)
             }
@@ -241,6 +226,16 @@ struct PulseHomeView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 30) {
             PulseHero(count: store.tracks.count) { play(featured.shuffled()) }
+            Button { select(.dj) } label: {
+                HStack(spacing: 18) {
+                    Image(systemName: "waveform").font(.system(size: 32)).foregroundStyle(PulseTheme.accent)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("DJ · твой бесконечный микс").font(.system(size: 18, weight: .semibold))
+                        Text("Подбор по BPM и звучанию · плавные переходы и эффекты").font(.system(size: 12)).foregroundStyle(PulseTheme.muted)
+                    }
+                    Spacer(); Image(systemName: "arrow.up.right").foregroundStyle(PulseTheme.accent)
+                }.padding(22).frame(maxWidth: .infinity, alignment: .leading).background(PulseTheme.panel, in: RoundedRectangle(cornerRadius: 22))
+            }.buttonStyle(.plain)
             sectionTitle("Твой следующий любимый", subtitle: "Знакомые чувства. Новое звучание.") { select(.catalog) }
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(alignment: .top, spacing: 16) {
@@ -285,6 +280,7 @@ struct PulseHomeView: View {
 }
 
 struct PulseHero: View {
+    @EnvironmentObject private var store: PulseStore
     let count: Int
     let play: () -> Void
     var body: some View {
@@ -296,7 +292,7 @@ struct PulseHero: View {
                 Button(action: play) { Label("Запустить вайб", systemImage: "play.fill") }.buttonStyle(PulsePrimaryButton()).disabled(count == 0)
             }
             Spacer(minLength: 0)
-            PulseVinyl().frame(width: vinylSize, height: vinylSize).rotationEffect(.degrees(-18)).accessibilityHidden(true)
+            PulseReactiveVinyl(playback: store.playback, beat: store.beat).frame(width: vinylSize, height: vinylSize).accessibilityHidden(true)
         }
         .padding(heroPadding).frame(maxWidth: .infinity, minHeight: heroHeight, alignment: .leading)
         .background {
@@ -335,6 +331,21 @@ struct PulseHero: View {
         #else
         return 250
         #endif
+    }
+}
+struct PulseReactiveVinyl: View {
+    @ObservedObject var playback: PulsePlayback
+    @ObservedObject var beat: PulseBeat
+    @Environment(\.pulseReducedMotion) private var reducedMotion
+    @Environment(\.scenePhase) private var scenePhase
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: playback.paused || playback.buffering || reducedMotion || scenePhase != .active)) { _ in
+            let level = reducedMotion || playback.paused || playback.buffering ? 0 : beat.strength
+            PulseVinyl()
+                .rotationEffect(.degrees(reducedMotion ? -18 : -18 + playback.interpolatedTime * 30))
+                .scaleEffect(1 + level * 0.11)
+                .shadow(color: PulseTheme.accent.opacity(level * 0.45), radius: 8 + level * 28)
+        }
     }
 }
 struct PulseVinyl: View {

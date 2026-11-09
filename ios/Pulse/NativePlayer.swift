@@ -25,6 +25,13 @@ final class NativePlayer {
         }
     }
     var onState: (([String: Any]) -> Void)?
+    var onBeat: ((Double) -> Void)?
+    var onFavorite: ((String) -> Void)?
+    private var favoriteID = ""
+    private var favoriteAvailable = false
+    private var djTransitions: [String: PulseDJMix] = [:]
+    private var currentMix = PulseDJMix(effect: .blend, duration: 3)
+    func setDJTransitions(_ values: [String: PulseDJMix]) { djTransitions = values }
     private var queue: [Track] = []
     private var index = 0
     private var player = AVPlayer()
@@ -34,6 +41,7 @@ final class NativePlayer {
     private var itemObservation: NSKeyValueObservation?
     private var clock: Any?
     private var fade: Timer?
+    private var meterTimer: Timer?
     private var notifications: [NSObjectProtocol] = []
     private var remoteTargets: [(MPRemoteCommand, Any)] = []
     private var dj = true, wantsPlayback = false, fading = false
@@ -59,6 +67,13 @@ final class NativePlayer {
         bind(commands.pauseCommand) { [weak self] in self?.pause() }
         bind(commands.nextTrackCommand) { [weak self] in self?.next(1) }
         bind(commands.previousTrackCommand) { [weak self] in self?.next(-1) }
+        for command in [commands.likeCommand, commands.bookmarkCommand] {
+            command.isEnabled = false
+            remoteTargets.append((command, command.addTarget { [weak self] _ in
+                DispatchQueue.main.async { _ = self?.toggleFavoriteFromSystem() }
+                return .success
+            }))
+        }
         let seek = commands.changePlaybackPositionCommand.addTarget { [weak self] event in
             guard let event = event as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
             DispatchQueue.main.async { self?.seek(event.positionTime) }; return .success
@@ -86,13 +101,36 @@ final class NativePlayer {
         #endif
     }
     deinit {
-        fade?.invalidate(); artworkTask?.cancel()
+        fade?.invalidate(); meterTimer?.invalidate(); artworkTask?.cancel()
         if let clock = clock { player.removeTimeObserver(clock) }
         notifications.forEach { NotificationCenter.default.removeObserver($0) }
         remoteTargets.forEach { $0.0.removeTarget($0.1) }
     }
     private func bind(_ command: MPRemoteCommand, action: @escaping () -> Void) {
         remoteTargets.append((command, command.addTarget { _ in DispatchQueue.main.async { action() }; return .success }))
+    }
+    func adjacentID(_ direction: Int) -> String? {
+        guard !queue.isEmpty else { return nil }
+        return queue[(index + direction + queue.count) % queue.count].id
+    }
+    func setFavoriteState(trackID: String, available: Bool, liked: Bool) {
+        favoriteID = trackID; favoriteAvailable = available && !trackID.isEmpty
+        for command in [MPRemoteCommandCenter.shared().likeCommand, MPRemoteCommandCenter.shared().bookmarkCommand] {
+            command.isEnabled = favoriteAvailable; command.isActive = liked
+            command.localizedTitle = liked ? "Убрать из избранного" : "В избранное"
+            command.localizedShortTitle = liked ? "В избранном" : "В избранное"
+        }
+    }
+    @discardableResult func toggleFavoriteFromSystem() -> MPRemoteCommandHandlerStatus {
+        guard favoriteAvailable, !favoriteID.isEmpty, let onFavorite else { return .noSuchContent }
+        onFavorite(favoriteID); return .success
+    }
+    private func startMeter() {
+        meterTimer?.invalidate()
+        meterTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            self.onBeat?(self.wantsPlayback && self.player.timeControlStatus == .playing ? self.equalizer.bassLevel : 0)
+        }
     }
     func setEqualizer(_ config: PulseEQConfiguration) {
         equalizer.configure(config)
@@ -138,11 +176,11 @@ final class NativePlayer {
     }
     private func resume() {
         guard player.currentItem != nil else { return }
-        do { try activate(); wantsPlayback = true; player.play(); emit() }
+        do { try activate(); wantsPlayback = true; player.play(); startMeter(); emit() }
         catch { emit(error: "Не удалось включить системный звук") }
     }
     private func pause() {
-        wantsPlayback = false; player.pause(); finishFade(); emit()
+        wantsPlayback = false; player.pause(); finishFade(); meterTimer?.invalidate(); onBeat?(0); emit()
     }
     private func seek(_ seconds: Double) {
         guard seconds.isFinite else { return }
@@ -163,6 +201,7 @@ final class NativePlayer {
         guard queue.indices.contains(target) else { return }
         do { try activate() } catch { emit(error: "Не удалось включить системный звук"); return }
         finishFade(); observation = nil; itemObservation = nil
+        currentMix = djTransitions[queue[target].id] ?? PulseDJMix(effect: .blend, duration: 3)
         if let clock = clock { player.removeTimeObserver(clock); self.clock = nil }
         if crossfade { outgoing = player } else { player.pause() }
         player = AVPlayer(url: queue[target].url)
@@ -187,23 +226,29 @@ final class NativePlayer {
                 self.emit()
             }
         }
-        player.play(); emit()
+        player.play(); startMeter(); emit()
     }
     private func beginFade() {
-        let start = ProcessInfo.processInfo.systemUptime
+        var last = ProcessInfo.processInfo.systemUptime
+        var elapsed = 0.0
         fade = Timer.scheduledTimer(withTimeInterval: 0.04, repeats: true) { [weak self] _ in
             guard let self = self else { return }
+            let now = ProcessInfo.processInfo.systemUptime, delta = min(0.1, max(0, now - last)); last = now
             // Keep the old track audible if the incoming stream has to buffer again.
             guard self.player.timeControlStatus == .playing else { self.outgoing?.volume = self.gain; return }
-            let fraction = min(1, (ProcessInfo.processInfo.systemUptime - start) / 3)
+            elapsed += delta
+            let fraction = min(1, elapsed / self.currentMix.duration)
             self.player.volume = self.gain * Float(sin(fraction * .pi / 2))
             self.outgoing?.volume = self.gain * Float(cos(fraction * .pi / 2))
+            self.equalizer.transition(item: self.player.currentItem, value: PulseDJFXParameters.values(effect: self.currentMix.effect, progress: fraction, incoming: true))
+            self.equalizer.transition(item: self.outgoing?.currentItem, value: PulseDJFXParameters.values(effect: self.currentMix.effect, progress: fraction, incoming: false))
             if fraction >= 1 { self.finishFade() }
         }
     }
     private func finishFade() {
         fade?.invalidate(); fade = nil; outgoing?.pause(); outgoing = nil
         fading = false; player.volume = gain
+        equalizer.resetTransition()
     }
     private func tick() {
         let time = player.currentTime().seconds
@@ -212,7 +257,9 @@ final class NativePlayer {
             if player.timeControlStatus == .playing && delta > 0 && delta < 1 { listened += delta }
             lastTime = time
             if !recorded && duration > 0 && listened >= min(30, duration / 2) { saveHistory() }
-            if wantsPlayback && dj && !fading && duration > 20 && duration - time <= 3.5 && duration - time > 0 && queue.count > 1 { next(1); return }
+            let nextID = adjacentID(1) ?? ""
+            let transitionDuration = djTransitions[nextID]?.duration ?? 3
+            if wantsPlayback && dj && !fading && duration > 20 && duration - time <= transitionDuration + 0.8 && duration - time > 0 && queue.count > 1 { next(1); return }
         }
         emit()
     }
