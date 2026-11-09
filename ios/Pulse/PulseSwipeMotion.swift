@@ -34,7 +34,7 @@ final class PulseSwipeMotion: ObservableObject {
 struct PulseSwipeDeck<Card: View>: View {
     @ObservedObject var motion: PulseSwipeMotion
     let current: PulseTrack?
-    let incoming: PulseTrack?
+    let incoming: (Int) -> PulseTrack?
     let width: CGFloat
     let reducedMotion: Bool
     @ViewBuilder let card: (PulseTrack?) -> Card
@@ -42,7 +42,7 @@ struct PulseSwipeDeck<Card: View>: View {
         let progress = min(1, abs(motion.offset) / max(1, width * 0.65))
         ZStack {
             if abs(motion.offset) > 0.5, !reducedMotion {
-                card(incoming).scaleEffect(0.9 + progress * 0.1).offset(y: (1 - progress) * 18)
+                card(incoming(motion.direction)).scaleEffect(0.9 + progress * 0.1).offset(y: (1 - progress) * 18)
                     .opacity(0.45 + progress * 0.55).accessibilityHidden(true)
             }
             card(current)

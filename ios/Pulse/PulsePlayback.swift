@@ -1,9 +1,20 @@
 import SwiftUI
 
+@MainActor
+final class PulseTransport: ObservableObject {
+    @Published private(set) var paused = true
+    @Published private(set) var buffering = false
+    func receive(paused: Bool?, buffering: Bool?) {
+        if let paused, paused != self.paused { self.paused = paused }
+        if let buffering, buffering != self.buffering { self.buffering = buffering }
+    }
+}
+
 // Only the transport observes this clock. A 4 Hz playback tick must not publish
 // the entire library or invalidate hundreds of track rows.
 @MainActor
 final class PulsePlayback: ObservableObject {
+    let transport = PulseTransport()
     @Published var time = 0.0
     @Published var duration = 0.0
     @Published var paused = true
@@ -13,6 +24,7 @@ final class PulsePlayback: ObservableObject {
     private(set) var updatedAt = Date()
     var interpolatedTime: Double { time + (paused || buffering ? 0 : min(0.35, max(0, Date().timeIntervalSince(updatedAt)))) }
     func receive(_ value: [String: Any]) {
+        transport.receive(paused: value["paused"] as? Bool, buffering: value["buffering"] as? Bool)
         if let next = value["equalizerActive"] as? Bool, next != equalizerActive { equalizerActive = next }
         if let next = value["time"] as? Double { updatedAt = Date(); if next != time { time = next } }
         if let next = value["duration"] as? Double, next != duration { duration = next }

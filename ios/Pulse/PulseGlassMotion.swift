@@ -45,8 +45,9 @@ final class PulseGlassMotion: ObservableObject {
                 guard point.x.isFinite, point.y.isFinite else { return }
                 if self.baseline == nil { self.baseline = point }
                 let target = PulseGlassTilt.normalized(point, relativeTo: self.baseline ?? point)
-                let value = CGPoint(x: self.tilt.x * 0.75 + target.x * 0.25, y: self.tilt.y * 0.75 + target.y * 0.25)
-                if abs(value.x - self.tilt.x) + abs(value.y - self.tilt.y) > 0.002 { self.tilt = value }
+                let value = CGPoint(x: self.tilt.x * 0.65 + target.x * 0.35, y: self.tilt.y * 0.65 + target.y * 0.35)
+                // Ignore hand tremor instead of invalidating every visible rim.
+                if abs(value.x - self.tilt.x) + abs(value.y - self.tilt.y) > 0.025 { self.tilt = value }
             }
         } else { source?.stop(); if tilt != .zero { tilt = .zero } }
     }
@@ -59,7 +60,7 @@ private final class PulseDeviceMotionSource: PulseMotionSource {
     var available: Bool { manager.isDeviceMotionAvailable }
     func start(_ receive: @escaping (CGPoint?) -> Void) {
         guard available else { receive(nil); return }
-        manager.deviceMotionUpdateInterval = 1.0 / 20
+        manager.deviceMotionUpdateInterval = 1.0 / 15
         manager.startDeviceMotionUpdates(to: .main) { motion, error in
             guard error == nil, let motion else { receive(nil); return }
             // Device-frame gravity is fused from the gyro and accelerometer;

@@ -153,7 +153,10 @@ final class PulseStore: ObservableObject {
                 async let saved: PulseLibraryState = PulseAPI.request("api/state", token: sessionToken)
                 let (library, remoteState) = try await (music, saved)
                 guard stamp == generation else { return }
-                ownedTracks = library.tracks; ownedIDs = Set(library.tracks.map(\.id)); if revision == stateRevision { state = remoteState }
+                ownedTracks = library.tracks
+                let freshIDs = Set(library.tracks.map(\.id))
+                if ownedIDs != freshIDs { ownedIDs = freshIDs }
+                if revision == stateRevision && state != remoteState { state = remoteState }
                 // Retry identity after a transient restore failure without discarding the token.
                 if user == nil {
                     let identity: PulseIdentity = try await PulseAPI.request("api/auth/me", token: sessionToken)

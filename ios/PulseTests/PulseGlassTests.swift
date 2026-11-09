@@ -1,4 +1,5 @@
 import XCTest
+import Combine
 #if os(iOS)
 @testable import Pulse
 #else
@@ -17,6 +18,20 @@ final class PulseGlassTests: XCTestCase {
         XCTAssertEqual(PulseGlassTilt.normalized(CGPoint(x: 20, y: -20), relativeTo: .zero), CGPoint(x: 1, y: -1))
         XCTAssertEqual(PulseGlassTilt.normalized(CGPoint(x: CGFloat.nan, y: 1), relativeTo: .zero), .zero)
         XCTAssertEqual(PulseGlassTilt.normalized(CGPoint(x: 0.2, y: 0.4), relativeTo: CGPoint(x: 0.2, y: 0.4)), .zero)
+    }
+    @MainActor
+    func testStationaryPhoneNoiseDoesNotPublishHighlights() async {
+        let source = MotionSource()
+        let motion = PulseGlassMotion(source: source)
+        motion.setEnabled(true); source.receive?(.zero)
+        var updates = 0
+        let subscription = motion.objectWillChange.sink { updates += 1 }
+        for i in 0..<300 { source.receive?(CGPoint(x: i.isMultiple(of: 2) ? 0.003 : -0.003, y: 0.001)) }
+        XCTAssertEqual(updates, 0, "Small sensor noise must not redraw stationary panels")
+        source.receive?(CGPoint(x: 0.2, y: 0.1))
+        XCTAssertGreaterThan(updates, 0, "Intentional tilt should still move the highlight")
+        motion.setEnabled(false)
+        withExtendedLifetime(subscription) { }
     }
     @MainActor
     func testMotionStopsResetsAndRejectsStaleSamplesInBackground() async {

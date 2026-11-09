@@ -2,12 +2,12 @@ import SwiftUI
 
 struct PulsePlayerBar: View {
     @ObservedObject var store: PulseStore
-    @ObservedObject private var playback: PulsePlayback
+    @ObservedObject private var playback: PulseTransport
     @State private var expanded = false
-    @StateObject private var swipe = PulseSwipeMotion()
+    @State private var swipe = PulseSwipeMotion()
     @Environment(\.pulseReducedMotion) private var systemReducedMotion
     @AppStorage("pulse_reduce_motion") private var appReducedMotion = false
-    init(store: PulseStore) { self.store = store; playback = store.playback }
+    init(store: PulseStore) { self.store = store; playback = store.playback.transport }
     var body: some View {
         Group {
             #if os(macOS)
@@ -20,7 +20,7 @@ struct PulsePlayerBar: View {
         #if os(macOS)
         .background(PulseGlassBackground(radius: 0)).overlay(alignment: .top) { Rectangle().fill(PulseTheme.line).frame(height: 1) }
         #else
-        .pulseGlass(cornerRadius: 24).padding(.horizontal, 12)
+        .pulseGlass(cornerRadius: 24, style: .chrome).padding(.horizontal, 12)
         #endif
         .sheet(isPresented: $expanded) { PulseExpandedPlayer(store: store).preferredColorScheme(.dark).tint(PulseTheme.accent) }
     }
@@ -47,17 +47,15 @@ struct PulsePlayerBar: View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 Button { if store.currentTrack != nil && abs(swipe.offset) < 5 { expanded = true } } label: {
-                    PulseSwipeDeck(motion: swipe, current: store.currentTrack, incoming: store.adjacentTrack(swipe.direction), width: 300, reducedMotion: systemReducedMotion || appReducedMotion) { track in
+                    PulseSwipeDeck(motion: swipe, current: store.currentTrack, incoming: store.adjacentTrack, width: 300, reducedMotion: systemReducedMotion || appReducedMotion) { track in
                         compactTrack(track).padding(.vertical, 2).frame(maxWidth: .infinity, alignment: .leading).background(PulseTheme.panel.opacity(0.35), in: RoundedRectangle(cornerRadius: 14))
                     }
                 }.buttonStyle(.plain).clipped()
                 Spacer(minLength: 0)
                 Button { store.togglePlayback() } label: { Image(systemName: playback.paused ? "play.fill" : "pause.fill").font(.system(size: 19)).frame(width: 34, height: 40) }.buttonStyle(.plain).disabled(store.currentTrack == nil).accessibilityLabel(playback.paused ? "Воспроизвести" : "Пауза")
-                Button { swipe.advance(1, width: 300, reducedMotion: systemReducedMotion || appReducedMotion, action: store.next) } label: { Image(systemName: "forward.end.fill").font(.system(size: 16)).frame(width: 28, height: 40) }.buttonStyle(.plain).disabled(store.currentTrack == nil || swipe.committing).accessibilityLabel("Следующий трек")
+                Button { swipe.advance(1, width: 300, reducedMotion: systemReducedMotion || appReducedMotion, action: store.next) } label: { Image(systemName: "forward.end.fill").font(.system(size: 16)).frame(width: 28, height: 40) }.buttonStyle(.plain).disabled(store.currentTrack == nil).accessibilityLabel("Следующий трек")
             }.padding(.horizontal, 18).padding(.top, 10).padding(.bottom, 8)
-            GeometryReader { geometry in
-                Rectangle().fill(PulseTheme.accent).frame(width: geometry.size.width * (playback.duration > 0 ? min(1, playback.time / playback.duration) : 0))
-            }.frame(height: 2).background(PulseTheme.line)
+            PulseMiniProgress(playback: store.playback).padding(.horizontal, 24).padding(.bottom, 2)
         }
         .simultaneousGesture(DragGesture(minimumDistance: 16)
             .onChanged { value in if store.currentTrack != nil { swipe.drag(value) } }
@@ -124,12 +122,12 @@ struct PulseTimeline: View {
 
 struct PulseExpandedPlayer: View {
     @ObservedObject var store: PulseStore
-    @ObservedObject private var playback: PulsePlayback
+    @ObservedObject private var playback: PulseTransport
     @Environment(\.dismiss) private var dismiss
     @Environment(\.pulseReducedMotion) private var reducedMotion
-    @StateObject private var swipe = PulseSwipeMotion()
+    @State private var swipe = PulseSwipeMotion()
     @State private var seekFrame = CGRect.null
-    init(store: PulseStore) { self.store = store; playback = store.playback }
+    init(store: PulseStore) { self.store = store; playback = store.playback.transport }
     var body: some View {
         GeometryReader { geometry in
             ScrollView {
@@ -144,7 +142,7 @@ struct PulseExpandedPlayer: View {
                         }
                     }
                     Spacer(minLength: 10)
-                    PulseSwipeDeck(motion: swipe, current: store.currentTrack, incoming: store.adjacentTrack(swipe.direction), width: geometry.size.width, reducedMotion: reducedMotion) { track in
+                    PulseSwipeDeck(motion: swipe, current: store.currentTrack, incoming: store.adjacentTrack, width: geometry.size.width, reducedMotion: reducedMotion) { track in
                         VStack(spacing: 28) {
                             PulseArtworkView(track: track, size: min(geometry.size.width - 80, 360), radius: 24)
                             VStack(alignment: .leading, spacing: 10) {
@@ -159,7 +157,7 @@ struct PulseExpandedPlayer: View {
                         Button { swipe.advance(-1, width: geometry.size.width, reducedMotion: reducedMotion, action: store.next) } label: { Image(systemName: "backward.end.fill").font(.title2) }
                         Button { store.togglePlayback() } label: { Image(systemName: playback.paused ? "play.fill" : "pause.fill").font(.title).foregroundStyle(.black).frame(width: 68, height: 68).background(Color.white, in: Circle()) }
                         Button { swipe.advance(1, width: geometry.size.width, reducedMotion: reducedMotion, action: store.next) } label: { Image(systemName: "forward.end.fill").font(.title2) }
-                    }.buttonStyle(.plain).disabled(store.currentTrack == nil || swipe.committing)
+                    }.buttonStyle(.plain).disabled(store.currentTrack == nil)
                     Toggle("DJ · плавные переходы", isOn: $store.dj).font(.system(size: 13)).tint(PulseTheme.accent)
                     PulseLyricsView(store: store)
                     Text("Твоя музыка. Твой вайб.").font(PulseTheme.heading(24)).foregroundStyle(PulseTheme.muted)
@@ -176,6 +174,15 @@ struct PulseExpandedPlayer: View {
         #if os(macOS)
         .frame(width: 650, height: 730)
         #endif
+    }
+}
+
+private struct PulseMiniProgress: View {
+    @ObservedObject var playback: PulsePlayback
+    var body: some View {
+        GeometryReader { geometry in
+            Rectangle().fill(PulseTheme.accent).frame(width: geometry.size.width * (playback.duration > 0 ? min(1, playback.time / playback.duration) : 0))
+        }.frame(height: 2).background(PulseTheme.line)
     }
 }
 

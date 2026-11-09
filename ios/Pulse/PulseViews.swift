@@ -58,10 +58,12 @@ struct PulseRootView: View {
             #if os(macOS)
             Rectangle().fill(PulseTheme.line).frame(height: 1)
             #endif
-            PulsePlayerBar(store: store)
+            VStack(spacing: 0) {
+                PulsePlayerBar(store: store)
             #if os(iOS)
-            mobileNavigation
+                mobileNavigation
             #endif
+            }.pulseGlassContainer()
         }
         .animation(systemReducedMotion || appReducedMotion ? nil : .easeInOut(duration: 0.18), value: collection)
         .background(PulseAmbientBackground()).foregroundStyle(Color(red: 0.95, green: 0.94, blue: 0.94))
@@ -152,7 +154,7 @@ struct PulseRootView: View {
                         }
                 }.buttonStyle(.plain)
             }
-        }.padding(6).pulseGlass(cornerRadius: 30).padding(.horizontal, 12).padding(.top, 8).padding(.bottom, 6)
+        }.padding(6).pulseGlass(cornerRadius: 30, style: .chrome).padding(.horizontal, 12).padding(.top, 8).padding(.bottom, 6)
     }
     private var collectionHeader: some View {
         HStack(alignment: .bottom) {
@@ -319,7 +321,7 @@ struct PulseHero: View {
         #endif
         }
         .padding(heroPadding).frame(maxWidth: .infinity, minHeight: heroHeight, alignment: .leading)
-        .pulseGlass(cornerRadius: 25)
+        .pulseGlass(cornerRadius: 25, style: .hero)
     }
     private var titleSize: CGFloat {
         #if os(macOS)

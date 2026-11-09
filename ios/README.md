@@ -166,3 +166,19 @@ check cannot prevent the app window from opening. Restore results are guarded
 against account changes, and pending deletion finishes before saving a new login.
 A regression test holds the session read open while checking MainActor remains
 responsive.
+
+## Version 1.5.1 — iPhone rendering performance
+
+Native Liquid Glass is limited to the two fixed bottom panels, sharing one
+GlassEffectContainer. Scrolling cards use translucent gradient fills and static
+rims: no backdrop sampling, screen blend mode, full-content shadow or repeated
+content mask. Only the home hero and bottom chrome subscribe to tilt updates.
+Motion sampling is 15 Hz with a deadband that ignores stationary-phone noise.
+
+The player shell observes a transport model that only publishes play/buffer
+changes. Progress updates are isolated to the timeline and mini progress strip.
+Swipe position is observed by the card deck, not the full player or lyrics.
+Unchanged cloud library state no longer republishes on every refresh. Regression
+tests verify 240 clock ticks do not update the transport shell and 300 small
+motion readings do not publish a highlight change. Physical-device frame-rate
+profiling is still required; simulator results are not an iPhone FPS claim.

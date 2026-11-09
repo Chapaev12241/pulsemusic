@@ -17,9 +17,9 @@ struct PulseUser: Codable { let id: String; let email: String; let name: String 
 struct PulseSession: Decodable { let user: PulseUser; let token: String }
 struct PulseIdentity: Decodable { let authenticated: Bool; let user: PulseUser? }
 struct PulseCatalog: Decodable { let tracks: [PulseTrack]; let indexing: Bool? }
-struct PulsePlaylist: Codable, Identifiable { let id: String; let name: String; let tracks: [String] }
-struct PulseHistory: Codable { let id: String; let at: String }
-struct PulseLibraryState: Codable {
+struct PulsePlaylist: Codable, Identifiable, Equatable { let id: String; let name: String; let tracks: [String] }
+struct PulseHistory: Codable, Equatable { let id: String; let at: String }
+struct PulseLibraryState: Codable, Equatable {
     var liked: [String] = []
     var history: [PulseHistory] = []
     var playlists: [PulsePlaylist] = []

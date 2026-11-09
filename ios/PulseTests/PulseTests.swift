@@ -87,6 +87,20 @@ final class PulseTestURLProtocol: URLProtocol {
 
 final class PulsePerformanceTests: XCTestCase {
     @MainActor
+    func testTransportIgnoresClockTicksButPublishesPlaybackChanges() async {
+        let playback = PulsePlayback()
+        playback.receive(["paused": false, "buffering": false, "time": 0.0])
+        var updates = 0
+        let observation = playback.transport.objectWillChange.sink { updates += 1 }
+        for tick in 1...240 { playback.receive(["time": Double(tick) / 4, "paused": false, "buffering": false]) }
+        XCTAssertEqual(playback.time, 60)
+        XCTAssertEqual(updates, 0, "The artwork and player container must not update with the progress clock")
+        playback.receive(["paused": true])
+        XCTAssertTrue(playback.transport.paused)
+        XCTAssertEqual(updates, 1)
+        withExtendedLifetime(observation) { }
+    }
+    @MainActor
     func testPendingKeychainReadDoesNotBlockTheMainActor() async {
         let entered = expectation(description: "Keychain read started in background")
         let gate = DispatchSemaphore(value: 0)
