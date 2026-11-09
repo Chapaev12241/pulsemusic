@@ -17,7 +17,11 @@ struct PulsePlayerBar: View {
             #endif
         }
         .animation(systemReducedMotion || appReducedMotion ? nil : .easeOut(duration: 0.2), value: store.currentID)
-        .background(PulseTheme.panel)
+        #if os(macOS)
+        .background(PulseGlassBackground(radius: 0)).overlay(alignment: .top) { Rectangle().fill(PulseTheme.line).frame(height: 1) }
+        #else
+        .pulseGlass(cornerRadius: 24).padding(.horizontal, 12)
+        #endif
         .sheet(isPresented: $expanded) { PulseExpandedPlayer(store: store).preferredColorScheme(.dark).tint(PulseTheme.accent) }
     }
     private var desktopPlayer: some View {
@@ -44,7 +48,7 @@ struct PulsePlayerBar: View {
             HStack(spacing: 10) {
                 Button { if store.currentTrack != nil && abs(swipe.offset) < 5 { expanded = true } } label: {
                     PulseSwipeDeck(motion: swipe, current: store.currentTrack, incoming: store.adjacentTrack(swipe.direction), width: 300, reducedMotion: systemReducedMotion || appReducedMotion) { track in
-                        compactTrack(track).padding(.vertical, 2).frame(maxWidth: .infinity, alignment: .leading).background(PulseTheme.panel)
+                        compactTrack(track).padding(.vertical, 2).frame(maxWidth: .infinity, alignment: .leading).background(PulseTheme.panel.opacity(0.35), in: RoundedRectangle(cornerRadius: 14))
                     }
                 }.buttonStyle(.plain).clipped()
                 Spacer(minLength: 0)
@@ -142,12 +146,12 @@ struct PulseExpandedPlayer: View {
                     Spacer(minLength: 10)
                     PulseSwipeDeck(motion: swipe, current: store.currentTrack, incoming: store.adjacentTrack(swipe.direction), width: geometry.size.width, reducedMotion: reducedMotion) { track in
                         VStack(spacing: 28) {
-                            PulseArtworkView(track: track, size: min(geometry.size.width - 48, 360), radius: 24)
+                            PulseArtworkView(track: track, size: min(geometry.size.width - 80, 360), radius: 24)
                             VStack(alignment: .leading, spacing: 10) {
                                 Text(track?.title ?? "Выбери трек").font(.system(size: 25, weight: .semibold))
                                 Text(track?.artist ?? "Pulse").font(.system(size: 16)).foregroundStyle(PulseTheme.muted)
                             }.frame(maxWidth: .infinity, alignment: .leading)
-                        }.padding(1).background(PulseTheme.background, in: RoundedRectangle(cornerRadius: 24))
+                        }.padding(16).pulseGlass(cornerRadius: 30)
                     }
                     PulseTimeline(store: store)
                         .background(GeometryReader { proxy in Color.clear.preference(key: PulseSeekFrameKey.self, value: proxy.frame(in: .named("PulseFullPlayer"))) })
@@ -168,7 +172,7 @@ struct PulseExpandedPlayer: View {
         }
         .coordinateSpace(name: "PulseFullPlayer")
         .onPreferenceChange(PulseSeekFrameKey.self) { seekFrame = $0 }
-        .background(PulseTheme.background)
+        .background(PulseAmbientBackground())
         #if os(macOS)
         .frame(width: 650, height: 730)
         #endif

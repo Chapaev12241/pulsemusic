@@ -145,3 +145,18 @@ The next stream starts before the outgoing track ends, and fades wait for buffer
 Normal playback keeps its existing simple crossfade. Like/bookmark remote commands
 toggle the same cloud favorite state as the app; iOS decides which system surfaces
 expose those commands. No custom Live Activity is claimed.
+
+## Version 1.5
+
+Glass panels use native Liquid Glass on supported SDK/OS combinations and a
+translucent material fallback on older systems. Ambient color, floating mobile
+navigation and player surfaces share a subtle, specular rim. Settings provide
+glass, tint and iPhone tilt-highlight controls. Reduce Transparency uses opaque
+panels; Reduce Motion freezes highlights and stops the sensor.
+
+Core Motion samples fused device gravity at 20 Hz only in an active app. A shared
+motion observable updates just the glass overlays; library content does not
+subscribe. Motion readings are not stored or transmitted. Missing/denied sensors
+fall back to a static rim. Tests cover calibration, bounded/invalid readings,
+background shutdown, stale callbacks and unavailable sensors. Physical iPhone
+testing is still needed for the feel of the gyroscope highlight.

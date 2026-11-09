@@ -22,6 +22,7 @@ struct PulsePrimaryButton: ButtonStyle {
         configuration.label.font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.black.opacity(0.9))
             .padding(.horizontal, 20).frame(minHeight: 44).background(PulseTheme.gradient, in: RoundedRectangle(cornerRadius: 13))
             .opacity(configuration.isPressed ? 0.8 : 1)
+            .overlay(PulseGlassRim(radius: 13))
             .scaleEffect(configuration.isPressed && !reducedMotion ? 0.97 : 1)
             .animation(reducedMotion ? nil : .easeOut(duration: 0.14), value: configuration.isPressed)
     }
@@ -29,7 +30,8 @@ struct PulsePrimaryButton: ButtonStyle {
 struct PulseIconButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label.frame(width: 40, height: 40).foregroundStyle(PulseTheme.muted)
-            .background(configuration.isPressed ? PulseTheme.raised : .clear, in: RoundedRectangle(cornerRadius: 12))
+            .background(configuration.isPressed ? PulseTheme.raised.opacity(0.5) : .clear, in: RoundedRectangle(cornerRadius: 14))
+            .pulseGlass(cornerRadius: 14)
             .contentShape(Rectangle())
     }
 }

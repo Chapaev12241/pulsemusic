@@ -14,6 +14,7 @@ struct PulseApp: App {
                 #if os(macOS)
                 .background(PulseTouchBarHost(store: store).frame(width: 0, height: 0))
                 #endif
+                .background(PulseGlassLifecycle())
                 .environment(\.pulseReducedMotion, systemReducedMotion || appReducedMotion)
                 .preferredColorScheme(.dark)
                 .tint(PulseTheme.accent)

@@ -80,7 +80,7 @@ struct PulseDJView: View {
                     }
                     Spacer()
                     PulseReactiveVinyl(playback: store.playback, beat: store.beat).frame(width: 100, height: 100).padding(8)
-                }.padding(24).background(PulseTheme.panel, in: RoundedRectangle(cornerRadius: 26))
+                }.padding(24).pulseGlass(cornerRadius: 26)
                 if dj.building {
                     ProgressView(value: Double(dj.progress), total: Double(max(1, dj.total)))
                     HStack {

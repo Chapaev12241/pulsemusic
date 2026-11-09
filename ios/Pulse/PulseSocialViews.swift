@@ -63,7 +63,7 @@ struct PulseProfileView: View {
                     if let bio = social.profile?.bio, !bio.isEmpty { Text(bio).font(.callout).foregroundStyle(PulseTheme.muted).multilineTextAlignment(.center) }
                     if let email = store.user?.email { Text(email).font(.caption).foregroundStyle(PulseTheme.muted) }
                     Button("Настроить профиль") { editing = true }.buttonStyle(PulsePrimaryButton()).disabled(social.profile == nil)
-                }.frame(maxWidth: .infinity).padding(28).background(PulseTheme.panel, in: RoundedRectangle(cornerRadius: 24))
+                }.frame(maxWidth: .infinity).padding(28).pulseGlass(cornerRadius: 24)
                 HStack(spacing: 12) {
                     statistic("Музыка", value: store.ownedIDs.count)
                     statistic("Избранное", value: store.state.liked.count)
@@ -78,7 +78,7 @@ struct PulseProfileView: View {
                             Button { showQR = true } label: { Label("QR-код", systemImage: "qrcode") }.buttonStyle(.bordered).tint(PulseTheme.accent)
                         }
                         Text(profile.id).font(.caption2.monospaced()).foregroundStyle(PulseTheme.muted).textSelection(.enabled)
-                    }.frame(maxWidth: .infinity, alignment: .leading).padding(22).background(PulseTheme.panel, in: RoundedRectangle(cornerRadius: 22))
+                    }.frame(maxWidth: .infinity, alignment: .leading).padding(22).pulseGlass(cornerRadius: 22)
                 }
                 if social.loading { ProgressView() }
             }.padding(20)
@@ -89,7 +89,7 @@ struct PulseProfileView: View {
         .alert("Профиль", isPresented: Binding(get: { social.error != nil }, set: { if !$0 { social.error = nil } })) { Button("Понятно") { social.error = nil } } message: { Text(social.error ?? "") }
     }
     private func statistic(_ title: String, value: Int) -> some View {
-        VStack(spacing: 7) { Text("\(value)").font(.title2.bold()).foregroundStyle(PulseTheme.accent); Text(title).font(.caption).foregroundStyle(PulseTheme.muted) }.frame(maxWidth: .infinity).padding(.vertical, 18).background(PulseTheme.panel, in: RoundedRectangle(cornerRadius: 18))
+        VStack(spacing: 7) { Text("\(value)").font(.title2.bold()).foregroundStyle(PulseTheme.accent); Text(title).font(.caption).foregroundStyle(PulseTheme.muted) }.frame(maxWidth: .infinity).padding(.vertical, 18).pulseGlass(cornerRadius: 18)
     }
 }
 struct PulseProfileEditor: View {
@@ -137,7 +137,7 @@ struct PulseProfileEditor: View {
                 }
                 if let error = social.error { Text(error).foregroundStyle(.red).font(.callout) }
             }
-            .formStyle(.grouped).scrollContentBackground(.hidden).background(PulseTheme.background)
+            .formStyle(.grouped).scrollContentBackground(.hidden).background(PulseAmbientBackground())
             .navigationTitle("Твой профиль")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Отмена") { dismiss() } }
@@ -178,7 +178,7 @@ struct PulseInviteView: View {
             if let image { Image(decorative: image, scale: 1).interpolation(.none).resizable().scaledToFit().frame(width: 230, height: 230).padding(18).background(Color.white, in: RoundedRectangle(cornerRadius: 20)) }
             Text("Друг может отсканировать QR-код или вставить ссылку в разделе «Друзья».").font(.callout).foregroundStyle(PulseTheme.muted).multilineTextAlignment(.center)
             ShareLink(item: profile.inviteURL) { Label("Поделиться приглашением", systemImage: "square.and.arrow.up") }.buttonStyle(PulsePrimaryButton())
-        }.padding(28).frame(maxWidth: 420).background(PulseTheme.background)
+        }.padding(28).frame(maxWidth: 420).background(PulseAmbientBackground())
         .task(id: profile.id) {
             let filter = CIFilter.qrCodeGenerator(); filter.message = Data(profile.inviteURL.absoluteString.utf8); filter.correctionLevel = "H"
             if let output = filter.outputImage { image = CIContext().createCGImage(output.transformed(by: CGAffineTransform(scaleX: 8, y: 8)), from: output.extent.applying(CGAffineTransform(scaleX: 8, y: 8))) }
@@ -203,7 +203,7 @@ struct PulseFriendsView: View {
                         HStack { if adding { ProgressView().controlSize(.small) }; Text("Отправить заявку") }
                     }.buttonStyle(PulsePrimaryButton()).disabled(adding || invitation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !social.signedIn)
                     if !social.outgoing.isEmpty { Text("Заявок отправлено: \(social.outgoing.count)").font(.caption).foregroundStyle(PulseTheme.muted) }
-                }.padding(20).background(PulseTheme.panel, in: RoundedRectangle(cornerRadius: 20))
+                }.padding(20).pulseGlass(cornerRadius: 20)
                 if !social.incoming.isEmpty {
                     Text("Заявки в друзья").font(.title3.bold())
                     ForEach(social.incoming) { person in
@@ -213,18 +213,18 @@ struct PulseFriendsView: View {
                                 Button("Принять") { Task { await social.respond(to: person.id, accept: true) } }.buttonStyle(.borderedProminent).tint(PulseTheme.accent)
                                 Button("Отклонить") { Task { await social.respond(to: person.id, accept: false) } }.buttonStyle(.bordered)
                             }
-                        }.padding(16).background(PulseTheme.panel, in: RoundedRectangle(cornerRadius: 18))
+                        }.padding(16).pulseGlass(cornerRadius: 18)
                     }
                 }
                 HStack { Text("Друзья").font(.title3.bold()); Text("\(social.friends.count)").foregroundStyle(PulseTheme.muted); Spacer(); if social.loading { ProgressView().controlSize(.small) } }
                 if social.friends.isEmpty { Text("Пригласи друга по ссылке или QR-коду. После подтверждения заявки здесь появится ваш чат.").foregroundStyle(PulseTheme.muted).font(.callout) }
                 ForEach(social.friends) { person in
-                    Button { selected = person } label: { HStack { personRow(person); Spacer(); Image(systemName: "bubble.left.and.bubble.right").foregroundStyle(PulseTheme.accent) }.padding(16).background(PulseTheme.panel, in: RoundedRectangle(cornerRadius: 18)) }.buttonStyle(.plain)
+                    Button { selected = person } label: { HStack { personRow(person); Spacer(); Image(systemName: "bubble.left.and.bubble.right").foregroundStyle(PulseTheme.accent) }.padding(16).pulseGlass(cornerRadius: 18) }.buttonStyle(.plain)
                 }
                 if let error = social.error { Text(error).foregroundStyle(.red).font(.callout) }
             }.padding(20)
         }
-        .background(PulseTheme.background)
+        .background(PulseAmbientBackground())
         .sheet(item: $selected) { friend in PulseChatView(friend: friend, social: social) }
         .task {
             while !Task.isCancelled {
@@ -252,7 +252,7 @@ struct PulseChatView: View {
             Divider().overlay(PulseTheme.line)
             if chat.sessionValid { messages; composer }
             else { Text("Войди в аккаунт, чтобы открыть переписку").padding(40); Spacer() }
-        }.background(PulseTheme.background)
+        }.background(PulseAmbientBackground())
         #if os(macOS)
         .frame(width: 590, height: 660)
         #endif

@@ -47,7 +47,7 @@ struct PulseSearchView: View {
                             #endif
                             .onSubmit { focused = false }
                         if !query.isEmpty { Button { query = ""; focused = true } label: { Image(systemName: "xmark.circle.fill") }.buttonStyle(.plain).accessibilityLabel("Очистить поиск") }
-                    }.padding(16).background(PulseTheme.panel, in: RoundedRectangle(cornerRadius: 16))
+                    }.padding(16).pulseGlass(cornerRadius: 16)
                     if !artists.isEmpty {
                         Text(query.isEmpty ? "Исполнители" : "Найденные исполнители").font(.title3.bold())
                         ScrollView(.horizontal, showsIndicators: false) {

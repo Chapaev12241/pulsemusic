@@ -10,6 +10,9 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -25,6 +28,27 @@ jobs:
       - name: Build iPhone simulator
         working-directory: ios
         run: xcodebuild -project Pulse.xcodeproj -scheme Pulse -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build-simulator CODE_SIGNING_ALLOWED=NO build
+      - name: Capture iPhone design preview
+        timeout-minutes: 4
+        continue-on-error: true
+        working-directory: ios
+        run: |
+          xcrun simctl list devices available -j > /tmp/pulse-simulators.json
+          PULSE_PREVIEW_ID=$(node -e 'const fs=require("fs");const d=JSON.parse(fs.readFileSync("/tmp/pulse-simulators.json","utf8")).devices;const keys=Object.keys(d).filter(k=>k.includes("iOS-")).sort((a,b)=>Number(b.match(/iOS-(\d+)/)[1])-Number(a.match(/iOS-(\d+)/)[1]));for(const k of keys){const phone=d[k].find(x=>x.isAvailable&&x.name.includes("iPhone"));if(phone){process.stdout.write(phone.udid);break}}')
+          test -n "$PULSE_PREVIEW_ID"
+          xcrun simctl boot "$PULSE_PREVIEW_ID" || true
+          xcrun simctl bootstatus "$PULSE_PREVIEW_ID" -b
+          xcrun simctl install "$PULSE_PREVIEW_ID" build-simulator/Build/Products/Debug-iphonesimulator/Pulse.app
+          xcrun simctl launch "$PULSE_PREVIEW_ID" com.chapaev12241.pulsemusic
+          sleep 12
+          xcrun simctl io "$PULSE_PREVIEW_ID" screenshot Pulse-iPhone-preview.png
+          xcrun simctl shutdown "$PULSE_PREVIEW_ID"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pulse-iPhone-preview
+          path: ios/Pulse-iPhone-preview.png
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Build and test Mac app
         working-directory: ios
         run: xcodebuild -project Pulse.xcodeproj -scheme PulseMac -configuration Debug -destination 'platform=macOS' -derivedDataPath build-tests test

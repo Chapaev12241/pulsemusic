@@ -7,8 +7,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: '5.0'
-    MARKETING_VERSION: '1.4.0'
-    CURRENT_PROJECT_VERSION: '5'
+    MARKETING_VERSION: '1.5.0'
+    CURRENT_PROJECT_VERSION: '6'
 targets:
   Pulse:
     type: application
@@ -24,6 +24,7 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
         UIBackgroundModes: [audio]
+        NSMotionUsageDescription: Блики на стеклянных панелях Pulse двигаются при наклоне iPhone. Данные движения не сохраняются и не отправляются.
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
     settings:
       base:

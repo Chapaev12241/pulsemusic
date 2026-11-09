@@ -5,11 +5,23 @@ struct PulseSettingsView: View {
     @ObservedObject private var equalizer: PulseEqualizerSettings
     @Environment(\.accessibilityReduceMotion) private var systemReducedMotion
     @AppStorage("pulse_reduce_motion") private var reducedMotion = false
+    @AppStorage("pulse_glass_enabled") private var glass = true
+    @AppStorage("pulse_glass_motion") private var glassMotion = true
+    @AppStorage("pulse_glass_tint") private var glassTint = 0.38
     init(store: PulseStore) { self.store = store; equalizer = store.equalizer }
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 Text("Твой звук.\nТвои правила.").font(PulseTheme.heading(36))
+                VStack(alignment: .leading, spacing: 18) {
+                    Label("Оформление", systemImage: "circle.lefthalf.filled").font(.headline)
+                    Toggle("Стеклянные панели", isOn: $glass)
+                    #if os(iOS)
+                    Toggle("Блики при наклоне iPhone", isOn: $glassMotion).disabled(!glass || reducedMotion || systemReducedMotion)
+                    Text("Свет на окантовке следует за наклоном телефона. Датчик работает только в открытом приложении.").font(.caption).foregroundStyle(PulseTheme.muted)
+                    #endif
+                    HStack { Text("Тонировка"); Slider(value: $glassTint, in: 0...1).accessibilityLabel("Тонировка стекла"); Text("\(Int(glassTint * 100))%").monospacedDigit().frame(width: 42) }.disabled(!glass)
+                }.font(.callout).padding(22).pulseGlass(cornerRadius: 22)
                 VStack(alignment: .leading, spacing: 18) {
                     Toggle("Эквалайзер", isOn: Binding(get: { equalizer.config.enabled }, set: equalizer.setEnabled)).font(.headline)
                     Text("10 полос · настройки сохраняются на этом устройстве").font(.caption).foregroundStyle(PulseTheme.muted)
@@ -30,22 +42,22 @@ struct PulseSettingsView: View {
                     }
                     HStack { Button("Сбросить полосы") { equalizer.reset() }; Spacer(); Text("Запас уровня: \(Int(equalizer.config.headroomDB)) дБ").font(.caption).foregroundStyle(PulseTheme.muted) }
                     Text("При усилении полос уровень автоматически снижается, чтобы уменьшить риск перегрузки. Выбирай пресет под свои наушники и музыку.").font(.caption).foregroundStyle(PulseTheme.muted)
-                }.padding(22).background(PulseTheme.panel, in: RoundedRectangle(cornerRadius: 22))
+                }.padding(22).pulseGlass(cornerRadius: 22)
                 VStack(spacing: 18) {
                     Toggle("DJ · плавные переходы", isOn: $store.dj)
                     Toggle("Меньше анимаций", isOn: $reducedMotion)
                     if systemReducedMotion { Text("Уменьшение движения включено — анимации интерфейса ограничены.").font(.caption).foregroundStyle(PulseTheme.muted) }
                     HStack { Image(systemName: "speaker.wave.2"); Slider(value: $store.volume, in: 0...1); Text("\(Int(store.volume * 100))%").font(.caption.monospacedDigit()).frame(width: 36) }
-                }.font(.callout).padding(22).background(PulseTheme.panel, in: RoundedRectangle(cornerRadius: 22))
+                }.font(.callout).padding(22).pulseGlass(cornerRadius: 22)
                 VStack(alignment: .leading, spacing: 12) {
                     Label("Медиатека в облаке", systemImage: "cloud").font(.headline)
                     Text("Аккаунт, музыка, друзья и сообщения общие с сайтом. Медиатека обновляется при запуске, возвращении в приложение и каждые 30 секунд.").font(.callout).foregroundStyle(PulseTheme.muted)
                     Button("Обновить сейчас") { Task { await store.refresh() } }.disabled(store.syncing)
                     if !store.uploadStatus.isEmpty { Text(store.uploadStatus).font(.caption).foregroundStyle(PulseTheme.muted) }
-                }.padding(22).background(PulseTheme.panel, in: RoundedRectangle(cornerRadius: 22))
+                }.padding(22).pulseGlass(cornerRadius: 22)
                 if store.signedIn { Button("Выйти из аккаунта", role: .destructive) { Task { await store.logout() } }.disabled(store.uploading).padding(.horizontal, 5) }
             }.padding(20)
-        }.background(PulseTheme.background)
+        }.background(PulseAmbientBackground())
     }
     private static func frequency(_ index: Int) -> String { let value = PulseEQConfiguration.frequencies[index]; return value < 1000 ? "\(Int(value)) Гц" : "\(Int(value / 1000)) кГц" }
     private var eqCurve: some View {

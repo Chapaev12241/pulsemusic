@@ -11,6 +11,7 @@ struct PulseRootView: View {
     @State private var newPlaylist = false
     @State private var playlistName = ""
     @State private var activePlaylist: String?
+    @Namespace private var tabAnimation
     private var visibleTracks: [PulseTrack] {
         let values: [PulseTrack]
         switch collection {
@@ -54,14 +55,16 @@ struct PulseRootView: View {
                     }
                 }
             }
+            #if os(macOS)
             Rectangle().fill(PulseTheme.line).frame(height: 1)
+            #endif
             PulsePlayerBar(store: store)
             #if os(iOS)
             mobileNavigation
             #endif
         }
         .animation(systemReducedMotion || appReducedMotion ? nil : .easeInOut(duration: 0.18), value: collection)
-        .background(PulseTheme.background).foregroundStyle(Color(red: 0.95, green: 0.94, blue: 0.94))
+        .background(PulseAmbientBackground()).foregroundStyle(Color(red: 0.95, green: 0.94, blue: 0.94))
         #if os(macOS)
         .frame(minWidth: 840, minHeight: 580)
         #endif
@@ -97,11 +100,15 @@ struct PulseRootView: View {
     private func importMusic() { if store.signedIn { importing = true } else { showAccount = true } }
     private var header: some View {
         HStack(spacing: 12) {
+            #if os(iOS)
             Text("Pulse").font(PulseTheme.heading(32))
+            #else
+            Text(collection.title).font(.system(size: 16, weight: .medium)).foregroundStyle(PulseTheme.muted)
+            #endif
             Spacer()
             Button { Task { await store.refresh() } } label: { Image(systemName: "arrow.clockwise") }.buttonStyle(PulseIconButton()).disabled(store.syncing).help("Обновить медиатеку")
             PulseAccountBadge(social: store.social, fallbackName: store.user?.name, action: { showAccount = true }, compact: true)
-        }.padding(.horizontal, contentPadding).padding(.vertical, 20)
+        }.padding(.horizontal, contentPadding).padding(.vertical, 16)
     }
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 28) {
@@ -129,7 +136,7 @@ struct PulseRootView: View {
                 }
             }.padding(.horizontal, 8)
             PulseAccountBadge(social: store.social, fallbackName: store.user?.name, action: { showAccount = true })
-                .padding(12).background(PulseTheme.panel, in: RoundedRectangle(cornerRadius: 14))
+                .padding(12).pulseGlass(cornerRadius: 14)
         }.padding(16)
     }
     private var mobileNavigation: some View {
@@ -139,10 +146,13 @@ struct PulseRootView: View {
                     VStack(spacing: 5) {
                         Image(systemName: item.symbol).font(.system(size: 19))
                         Text(item.title).font(.system(size: 9))
-                    }.frame(maxWidth: .infinity).frame(height: 52).foregroundStyle(collection == item ? PulseTheme.accent : PulseTheme.muted)
+                    }.frame(maxWidth: .infinity).frame(height: 54).foregroundStyle(collection == item ? .white : PulseTheme.muted)
+                        .background {
+                            if collection == item { Capsule().fill(PulseTheme.accent.opacity(0.22)).overlay(Capsule().strokeBorder(.white.opacity(0.12))).matchedGeometryEffect(id: "selected-tab", in: tabAnimation) }
+                        }
                 }.buttonStyle(.plain)
             }
-        }.padding(.horizontal, 6).padding(.top, 5).background(PulseTheme.background)
+        }.padding(6).pulseGlass(cornerRadius: 30).padding(.horizontal, 12).padding(.top, 8).padding(.bottom, 6)
     }
     private var collectionHeader: some View {
         HStack(alignment: .bottom) {
@@ -198,7 +208,7 @@ struct PulseRootView: View {
             Text(!store.signedIn && collection != .catalog ? "Сохрани свою музыку" : "Пока ничего нет").font(.title3.bold())
             Text(!store.signedIn && collection != .catalog ? "Войди с аккаунтом сайта — и твоя медиатека будет здесь." : "Добавь треки или попробуй другой запрос.").font(.callout).foregroundStyle(PulseTheme.muted).multilineTextAlignment(.center)
             if !store.signedIn { Button("Войти в Pulse") { showAccount = true }.buttonStyle(PulsePrimaryButton()) }
-        }.frame(maxWidth: .infinity).padding(.vertical, 64).padding(.horizontal, 24).background(PulseTheme.panel, in: RoundedRectangle(cornerRadius: 22))
+        }.frame(maxWidth: .infinity).padding(.vertical, 64).padding(.horizontal, 24).pulseGlass(cornerRadius: 22)
     }
     private var syncStatus: some View {
         HStack(spacing: 7) {
@@ -234,7 +244,7 @@ struct PulseHomeView: View {
                         Text("Подбор по BPM и звучанию · плавные переходы и эффекты").font(.system(size: 12)).foregroundStyle(PulseTheme.muted)
                     }
                     Spacer(); Image(systemName: "arrow.up.right").foregroundStyle(PulseTheme.accent)
-                }.padding(22).frame(maxWidth: .infinity, alignment: .leading).background(PulseTheme.panel, in: RoundedRectangle(cornerRadius: 22))
+                }.padding(22).frame(maxWidth: .infinity, alignment: .leading).pulseGlass(cornerRadius: 22)
             }.buttonStyle(.plain)
             sectionTitle("Твой следующий любимый", subtitle: "Знакомые чувства. Новое звучание.") { select(.catalog) }
             ScrollView(.horizontal, showsIndicators: false) {
@@ -295,14 +305,7 @@ struct PulseHero: View {
             PulseReactiveVinyl(playback: store.playback, beat: store.beat).frame(width: vinylSize, height: vinylSize).accessibilityHidden(true)
         }
         .padding(heroPadding).frame(maxWidth: .infinity, minHeight: heroHeight, alignment: .leading)
-        .background {
-            ZStack {
-                PulseTheme.panel
-                RadialGradient(colors: [PulseTheme.accent.opacity(0.15), .clear], center: .topTrailing, startRadius: 0, endRadius: 380)
-                LinearGradient(colors: [.clear, Color.blue.opacity(0.045)], startPoint: .topLeading, endPoint: .bottomTrailing)
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 25)).overlay(RoundedRectangle(cornerRadius: 25).stroke(PulseTheme.line))
+        .pulseGlass(cornerRadius: 25)
     }
     private var titleSize: CGFloat {
         #if os(macOS)
@@ -376,7 +379,7 @@ struct PulseTrackCard: View {
                     }
                 Text(track.title).font(.system(size: 12, weight: .semibold)).lineLimit(1)
                 Text(track.artist).font(.system(size: 10)).foregroundStyle(PulseTheme.muted).lineLimit(1)
-            }.frame(width: 150, alignment: .leading).padding(12).background(PulseTheme.panel, in: RoundedRectangle(cornerRadius: 20))
+            }.frame(width: 150, alignment: .leading).padding(12).pulseGlass(cornerRadius: 20)
                 .overlay(RoundedRectangle(cornerRadius: 20).stroke(hover ? PulseTheme.accent.opacity(0.45) : PulseTheme.line))
         }.buttonStyle(.plain).scaleEffect(hover && !reducedMotion ? 1.015 : 1).animation(reducedMotion ? nil : .easeOut(duration: 0.18), value: hover).onHover { hover = $0 }.contextMenu { PulseTrackActions(track: track) }
     }

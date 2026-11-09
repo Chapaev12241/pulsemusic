@@ -18,7 +18,7 @@ struct PulseAccountView: View {
                     }
                 } else { PulseLoginView(store: store) }
             }
-            .background(PulseTheme.background)
+            .background(PulseAmbientBackground())
             .navigationTitle(store.signedIn ? "Мой Pulse" : "Аккаунт Pulse")
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Готово") { dismiss() } } }
         }
@@ -73,7 +73,7 @@ struct PulseLoginView: View {
                 }
                 Label("Музыка, избранное, друзья и переписка останутся с тобой.", systemImage: "cloud").font(.caption).foregroundStyle(PulseTheme.muted)
             }.padding(26).frame(maxWidth: 460).frame(maxWidth: .infinity)
-        }.background(PulseTheme.background)
+        }.background(PulseAmbientBackground())
         .animation(reducedMotion ? nil : .easeInOut(duration: 0.2), value: register)
         .onChange(of: register) { _, _ in formError = nil }
     }

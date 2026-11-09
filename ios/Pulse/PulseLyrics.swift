@@ -175,7 +175,7 @@ struct PulseLyricsView: View {
                 Link("\(value.source) ↗", destination: url).font(.caption).foregroundStyle(PulseTheme.accent)
             }
         }
-        .padding(22).background(PulseTheme.panel, in: RoundedRectangle(cornerRadius: 22))
+        .padding(22).pulseGlass(cornerRadius: 22)
         .task(id: store.currentID) { active = nil; follow = true; await lyrics.load(store.currentTrack, duration: store.playback.duration) }
         .onReceive(store.playback.$time) { time in
             let next = PulseLRC.activeIndex(at: time, lines: lyrics.lines)
