@@ -33,13 +33,13 @@ final class PulseVibeTests: XCTestCase {
         XCTAssertThrowsError(try PulseVibe.prepare(tracks: [], state: state, prompt: "", mode: .personal, seed: "", discovery: 0.5))
     }
     func testRealLocalModelProducesBoundedPlayablePlaylist() async throws {
-        let cached = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".cache/pulse-ai/Qwen3-1.7B-Q4_K_M.gguf").path
+        let cached = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".cache/pulse-ai/" + PulseAIModel.filename).path
         let path = ProcessInfo.processInfo.environment["PULSE_AI_TEST_MODEL"] ?? cached
         guard FileManager.default.fileExists(atPath: path) else { throw XCTSkip("Real-model smoke test runs in CI with a verified model file") }
         let tracks = try [track("a","Гуф"),track("b","Баста"),track("c","Мот"),track("d","Metallica",genre:"metal")]
         var state = PulseLibraryState(); state.liked = ["a"]
         let input = try PulseVibe.prepare(tracks: tracks,state: state,prompt:"Русский рэп, похожий на Гуфа",mode:.similar,seed:"Гуф",discovery:0.7,variation:4)
-        let result = try await PulseLocalAI.shared.generate(input:input,modelURL:URL(fileURLWithPath:path),playing:true)
+        let result = try await PulseLocalAI.shared.generate(input:input,modelURL:URL(fileURLWithPath:path),playing:true,trace:{ print($0) })
         XCTAssertFalse(result.name.isEmpty); XCTAssertFalse(result.summary.isEmpty); XCTAssertFalse(result.tracks.isEmpty)
         XCTAssertTrue(Set(result.tracks).isSubset(of:Set(tracks.map(\.id))))
         XCTAssertTrue(result.artists.contains("Гуф"))

@@ -80,17 +80,17 @@ struct PulseVibeView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack { Image(systemName: model.ready ? "checkmark.seal.fill" : "arrow.down.circle").foregroundStyle(PulseTheme.accent); Text(model.ready ? "Локальный ИИ готов" : "Включи локальный ИИ").font(.headline); Spacer() }
             if !model.ready {
-                Text("Один раз скачай модель Qwen3 · 1,3 ГБ. После этого ИИ работает без API-ключа. Твои запросы и история прослушиваний остаются на устройстве.").font(.callout).foregroundStyle(PulseTheme.muted)
+                Text("Один раз скачай модель Qwen3 · \(PulseAIModel.downloadSize). После этого ИИ работает без API-ключа. Твои запросы и история прослушиваний остаются на устройстве.").font(.callout).foregroundStyle(PulseTheme.muted)
                 if model.downloading {
                     ProgressView(value: model.progress); HStack { Text(model.status).font(.caption); Spacer(); Text("\(Int(model.progress * 100))%").font(.caption.monospacedDigit()); Button("Отмена") { model.cancel() } }
-                } else { Button { model.download() } label: { Label("Скачать ИИ · 1,3 ГБ", systemImage: "arrow.down").frame(maxWidth: .infinity) }.buttonStyle(PulsePrimaryButton()) }
+                } else { Button { model.download() } label: { Label("Скачать ИИ · \(PulseAIModel.downloadSize)", systemImage: "arrow.down").frame(maxWidth: .infinity) }.buttonStyle(PulsePrimaryButton()) }
             }
             if let error = model.error { Text(error).font(.caption).foregroundStyle(PulseTheme.muted) }
             DisclosureGroup("О модели и памяти") {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Qwen3-1.7B · Q4 · Apache 2.0. Модель загружается в память только на время подбора. Для проигрывания облачных треков и синхронизации нужен интернет.").font(.caption).foregroundStyle(PulseTheme.muted)
+                    Text("\(PulseAIModel.modelName) · Apache 2.0. Модель загружается в память только на время подбора. Для проигрывания облачных треков и синхронизации нужен интернет.").font(.caption).foregroundStyle(PulseTheme.muted)
                     Link("Модель и лицензия ↗", destination: URL(string: "https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF")!).font(.caption)
-                    if model.ready { Button("Удалить модель · освободить 1,3 ГБ", role: .destructive) { ai.cancel(); model.remove() }.font(.caption).disabled(ai.building) }
+                    if model.ready { Button("Удалить модель · освободить \(PulseAIModel.downloadSize)", role: .destructive) { ai.cancel(); model.remove() }.font(.caption).disabled(ai.building) }
                 }.padding(.top, 10)
             }.font(.caption)
         }.padding(20).pulseGlass(cornerRadius: 22)

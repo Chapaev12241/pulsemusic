@@ -6,7 +6,7 @@ import LlamaSwift
 actor PulseLocalAI {
     static let shared = PulseLocalAI()
     private static let initialized: Void = { llama_backend_init() }()
-    func generate(input: PulseVibeInput, modelURL: URL = PulseAIModel.file, playing: Bool = false) throws -> PulseAIDraft {
+    func generate(input: PulseVibeInput, modelURL: URL = PulseAIModel.file, playing: Bool = false, trace: (@Sendable (String) -> Void)? = nil) throws -> PulseAIDraft {
         try Task.checkCancellation()
         _ = Self.initialized
         var parameters = llama_model_default_params()
@@ -40,6 +40,7 @@ actor PulseLocalAI {
             active = PulseVibeInput(artists: Array(active.artists.dropLast(4)), state: active.state, prompt: active.prompt, mode: active.mode, seed: active.seed, discovery: active.discovery, variation: active.variation)
             tokens = tokenize(try PulseVibe.prompt(active))
         }
+        trace?("Pulse AI input tokens: \(tokens.count), model: \(modelURL.lastPathComponent)")
         guard !tokens.isEmpty, tokens.count <= 3500 else { throw PulseAIError.message("Запрос слишком длинный. Опиши настроение короче.") }
         guard let sampler = llama_sampler_chain_init(llama_sampler_chain_default_params()),
               let grammar = llama_sampler_init_grammar(vocab, PulseVibe.grammar(artistCount: active.artists.count), "root") else { throw PulseAIError.message("Не удалось подготовить музыкальный ответ ИИ.") }
@@ -59,9 +60,9 @@ actor PulseLocalAI {
             guard result == 0 else { throw PulseAIError.message("ИИ не смог обработать каталог. Попробуй ещё раз.") }
         }
         var output = Data()
-        for _ in 0..<400 {
+        for _ in 0..<180 {
             try Task.checkCancellation()
-            guard Date().timeIntervalSince(started) < 120 else { throw PulseAIError.message("Подбор занял слишком долго. Попробуй более короткий запрос.") }
+            guard Date().timeIntervalSince(started) < 120 else { trace?("Partial model response: " + String(decoding: output, as: UTF8.self)); throw PulseAIError.message("Подбор занял слишком долго. Попробуй более короткий запрос.") }
             let token = llama_sampler_sample(sampler, context, -1)
             if llama_vocab_is_eog(vocab, token) { break }
             var piece = [CChar](repeating: 0, count: 256)

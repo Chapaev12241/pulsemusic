@@ -31,12 +31,12 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.cache/pulse-ai
-          key: pulse-qwen17-q4-d2387ca2
+          key: pulse-qwen-native-v2-${{ runner.arch }}
       - name: Download verified local AI model
-        run: node scripts/download-ai-model.mjs --output "$HOME/.cache/pulse-ai/Qwen3-1.7B-Q4_K_M.gguf"
+        run: node scripts/download-ai-model.mjs --directory "$HOME/.cache/pulse-ai"
       - name: Build and test Mac app
         working-directory: ios
-        run: PULSE_AI_TEST_MODEL="$HOME/.cache/pulse-ai/Qwen3-1.7B-Q4_K_M.gguf" xcodebuild -project Pulse.xcodeproj -scheme PulseMac -configuration Debug -destination 'platform=macOS' -derivedDataPath build-tests test
+        run: xcodebuild -project Pulse.xcodeproj -scheme PulseMac -configuration Debug -destination 'platform=macOS' -derivedDataPath build-tests test
       - name: Build universal Mac app
         working-directory: ios
         run: |

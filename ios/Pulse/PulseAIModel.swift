@@ -4,13 +4,24 @@ import Combine
 
 // Official Qwen release, pinned to an immutable revision and verified before loading.
 enum PulseAIModel {
+    #if arch(x86_64)
+    static let filename = "Qwen3-0.6B-Q8_0.gguf"
+    static let bytes: Int64 = 639_446_688
+    static let sha256 = "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031"
+    static let url = URL(string: "https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/23749fefcc72300e3a2ad315e1317431b06b590a/Qwen3-0.6B-Q8_0.gguf?download=true")!
+    static let downloadSize = "640 МБ"
+    static let modelName = "Qwen3-0.6B · Q8"
+    #else
     static let filename = "Qwen3-1.7B-Q4_K_M.gguf"
     static let bytes: Int64 = 1_282_439_264
     static let sha256 = "d2387ca2dbfee2ffabce7120d3770dadca0b293052bc2f0e138fdc940d9bc7b5"
     static let url = URL(string: "https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF/resolve/daeb8e2d528a760970442092f6bf1e55c3b659eb/Qwen3-1.7B-Q4_K_M.gguf?download=true")!
+    static let downloadSize = "1,3 ГБ"
+    static let modelName = "Qwen3-1.7B · Q4"
+    #endif
     static var directory: URL { FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Pulse/AI", isDirectory: true) }
     static var file: URL { directory.appendingPathComponent(filename) }
-    static var receipt: URL { directory.appendingPathComponent("verified.sha256") }
+    static var receipt: URL { directory.appendingPathComponent(filename + ".sha256") }
     static var installed: Bool {
         guard let size = try? FileManager.default.attributesOfItem(atPath: file.path)[.size] as? NSNumber,
               size.int64Value == bytes,
@@ -52,7 +63,7 @@ final class PulseAIModelStore: ObservableObject {
     private var task: Task<Void, Never>?
     func download() {
         guard !downloading else { return }
-        error = nil; downloading = true; progress = 0; status = "Скачиваем модель · 1,3 ГБ"
+        error = nil; downloading = true; progress = 0; status = "Скачиваем модель · \(PulseAIModel.downloadSize)"
         task = Task { [weak self] in
             guard let self else { return }
             defer { self.downloading = false; self.task = nil }
