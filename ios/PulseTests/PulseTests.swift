@@ -87,6 +87,22 @@ final class PulseTestURLProtocol: URLProtocol {
 
 final class PulsePerformanceTests: XCTestCase {
     @MainActor
+    func testPendingKeychainReadDoesNotBlockTheMainActor() async {
+        let entered = expectation(description: "Keychain read started in background")
+        let gate = DispatchSemaphore(value: 0)
+        let store = PulseStore(loadSession: {
+            await Task.detached {
+                entered.fulfill(); gate.wait(); return ""
+            }.value
+        })
+        let restoration = Task { await store.restore() }
+        await fulfillment(of: [entered], timeout: 2)
+        // This code runs on MainActor while the simulated system read is stuck.
+        XCTAssertFalse(store.signedIn)
+        XCTAssertFalse(store.syncing)
+        restoration.cancel(); gate.signal(); await restoration.value
+    }
+    @MainActor
     func testTransportTicksDoNotPublishLibraryChanges() async {
         let store = PulseStore()
         store.receivePlayback(["time": 0.0, "duration": 240.0, "paused": false, "id": "test"])

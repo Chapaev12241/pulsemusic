@@ -160,3 +160,9 @@ subscribe. Motion readings are not stored or transmitted. Missing/denied sensors
 fall back to a static rim. Tests cover calibration, bounded/invalid readings,
 background shutdown, stale callbacks and unavailable sensors. Physical iPhone
 testing is still needed for the feel of the gyroscope highlight.
+
+Keychain reads, writes and deletion run off MainActor so a macOS authorization
+check cannot prevent the app window from opening. Restore results are guarded
+against account changes, and pending deletion finishes before saving a new login.
+A regression test holds the session read open while checking MainActor remains
+responsive.

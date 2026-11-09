@@ -30,7 +30,9 @@ final class PulseStore: ObservableObject {
     @Published var volume = min(1, max(0, UserDefaults.standard.object(forKey: "pulse_native_volume") as? Double ?? 0.8)) {
         didSet { UserDefaults.standard.set(volume, forKey: "pulse_native_volume"); player.command(["action": "volume", "value": volume]) }
     }
-    private var token = PulseKeychain.load()
+    private var token = ""
+    private let loadSession: () async -> String
+    private var keychainCleanup: Task<Void, Never>?
     private var generation = UUID()
     private var publicTracks: [PulseTrack] = []
     private var ownedTracks: [PulseTrack] = []
@@ -46,7 +48,10 @@ final class PulseStore: ObservableObject {
         return tracks.first { $0.id == id }
     }
 
-    init() {
+    init(loadSession: @escaping () async -> String = {
+        await Task.detached(priority: .userInitiated) { PulseKeychain.load() }.value
+    }) {
+        self.loadSession = loadSession
         player.onState = { [weak self] value in self?.receivePlayback(value) }
         player.onBeat = { [weak self] value in self?.beat.receive(value) }
         player.onFavorite = { [weak self] id in
@@ -78,6 +83,11 @@ final class PulseStore: ObservableObject {
         }
     }
     func restore() async {
+        let readStamp = generation
+        let restoredToken = await loadSession()
+        guard generation == readStamp, !Task.isCancelled else { return }
+        token = restoredToken
+        if !restoredToken.isEmpty { generation = UUID() }
         let stamp = generation
         if !token.isEmpty {
             do {
@@ -85,8 +95,9 @@ final class PulseStore: ObservableObject {
                 guard generation == stamp else { return }
                 if identity.authenticated { user = identity.user }
                 else { clearSession() }
-            } catch { self.error = "Не удалось восстановить вход: \(error.localizedDescription)" }
+            } catch { if generation == stamp && !Task.isCancelled { self.error = "Не удалось восстановить вход: \(error.localizedDescription)" } }
         }
+        guard generation == stamp, !Task.isCancelled else { return }
         configureSocial()
         await refresh()
     }
@@ -96,7 +107,8 @@ final class PulseStore: ObservableObject {
         defer { authenticating = false }
         do {
             let session: PulseSession = try await PulseAPI.request(register ? "api/auth/register" : "api/auth/login", method: "POST", body: PulseAPI.json(["email": email.trimmingCharacters(in: .whitespacesAndNewlines), "password": password, "name": name]))
-            try PulseKeychain.save(session.token)
+            await keychainCleanup?.value
+            try await Task.detached(priority: .userInitiated) { try PulseKeychain.save(session.token) }.value
             clearSession(deleteKeychain: false)
             token = session.token; user = session.user
             configureSocial()
@@ -119,7 +131,10 @@ final class PulseStore: ObservableObject {
         player.command(["action": "stop"])
         token = ""; user = nil; social.configure(token: "", userID: ""); ownedTracks = []; ownedIDs = []; state = PulseLibraryState()
         tracks = publicTracks; lastSync = nil
-        if deleteKeychain { PulseKeychain.clear() }
+        if deleteKeychain {
+            let previous = keychainCleanup
+            keychainCleanup = Task.detached(priority: .userInitiated) { await previous?.value; PulseKeychain.clear() }
+        }
     }
     func refresh() async {
         guard !syncing, !mutating else { return }
