@@ -215,3 +215,9 @@ The pinned upstream llama.cpp XCFramework ships arm64 iPhone-device and universa
 macOS slices, without an iOS-simulator slice. CI therefore compiles the real
 iphoneos target (rather than the previous simulator screenshot target), runs the
 Mac XCTest suite including real inference, and produces the usual IPA/Mac files.
+
+Intel builds automatically use official Qwen3-0.6B Q8 (640 MB); iPhone / Apple
+Silicon use Qwen3-1.7B Q4 (1.3 GB). Virtualized Metal devices fall back to CPU,
+because their shader execution can be much slower than native CPU inference.
+The model generates only a short name and valid artist IDs; playlist assembly,
+genre constraints and repetition handling stay in bounded application code.

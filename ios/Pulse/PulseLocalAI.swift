@@ -1,5 +1,6 @@
 import Foundation
 import LlamaSwift
+import Metal
 
 // The actor runs outside MainActor. Every context is freed after generation;
 // playback never shares its queue or performs inference on an audio thread.
@@ -9,11 +10,12 @@ actor PulseLocalAI {
     func generate(input: PulseVibeInput, modelURL: URL = PulseAIModel.file, playing: Bool = false, trace: (@Sendable (String) -> Void)? = nil) throws -> PulseAIDraft {
         try Task.checkCancellation()
         _ = Self.initialized
+        let virtualGPU = MTLCreateSystemDefaultDevice()?.name.localizedCaseInsensitiveContains("virtual") == true
         var parameters = llama_model_default_params()
         #if arch(x86_64)
         parameters.n_gpu_layers = 0
         #else
-        parameters.n_gpu_layers = 16
+        parameters.n_gpu_layers = virtualGPU ? 0 : 16
         #endif
         guard let model = llama_model_load_from_file(modelURL.path, parameters) else { throw PulseAIError.message("Не удалось открыть ИИ-модель. Скачай её повторно.") }
         defer { llama_model_free(model) }
@@ -23,6 +25,7 @@ actor PulseLocalAI {
         configuration.n_ctx = 4096; configuration.n_batch = 128; configuration.n_ubatch = 128
         configuration.n_threads = playing ? 2 : Int32(min(4, max(1, ProcessInfo.processInfo.activeProcessorCount / 2)))
         configuration.n_threads_batch = configuration.n_threads
+        if virtualGPU { configuration.offload_kqv = false; configuration.op_offload = false }
         #if arch(x86_64)
         configuration.offload_kqv = false; configuration.op_offload = false
         #endif

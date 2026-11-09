@@ -3,6 +3,9 @@ on:
   push:
     paths: ['ios/**', 'scripts/download-ai-model.mjs', 'scripts/prepare-ios-icons.mjs', 'scripts/test-mac-icon.swift', 'docs/icons/pulse-mac.*', '.github/workflows/ios.yml']
   workflow_dispatch:
+concurrency:
+  group: pulse-apple-apps-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
