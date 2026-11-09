@@ -40,3 +40,24 @@ Tests use in-memory SQLite D1 and mocked R2/Telegram/JWKS; they never publish te
 - Free text, commands, quoted names, Unicode spacing, case, punctuation, known aliases, Cyrillic/Latin transliteration and wrong keyboard layout are recognized. Examples: `Гуф`, `GUF`, `/artist «guf»`, `загрузи все песни Гуфа на сайт`, `добавь Гуфа с https://one.muzso.net`. Explicit names such as `All Saints` remain intact.
 - Artist identity must match source metadata; ambiguous identities require an exact link. Requests cannot overwrite real credits. Common aliases converge to one spelling; featured artists are retained and deduplicated, repeated artist prefixes are removed from titles. Version/remix text is preserved.
 - HTTP downloads have an overall 45-second deadline in addition to size and public-address restrictions.
+
+## Queue recovery / additional platforms
+
+One failed scan no longer ends the runner: errors are persisted and remaining jobs
+are processed. The five-minute cron uses the standard `*/5` expression. A D1
+heartbeat records actual authenticated worker contact; `/status` and the setup
+page distinguish a stalled worker from an empty/failed source. Natural Russian
+`отмена`, `стоп`, `статус`, `повтори` work. For ambiguous artist results, `1`, `2`
+or `оба` queues the selected previously-offered pages. `бери два` asks which
+meaning was intended rather than importing an artist with that phrase as a name.
+
+YouTube links use the extractor in the existing isolated public-only downloader.
+Spotify public embed data and Yandex public metadata supply artist/title/duration;
+full audio is matched in accessible sources, with YouTube as an additional source.
+Protected audio, account/paywall bypasses and 30-second previews are not used.
+Albums/playlists expose only the metadata their public embeds provide, with a
+truncated flag where completeness cannot be established. Private or inaccessible
+collections require a different public link. Known clean/censored/radio editions
+are filtered and explicit/uncensored labels preferred. This cannot guarantee that
+a mislabeled recording contains no audio edits; the bot never removes censorship
+from an existing censored recording.

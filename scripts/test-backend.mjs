@@ -1,5 +1,12 @@
 import assert from 'node:assert/strict';import {DatabaseSync} from 'node:sqlite';import {readFileSync} from 'node:fs';
 const {default:worker}=await import('data:text/javascript;base64,'+readFileSync('dist/server/index.js').toString('base64'));
+for (const origin of ['https://music-pulse.ru','https://www.music-pulse.ru','http://music-pulse.ru','http://www.music-pulse.ru','https://chapaev12241.github.io','https://pulse-vibe-music.desyatnichenkoiosyf2.chatgpt.site','https://untrusted.invalid']) {
+  const response=await worker.fetch(new Request('https://pulse.invalid/api/auth/login',{method:'OPTIONS',headers:{origin,'access-control-request-method':'POST','access-control-request-headers':'content-type,authorization'}}),{});
+  assert.equal(response.status,204);
+  assert.equal(response.headers.get('access-control-allow-origin'),origin==='https://untrusted.invalid'?'https://chapaev12241.github.io':origin);
+  assert.match(response.headers.get('access-control-allow-methods'),/POST/);
+  assert.match(response.headers.get('access-control-allow-headers'),/Authorization/);
+}
 const sqlite=new DatabaseSync(':memory:');sqlite.exec(readFileSync('drizzle/0000_pulse.sql','utf8').replaceAll('--> statement-breakpoint',''));sqlite.exec(readFileSync('drizzle/0001_community.sql','utf8').replaceAll('--> statement-breakpoint',''));
 sqlite.exec(readFileSync('drizzle/0002_artwork.sql','utf8'));
 sqlite.exec(readFileSync('drizzle/0003_admin.sql','utf8').replaceAll('--> statement-breakpoint',''));
@@ -85,5 +92,6 @@ assert.equal((await call('/api/admin/tracks/'+id+'/restore',{token:one.token,met
 assert((await(await call('/api/catalog')).json()).tracks.some(t=>t.id===id));
 assert((await(await call('/api/admin/audit',{token:one.token})).json()).events.length>=4);
 const beforeFallback=globalThis.fetch;try{globalThis.fetch=async url=>String(url).startsWith('https://api.lyrics.ovh/')?new Response(JSON.stringify({lyrics:'Synthetic fallback text'}),{headers:{'content-type':'application/json'}}):new Response('{}',{status:404});const fallbackLyrics=await(await call('/api/lyrics?title=Fallback%20test&artist=Fallback%20artist&duration=45')).json();assert.equal(fallbackLyrics.source,'Lyrics.ovh');assert.equal(fallbackLyrics.syncedLyrics,'');assert.equal(fallbackLyrics.plainLyrics,'Synthetic fallback text')}finally{globalThis.fetch=beforeFallback}
+const aiBody={op:{type:'playlist',id:'ai-vibe-test',name:'Мой ИИ вайб',tracks:[id,id]}};assert.equal((await call('/api/state',{token:secondSession.token,method:'POST',body:aiBody})).status,200);const aiSaved=await(await call('/api/state',{token:secondSession.token})).json();assert.deepEqual(aiSaved.playlists.find(p=>p.id==='ai-vibe-test').tracks,[id]);await call('/api/state',{token:secondSession.token,method:'POST',body:aiBody});const aiRetried=await(await call('/api/state',{token:secondSession.token})).json();assert.equal(aiRetried.playlists.filter(p=>p.id==='ai-vibe-test').length,1);assert.equal((await call('/api/state',{token:secondSession.token,method:'POST',body:{op:{type:'playlist',id:'ai-missing',name:'Missing',tracks:['f'.repeat(64)]}}})).status,400);
 await call('/api/auth/logout',{token:one.token,method:'POST'});assert.equal((await call('/api/music',{token:one.token})).status,401);
 console.log('PASS: registration/login, two sessions, account isolation, cloud upload, duplicate detection, signed media, byte ranges, concurrent playlist/history/likes and logout; community profiles, friend acceptance, private messaging and public catalog isolation');
