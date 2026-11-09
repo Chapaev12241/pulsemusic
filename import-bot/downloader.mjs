@@ -1,3 +1,4 @@
+import {cleanEdition,recordingKey,importArtistKey} from './request.mjs';
 import {spawn} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {readFileSync,chmodSync,readdirSync,realpathSync,lstatSync} from 'node:fs';
@@ -22,7 +23,7 @@ function childEnvironment(directory,proxy){const env={PATH:dirname(process.execP
 export function normalizeEntries(info,input,override='',limit=MAX_TRACKS){
   const flat=[];let unavailable=0;function visit(value,depth=0){if(!value){unavailable++;return}if(Array.isArray(value.entries)&&depth<5){for(const e of value.entries)visit(e,depth+1)}else flat.push(value)}visit(info);
   const seen=new Set(),tracks=[];
-  for(const entry of flat){let value=entry.webpage_url||entry.original_url||entry.url||input;const extractor=entry.ie_key||entry.extractor_key||info.extractor_key||'Generic';if(/youtube/i.test(extractor)&&/^[\w-]{11}$/.test(value))value='https://www.youtube.com/watch?v='+value;
+  for(const entry of flat){if(cleanEdition(entry.title)){unavailable++;continue}let value=entry.webpage_url||entry.original_url||entry.url||input;const extractor=entry.ie_key||entry.extractor_key||info.extractor_key||'Generic';if(/youtube/i.test(extractor)&&/^[\w-]{11}$/.test(value))value='https://www.youtube.com/watch?v='+value;
     if(flat.length===1&&!entry.webpage_url&&!Array.isArray(info.entries))value=input;
     let url;try{url=sourceURL(new URL(value,input).href)}catch{unavailable++;continue}
     const sourceKey=/generic/i.test(extractor)?'url:'+createHash('sha256').update(url.href).digest('hex'):extractor+':'+url.hostname+':'+String(entry.id||createHash('sha256').update(url.href).digest('hex'));
@@ -34,6 +35,14 @@ export class Downloader {
   constructor(directory,proxy){this.directory=directory;this.proxy=proxy;this.tools=tools(directory)}
   arguments(){return ['--ignore-config','--no-cache-dir','--no-warnings','--socket-timeout','20','--retries','2','--fragment-retries','2','--proxy',this.proxy,'--js-runtimes','node:'+process.execPath]}
   async scan(url,artist,signal){sourceURL(url);const result=await runProcess(this.tools.yt,[...this.arguments(),'--flat-playlist','--ignore-errors','--playlist-end',String(MAX_TRACKS+1),'--dump-single-json','--skip-download','--',url],{signal,timeout:120000,env:childEnvironment(this.directory,this.proxy)});let data;try{data=JSON.parse(result.stdout.trim())}catch{throw Error('Не удалось прочитать список треков с этой страницы')};const normalized=normalizeEntries(data,url,'');if(!normalized.tracks.length)throw Error('На странице не найдено доступных треков');return normalized}
+  async searchRecording(track,signal){
+    const query='ytsearch8:'+track.artist+' - '+track.title+' official audio explicit';
+    const result=await runProcess(this.tools.yt,[...this.arguments(),'--flat-playlist','--dump-single-json','--skip-download','--',query],{signal,timeout:120000,env:childEnvironment(this.directory,this.proxy)});
+    const entries=JSON.parse(result.stdout).entries||[];const wanted=recordingKey(track.title),artist=importArtistKey(track.artist.split(',')[0]);
+    const matches=entries.filter(x=>{if(cleanEdition(x.title)||x.is_live)return false;const title=String(x.title||'').replace(/\((?:official[^)]*|audio|lyrics?|explicit|uncensored|hd|4k)\)|\[(?:official[^\]]*|audio|lyrics?|explicit|uncensored|hd|4k)\]/gi,'').trim();const key=recordingKey(title);const duration=Number(x.duration)||0;if(track.duration&&duration&&Math.abs(track.duration-duration)>Math.max(12,track.duration*.12))return false;return (key===wanted||key.endsWith(wanted))&&(importArtistKey(x.channel||x.uploader||'').includes(artist)||key.includes(artist))});
+    if(!matches.length)throw Error('Не найдена совпадающая полная запись YouTube без отметки clean');
+    const chosen=matches.sort((a,b)=>(/explicit|uncensored/i.test(b.title)?2:0)-(/explicit|uncensored/i.test(a.title)?2:0))[0];return {url:'https://www.youtube.com/watch?v='+chosen.id,title:track.title,artist:track.artist,album:track.album||'',sourceKey:'youtube:'+chosen.id};
+  }
   async download(job,track,signal){
     const folder=privateDirectory(join(this.directory,'media',job.id,String(track.ordinal)));sourceURL(track.url);
     const result=await runProcess(this.tools.yt,[...this.arguments(),'--no-playlist','--no-progress','--quiet','--max-filesize','50M','--match-filters','!is_live & duration <=? 1800','-f','bestaudio/best','--extract-audio','--audio-format','mp3','--audio-quality','0','--ffmpeg-location',this.tools.ffmpeg,'--postprocessor-args','ExtractAudio+ffmpeg_i:-protocol_whitelist file,pipe','--write-info-json','--paths',folder,'--output','audio.%(ext)s','--print','after_move:PULSE_FILE:%(filepath)j','--',track.url],{signal,timeout:240000,cwd:folder,env:childEnvironment(this.directory,this.proxy)});
