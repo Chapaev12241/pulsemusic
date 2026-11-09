@@ -97,16 +97,4 @@ private struct PulseGlassPanel: ViewModifier {
 }
 extension View {
     func pulseGlass(cornerRadius: CGFloat = 22, style: PulseGlassStyle = .card) -> some View { modifier(PulseGlassPanel(radius: cornerRadius, style: style)) }
-    func pulseGlassContainer() -> some View { modifier(PulseGlassContainerModifier()) }
-}
-
-private struct PulseGlassContainerModifier: ViewModifier {
-    @ViewBuilder func body(content: Content) -> some View {
-        #if compiler(>=6.2)
-        if #available(iOS 26.0, macOS 26.0, *) { GlassEffectContainer(spacing: 0) { content } }
-        else { content }
-        #else
-        content
-        #endif
-    }
 }

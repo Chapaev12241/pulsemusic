@@ -42,7 +42,6 @@ jobs:
           xcrun simctl launch "$PULSE_PREVIEW_ID" com.chapaev12241.pulsemusic
           sleep 12
           xcrun simctl io "$PULSE_PREVIEW_ID" screenshot Pulse-iPhone-preview.png
-          xcrun simctl shutdown "$PULSE_PREVIEW_ID"
       - uses: actions/upload-artifact@v4
         with:
           name: Pulse-iPhone-preview

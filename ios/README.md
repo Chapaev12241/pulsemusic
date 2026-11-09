@@ -169,8 +169,8 @@ responsive.
 
 ## Version 1.5.1 — iPhone rendering performance
 
-Native Liquid Glass is limited to the two fixed bottom panels, sharing one
-GlassEffectContainer. Scrolling cards use translucent gradient fills and static
+Native Liquid Glass is limited to the two fixed bottom panel backgrounds.
+Foreground labels stay outside the glass sampling. Scrolling cards use translucent gradient fills and static
 rims: no backdrop sampling, screen blend mode, full-content shadow or repeated
 content mask. Only the home hero and bottom chrome subscribe to tilt updates.
 Motion sampling is 15 Hz with a deadband that ignores stationary-phone noise.

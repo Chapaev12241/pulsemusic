@@ -63,7 +63,7 @@ struct PulseRootView: View {
             #if os(iOS)
                 mobileNavigation
             #endif
-            }.pulseGlassContainer()
+            }
         }
         .animation(systemReducedMotion || appReducedMotion ? nil : .easeInOut(duration: 0.18), value: collection)
         .background(PulseAmbientBackground()).foregroundStyle(Color(red: 0.95, green: 0.94, blue: 0.94))
