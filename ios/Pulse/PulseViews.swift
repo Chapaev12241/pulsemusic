@@ -294,6 +294,18 @@ struct PulseHero: View {
     let count: Int
     let play: () -> Void
     var body: some View {
+        Group {
+        #if os(iOS)
+        VStack(alignment: .leading, spacing: 18) {
+            Label("НА ТВОЕЙ ВОЛНЕ", systemImage: "sparkle").font(.system(size: 9, weight: .medium)).tracking(2).foregroundStyle(PulseTheme.accent)
+            HStack(spacing: 12) {
+                Text("Твоя музыка.\nТвой вайб.").font(PulseTheme.heading(36)).lineSpacing(4).lineLimit(2).minimumScaleFactor(0.6).frame(maxWidth: .infinity, alignment: .leading)
+                PulseReactiveVinyl(playback: store.playback, beat: store.beat).frame(width: 84, height: 84).accessibilityHidden(true)
+            }
+            Text("Момент — твой. Саундтрек — Pulse.").font(.system(size: 11)).foregroundStyle(PulseTheme.muted)
+            Button(action: play) { Label("Запустить вайб", systemImage: "play.fill") }.buttonStyle(PulsePrimaryButton()).disabled(count == 0)
+        }.frame(maxWidth: .infinity, alignment: .leading)
+        #else
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 16) {
                 Label("НА ТВОЕЙ ВОЛНЕ", systemImage: "sparkle").font(.system(size: 9, weight: .medium)).tracking(2).foregroundStyle(PulseTheme.accent)
@@ -303,6 +315,8 @@ struct PulseHero: View {
             }
             Spacer(minLength: 0)
             PulseReactiveVinyl(playback: store.playback, beat: store.beat).frame(width: vinylSize, height: vinylSize).accessibilityHidden(true)
+        }
+        #endif
         }
         .padding(heroPadding).frame(maxWidth: .infinity, minHeight: heroHeight, alignment: .leading)
         .pulseGlass(cornerRadius: 25)
