@@ -9,6 +9,20 @@ import AVFoundation
 #endif
 
 final class PulseDJAndWordsTests: XCTestCase {
+    func testVinylMeterReadsBassWithoutEnablingOrChangingEQ() {
+        let parameters = PulseEQParameters()
+        let meterKernel = PulseEQKernel(parameters: parameters)
+        meterKernel.prepare(AudioStreamBasicDescription(mSampleRate: 48000, mFormatID: kAudioFormatLinearPCM, mFormatFlags: kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked, mBytesPerPacket: 4, mFramesPerPacket: 1, mBytesPerFrame: 4, mChannelsPerFrame: 1, mBitsPerChannel: 32, mReserved: 0))
+        var samples = (0..<4800).map { Float(sin(2 * Double.pi * 64 * Double($0) / 48000) * 0.3) }
+        let original = samples
+        samples.withUnsafeMutableBufferPointer { memory in
+            var list = AudioBufferList(mNumberBuffers: 1, mBuffers: AudioBuffer(mNumberChannels: 1, mDataByteSize: UInt32(memory.count * 4), mData: memory.baseAddress))
+            withUnsafeMutablePointer(to: &list) { meterKernel.process($0, frames: memory.count) }
+        }
+        XCTAssertEqual(samples, original)
+        XCTAssertGreaterThan(parameters.level, 0.15)
+        XCTAssertEqual(parameters.processedFrames, 0)
+    }
     func testEnhancedWordsPreserveOffsetsRepeatedLinesAndEndMarks() {
         let lines = PulseLRC.parse("[offset:-200]\n[00:10.00][00:20.00]<00:10.00>Привет <00:10.50>мир<00:11.40>\n[00:30]Конец")
         XCTAssertEqual(lines.map(\.text), ["Привет мир", "Привет мир", "Конец"])
@@ -100,5 +114,22 @@ final class PulseDJAndWordsTests: XCTestCase {
         player.setFavoriteState(trackID: "second", available: false, liked: false)
         XCTAssertEqual(player.toggleFavoriteFromSystem(), .noSuchContent)
         XCTAssertEqual(received, ["first", "second"])
+    }
+    func testEchoDoesNotReplayOldSamplesAfterEffectReset() {
+        let parameters = PulseDJFXParameters()
+        let activeKernel = PulseDJFXKernel(parameters: parameters)
+        activeKernel.prepare(rate: 48000, channels: 1)
+        func process(_ value: Float, count: Int) -> [Float] {
+            var samples = Array(repeating: value, count: count)
+            samples.withUnsafeMutableBufferPointer { memory in
+                var list = AudioBufferList(mNumberBuffers: 1, mBuffers: AudioBuffer(mNumberChannels: 1, mDataByteSize: UInt32(memory.count * 4), mData: memory.baseAddress))
+                withUnsafeMutablePointer(to: &list) { activeKernel.process($0, frames: memory.count) }
+            }
+            return samples
+        }
+        parameters.update(PulseDJFXSnapshot(echo: 0.4)); _ = process(0.2, count: 24000)
+        parameters.update(PulseDJFXSnapshot()); _ = process(0, count: 512)
+        parameters.update(PulseDJFXSnapshot(echo: 0.4))
+        XCTAssertTrue(process(0, count: 24000).allSatisfy { abs($0) < 0.00001 })
     }
 }

@@ -29,23 +29,34 @@ final class PulseDJFXParameters {
 final class PulseDJFXKernel {
     let parameters: PulseDJFXParameters
     private var snapshot = PulseDJFXSnapshot()
-    private var bassState: [Float] = [], filterState: [Float] = [], positions: [Int] = []
+    private var bassState: [Float] = [], filterState: [Float] = [], positions: [Int] = [], written: [Int] = []
     private var delay: [Float] = []
     private var delayFrames = 1, channels = 0
     private var bassAlpha: Float = 0, filterAlpha: Float = 0
+    private var wasActive = false
     init(parameters: PulseDJFXParameters) { self.parameters = parameters }
     func prepare(rate: Double, channels: Int) {
+        let rate = rate.isFinite && rate > 0 ? rate : 48000
         self.channels = max(1, min(8, channels))
         delayFrames = max(1, Int(min(192000, rate) * 0.375))
         delay = Array(repeating: 0, count: delayFrames * self.channels)
         bassState = Array(repeating: 0, count: self.channels); filterState = bassState
         positions = Array(repeating: 0, count: self.channels)
+        written = positions; wasActive = false
         bassAlpha = Float(1 - exp(-2 * Double.pi * 180 / max(1, rate)))
         filterAlpha = Float(1 - exp(-2 * Double.pi * 1400 / max(1, rate)))
     }
     func process(_ buffers: UnsafeMutablePointer<AudioBufferList>, frames: Int) {
         if let next = parameters.read() { snapshot = next }
-        guard snapshot.active, channels > 0 else { return }
+        guard channels > 0 else { return }
+        guard snapshot.active else {
+            if wasActive {
+                for c in 0..<channels { written[c] = 0; positions[c] = 0; bassState[c] = 0; filterState[c] = 0 }
+                wasActive = false
+            }
+            return
+        }
+        wasActive = true
         var base = 0
         for buffer in UnsafeMutableAudioBufferListPointer(buffers) {
             let stride = Int(buffer.mNumberChannels)
@@ -60,9 +71,11 @@ final class PulseDJFXKernel {
                     var x = original + bassState[c] * (snapshot.bass - 1)
                     filterState[c] += filterAlpha * (x - filterState[c])
                     x = x * (1 - snapshot.filter) + filterState[c] * snapshot.filter
-                    let address = c * delayFrames + positions[c], delayed = delay[address]
+                    let address = c * delayFrames + positions[c]
+                    let delayed = written[c] >= delayFrames ? delay[address] : 0
                     delay[address] = x + delayed * 0.25
                     positions[c] = (positions[c] + 1) % delayFrames
+                    written[c] = min(delayFrames, written[c] + 1)
                     x += delayed * snapshot.echo
                     samples[index] = min(1, max(-1, x))
                 }

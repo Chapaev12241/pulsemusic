@@ -129,7 +129,7 @@ Only the current line renders word fill at 30 Hz. The swipe deck follows the
 finger, reveals the adjacent queue item and springs back on rejected drags.
 
 The vinyl scales to a live low-frequency PCM envelope independently of the EQ.
-Its animation and meter polling stop when the app is inactive or motion is reduced.
+Its animation respects Reduce Motion; meter polling stops while the app is inactive.
 Playback, beat and library observables remain separate.
 
 The DJ playlist analyzes up to sixteen files locally with AVAudioFile: tempo via

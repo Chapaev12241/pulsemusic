@@ -165,7 +165,7 @@ final class PulseStore: ObservableObject {
             }
         }
     }
-    private func configureSocial() { social.configure(token: token, userID: user?.id ?? "") }
+    private func configureSocial() { social.configure(token: token, userID: user?.id ?? ""); djLibrary.configure(owner: user?.id ?? "guest") }
     func play(_ track: PulseTrack, within queue: [PulseTrack]) {
         player.setDJTransitions([:])
         player.command(["action": "play", "id": track.id, "tracks": queue.map(\.nativeValue), "token": token, "dj": dj])

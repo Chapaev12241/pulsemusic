@@ -10,7 +10,16 @@ final class PulseDJStore: ObservableObject {
     @Published private(set) var skipped = 0
     private var task: Task<Void, Never>?
     private var generation = UUID()
-    func clear() { generation = UUID(); task?.cancel(); task = nil; queue = []; building = false; error = nil; progress = 0 }
+    private var owner = ""
+    func configure(owner: String) {
+        guard self.owner != owner else { return }
+        clear(); self.owner = owner
+        if !owner.isEmpty, let data = UserDefaults.standard.data(forKey: "pulse_dj_queue_" + owner),
+           let values = try? JSONDecoder().decode([PulseDJFeatures].self, from: data) {
+            var seen = Set<String>(); queue = Array(values.filter { seen.insert($0.id).inserted }.prefix(16))
+        }
+    }
+    func clear() { generation = UUID(); owner = ""; task?.cancel(); task = nil; queue = []; building = false; error = nil; progress = 0 }
     func cancel() { generation = UUID(); task?.cancel(); task = nil; building = false }
     func build(tracks: [PulseTrack], seed: PulseTrack?, liked: Set<String>) {
         cancel(); let stamp = generation
@@ -42,6 +51,7 @@ final class PulseDJStore: ObservableObject {
             }
             guard let self, self.generation == stamp, !Task.isCancelled else { return }
             self.queue = PulseDJMatcher.order(values, seed: seed?.id); self.building = false
+            if !self.owner.isEmpty, let data = try? JSONEncoder().encode(self.queue) { UserDefaults.standard.set(data, forKey: "pulse_dj_queue_" + self.owner) }
             if values.count < 2 { self.error = "Для микса нужны хотя бы два доступных трека. Обнови медиатеку и попробуй ещё раз." }
         }
     }
@@ -56,7 +66,7 @@ final class PulseDJStore: ObservableObject {
 struct PulseDJView: View {
     @ObservedObject var store: PulseStore
     @ObservedObject private var dj: PulseDJStore
-    @State private var effect = "auto"
+    @AppStorage("pulse_dj_transition") private var effect = "auto"
     init(store: PulseStore) { self.store = store; dj = store.djLibrary }
     private var tracks: [PulseTrack] { PulseLibrary.ordered(dj.queue.map(\.id), in: store.tracks) }
     var body: some View {
