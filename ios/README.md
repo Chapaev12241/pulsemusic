@@ -182,3 +182,36 @@ Unchanged cloud library state no longer republishes on every refresh. Regression
 tests verify 240 clock ticks do not update the transport shell and 300 small
 motion readings do not publish a highlight change. Physical-device frame-rate
 profiling is still required; simulator results are not an iPhone FPS claim.
+
+## 1.6 — Local AI / My Vibe
+
+The app runs Qwen3-1.7B Q4_K_M using llama.cpp b10549 through pinned
+LlamaSwift 2.10549.0. No OpenAI key, API subscription or server is required.
+An explicit download button installs the 1.3 GB model from ggml-org's pinned
+Hugging Face revision. Exact length and SHA-256 are checked off the UI thread;
+the file is excluded from device backups. Apache 2.0 license is bundled.
+
+“My Vibe”, artist-only and similar-artist modes use likes, recent history,
+existing genres and the user's request. Model input contains only local metadata;
+no listening history or prompts leave the device. A GBNF grammar restricts model
+output to JSON and existing artist indexes. Playlist IDs are resolved exclusively
+against the current catalog; missing/invalid IDs are never invented. Familiarity
+and exploration controls affect rotation and recent-track repetition. The small
+local model may make imperfect music-similarity judgments; it does not analyze
+lyrics/audio, download missing music, or act as an unrestricted general chatbot.
+
+Inference runs in its own actor with bounded context, short batches and CPU
+threads, cancellation and a deadline. Intel Macs use CPU, Apple devices offload
+some layers to Metal. Context/model allocations are released after each request.
+UI and audio threads never perform model evaluation. The result can be played
+immediately and saved with an atomic cloud playlist mutation. Saved playlists
+sync with the web and other devices; cloud playback/sync still require internet.
+Switching accounts cancels generation and clears the previous user's preview.
+
+CI tests candidate isolation, personalization, result validation and generation
+with a real SHA-verified model, then builds iPhone and universal Mac artifacts.
+
+The pinned upstream llama.cpp XCFramework ships arm64 iPhone-device and universal
+macOS slices, without an iOS-simulator slice. CI therefore compiles the real
+iphoneos target (rather than the previous simulator screenshot target), runs the
+Mac XCTest suite including real inference, and produces the usual IPA/Mac files.

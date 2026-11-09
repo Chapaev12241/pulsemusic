@@ -15,7 +15,7 @@ struct PulseRootView: View {
     private var visibleTracks: [PulseTrack] {
         let values: [PulseTrack]
         switch collection {
-        case .search, .dj, .settings: values = []
+        case .search, .vibe, .dj, .settings: values = []
         case .home, .catalog: values = store.tracks
         case .library: values = store.tracks.filter { store.ownedIDs.contains($0.id) }
         case .liked: values = PulseLibrary.ordered(store.state.liked, in: store.tracks)
@@ -34,6 +34,7 @@ struct PulseRootView: View {
                 VStack(spacing: 0) {
                     header
                     if collection == .search { PulseSearchView(store: store) }
+                    else if collection == .vibe { PulseVibeView(store: store) }
                     else if collection == .dj { PulseDJView(store: store) }
                     else if collection == .settings { PulseSettingsView(store: store) }
                     else { ScrollView {
@@ -143,7 +144,7 @@ struct PulseRootView: View {
     }
     private var mobileNavigation: some View {
         HStack(spacing: 0) {
-            ForEach([PulseCollection.home, .search, .dj, .library, .playlists]) { item in
+            ForEach([PulseCollection.home, .search, .vibe, .dj, .library, .playlists]) { item in
                 Button { select(item) } label: {
                     VStack(spacing: 5) {
                         Image(systemName: item.symbol).font(.system(size: 19))
@@ -237,7 +238,7 @@ struct PulseHomeView: View {
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 30) {
-            PulseHero(count: store.tracks.count) { play(featured.shuffled()) }
+            PulseHero(count: store.tracks.count) { select(.vibe) }
             Button { select(.dj) } label: {
                 HStack(spacing: 18) {
                     Image(systemName: "waveform").font(.system(size: 32)).foregroundStyle(PulseTheme.accent)
@@ -305,7 +306,7 @@ struct PulseHero: View {
                 PulseReactiveVinyl(playback: store.playback, beat: store.beat).frame(width: 84, height: 84).accessibilityHidden(true)
             }
             Text("Момент — твой. Саундтрек — Pulse.").font(.system(size: 11)).foregroundStyle(PulseTheme.muted)
-            Button(action: play) { Label("Запустить вайб", systemImage: "play.fill") }.buttonStyle(PulsePrimaryButton()).disabled(count == 0)
+            Button(action: play) { Label("Собрать мой вайб · ИИ", systemImage: "sparkles") }.buttonStyle(PulsePrimaryButton()).disabled(count == 0)
         }.frame(maxWidth: .infinity, alignment: .leading)
         #else
         HStack(spacing: 12) {

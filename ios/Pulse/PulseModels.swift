@@ -1,6 +1,6 @@
 import Foundation
 
-struct PulseTrack: Codable, Identifiable, Hashable {
+struct PulseTrack: Codable, Identifiable, Hashable, Sendable {
     let id: String
     let title: String
     let artist: String
@@ -17,8 +17,8 @@ struct PulseUser: Codable { let id: String; let email: String; let name: String 
 struct PulseSession: Decodable { let user: PulseUser; let token: String }
 struct PulseIdentity: Decodable { let authenticated: Bool; let user: PulseUser? }
 struct PulseCatalog: Decodable { let tracks: [PulseTrack]; let indexing: Bool? }
-struct PulsePlaylist: Codable, Identifiable, Equatable { let id: String; let name: String; let tracks: [String] }
-struct PulseHistory: Codable, Equatable { let id: String; let at: String }
+struct PulsePlaylist: Codable, Identifiable, Equatable, Sendable { let id: String; let name: String; let tracks: [String] }
+struct PulseHistory: Codable, Equatable, Sendable { let id: String; let at: String }
 struct PulseLibraryState: Codable, Equatable {
     var liked: [String] = []
     var history: [PulseHistory] = []
@@ -32,7 +32,7 @@ struct PulseAPIError: LocalizedError {
     var errorDescription: String? { message }
 }
 enum PulseCollection: String, CaseIterable, Identifiable {
-    case home, search, dj, catalog, library, liked, playlists, history, settings
+    case home, search, vibe, dj, catalog, library, liked, playlists, history, settings
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -43,6 +43,7 @@ enum PulseCollection: String, CaseIterable, Identifiable {
         case .playlists: return "Плейлисты"
         case .history: return "История"
         case .search: return "Поиск"
+        case .vibe: return "Мой вайб"
         case .dj: return "DJ"
         case .settings: return "Настройки"
         }
@@ -56,6 +57,7 @@ enum PulseCollection: String, CaseIterable, Identifiable {
         case .playlists: return "rectangle.stack.fill"
         case .history: return "clock"
         case .search: return "magnifyingglass"
+        case .vibe: return "sparkles"
         case .dj: return "waveform"
         case .settings: return "slider.horizontal.3"
         }

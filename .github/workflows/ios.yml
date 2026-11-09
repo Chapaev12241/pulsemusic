@@ -1,7 +1,7 @@
 name: Apple apps
 on:
   push:
-    paths: ['ios/**', 'scripts/prepare-ios-icons.mjs', 'scripts/test-mac-icon.swift', 'docs/icons/pulse-mac.*', '.github/workflows/ios.yml']
+    paths: ['ios/**', 'scripts/download-ai-model.mjs', 'scripts/prepare-ios-icons.mjs', 'scripts/test-mac-icon.swift', 'docs/icons/pulse-mac.*', '.github/workflows/ios.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -25,32 +25,18 @@ jobs:
       - name: Generate Xcode project
         working-directory: ios
         run: xcodegen generate
-      - name: Build iPhone simulator
+      - name: Build iPhone device
         working-directory: ios
-        run: xcodebuild -project Pulse.xcodeproj -scheme Pulse -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build-simulator CODE_SIGNING_ALLOWED=NO build
-      - name: Capture iPhone design preview
-        timeout-minutes: 4
-        continue-on-error: true
-        working-directory: ios
-        run: |
-          xcrun simctl list devices available -j > /tmp/pulse-simulators.json
-          PULSE_PREVIEW_ID=$(node -e 'const fs=require("fs");const d=JSON.parse(fs.readFileSync("/tmp/pulse-simulators.json","utf8")).devices;const keys=Object.keys(d).filter(k=>k.includes("iOS-")).sort((a,b)=>Number(b.match(/iOS-(\d+)/)[1])-Number(a.match(/iOS-(\d+)/)[1]));for(const k of keys){const phone=d[k].find(x=>x.isAvailable&&x.name.includes("iPhone"));if(phone){process.stdout.write(phone.udid);break}}')
-          test -n "$PULSE_PREVIEW_ID"
-          xcrun simctl boot "$PULSE_PREVIEW_ID" || true
-          xcrun simctl bootstatus "$PULSE_PREVIEW_ID" -b
-          xcrun simctl install "$PULSE_PREVIEW_ID" build-simulator/Build/Products/Debug-iphonesimulator/Pulse.app
-          xcrun simctl launch "$PULSE_PREVIEW_ID" com.chapaev12241.pulsemusic
-          sleep 12
-          xcrun simctl io "$PULSE_PREVIEW_ID" screenshot Pulse-iPhone-preview.png
-      - uses: actions/upload-artifact@v4
+        run: xcodebuild -project Pulse.xcodeproj -scheme Pulse -configuration Debug -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build-device-check CODE_SIGNING_ALLOWED=NO build
+      - uses: actions/cache@v4
         with:
-          name: Pulse-iPhone-preview
-          path: ios/Pulse-iPhone-preview.png
-          if-no-files-found: ignore
-          retention-days: 14
+          path: ~/.cache/pulse-ai
+          key: pulse-qwen17-q4-d2387ca2
+      - name: Download verified local AI model
+        run: node scripts/download-ai-model.mjs --output "$HOME/.cache/pulse-ai/Qwen3-1.7B-Q4_K_M.gguf"
       - name: Build and test Mac app
         working-directory: ios
-        run: xcodebuild -project Pulse.xcodeproj -scheme PulseMac -configuration Debug -destination 'platform=macOS' -derivedDataPath build-tests test
+        run: PULSE_AI_TEST_MODEL="$HOME/.cache/pulse-ai/Qwen3-1.7B-Q4_K_M.gguf" xcodebuild -project Pulse.xcodeproj -scheme PulseMac -configuration Debug -destination 'platform=macOS' -derivedDataPath build-tests test
       - name: Build universal Mac app
         working-directory: ios
         run: |

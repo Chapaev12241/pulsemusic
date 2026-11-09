@@ -22,6 +22,7 @@ final class PulseStore: ObservableObject {
     let equalizer = PulseEqualizerSettings()
     let beat = PulseBeat()
     let djLibrary = PulseDJStore()
+    let ai = PulseAIStore()
     private var equalizerSubscription: AnyCancellable?
     private var favoriteSubscription: AnyCancellable?
     @Published var dj = UserDefaults.standard.object(forKey: "pulse_dj_native") as? Bool ?? true {
@@ -126,7 +127,7 @@ final class PulseStore: ObservableObject {
         await refresh()
     }
     private func clearSession(deleteKeychain: Bool = true) {
-        djLibrary.clear()
+        djLibrary.clear(); ai.configure(owner: "guest")
         generation = UUID(); mutation?.cancel(); mutation = nil
         player.command(["action": "stop"])
         token = ""; user = nil; social.configure(token: "", userID: ""); ownedTracks = []; ownedIDs = []; state = PulseLibraryState()
@@ -183,7 +184,7 @@ final class PulseStore: ObservableObject {
             }
         }
     }
-    private func configureSocial() { social.configure(token: token, userID: user?.id ?? ""); djLibrary.configure(owner: user?.id ?? "guest") }
+    private func configureSocial() { ai.configure(owner: user?.id ?? "guest"); social.configure(token: token, userID: user?.id ?? ""); djLibrary.configure(owner: user?.id ?? "guest") }
     func play(_ track: PulseTrack, within queue: [PulseTrack]) {
         player.setDJTransitions([:])
         player.command(["action": "play", "id": track.id, "tracks": queue.map(\.nativeValue), "token": token, "dj": dj])
@@ -216,6 +217,14 @@ final class PulseStore: ObservableObject {
                 self.state = saved
             } catch { if self.generation == stamp { self.error = error.localizedDescription } }
         }
+    }
+    func saveAIPlaylist(_ draft: PulseAIDraft) async -> Bool {
+        guard signedIn else { error = "Войди в аккаунт, чтобы сохранить плейлист"; return false }
+        let available = Set(tracks.map(\.id)), ids = draft.tracks.filter { available.contains($0) }
+        guard !ids.isEmpty else { error = "Треки этой подборки больше недоступны"; return false }
+        mutate(["type": "playlist", "id": draft.id, "name": String(draft.name.prefix(80)), "tracks": ids])
+        await mutation?.value
+        return state.playlists.contains { $0.id == draft.id }
     }
     func importFiles(_ urls: [URL]) async {
         guard signedIn, !uploading else { error = "Войди в аккаунт перед импортом"; return }

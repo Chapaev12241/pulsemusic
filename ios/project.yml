@@ -7,8 +7,12 @@ options:
 settings:
   base:
     SWIFT_VERSION: '5.0'
-    MARKETING_VERSION: '1.5.1'
-    CURRENT_PROJECT_VERSION: '8'
+    MARKETING_VERSION: '1.6.0'
+    CURRENT_PROJECT_VERSION: '9'
+packages:
+  LlamaSwift:
+    url: https://github.com/mattt/llama.swift
+    exactVersion: 2.10549.0
 targets:
   Pulse:
     type: application
@@ -16,6 +20,9 @@ targets:
     sources:
       - path: Pulse
         excludes: [native-bridge.js, MacAssets.xcassets]
+    dependencies:
+      - package: LlamaSwift
+        product: LlamaSwift
     info:
       path: Generated/iOS-Info.plist
       properties:
@@ -37,6 +44,9 @@ targets:
     sources:
       - path: Pulse
         excludes: [native-bridge.js, Assets.xcassets]
+    dependencies:
+      - package: LlamaSwift
+        product: LlamaSwift
     info:
       path: Generated/macOS-Info.plist
       properties:
