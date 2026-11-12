@@ -38,6 +38,8 @@ final class NativePlayer {
     private var outgoing: AVPlayer?
     private var prepared: AVPlayer?
     private var preparedID: String?
+    private var durationTask: Task<Void, Never>?
+    private var assetDuration = 0.0
     private let equalizer = PulseEQController()
     private var observation: NSKeyValueObservation?
     private var itemObservation: NSKeyValueObservation?
@@ -105,7 +107,7 @@ final class NativePlayer {
         #endif
     }
     deinit {
-        fade?.invalidate(); meterTimer?.invalidate(); artworkTask?.cancel()
+        fade?.invalidate(); meterTimer?.invalidate(); artworkTask?.cancel(); durationTask?.cancel()
         if let clock = clock { player.removeTimeObserver(clock) }
         notifications.forEach { NotificationCenter.default.removeObserver($0) }
         remoteTargets.forEach { $0.0.removeTarget($0.1) }
@@ -200,11 +202,15 @@ final class NativePlayer {
     }
     private var duration: Double {
         let value = player.currentItem?.duration.seconds ?? 0
-        return value.isFinite ? max(0, value) : 0
+        return value.isFinite && value > 0 ? value : assetDuration
     }
     private func next(_ direction: Int) {
         guard !queue.isEmpty else { return }
         start((index + direction + queue.count) % queue.count, crossfade: direction > 0 && dj && wantsPlayback)
+    }
+    private func makePlayer(_ url: URL) -> AVPlayer {
+        let asset = AVURLAsset(url: url, options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])
+        return AVPlayer(playerItem: AVPlayerItem(asset: asset))
     }
     private func start(_ target: Int, crossfade: Bool) {
         guard queue.indices.contains(target) else { return }
@@ -213,12 +219,19 @@ final class NativePlayer {
         currentMix = djTransitions[queue[target].id] ?? PulseDJMix(effect: .blend, duration: 3)
         if let clock = clock { player.removeTimeObserver(clock); self.clock = nil }
         if crossfade { outgoing = player } else { player.pause() }
-        player = preparedID == queue[target].id ? (prepared ?? AVPlayer(url: queue[target].url)) : AVPlayer(url: queue[target].url)
+        player = preparedID == queue[target].id ? (prepared ?? makePlayer(queue[target].url)) : makePlayer(queue[target].url)
         prepared = nil; preparedID = nil
         equalizer.attach(to: player.currentItem)
         player.automaticallyWaitsToMinimizeStalling = true
         player.currentItem?.preferredForwardBufferDuration = 15
         index = target; listened = 0; lastTime = 0; recorded = false
+        durationTask?.cancel(); assetDuration = 0
+        if let item = player.currentItem {
+            durationTask = Task { @MainActor [weak self] in
+                guard let length = try? await item.asset.load(.duration), !Task.isCancelled, let self, self.player.currentItem === item else { return }
+                if length.seconds.isFinite && length.seconds > 0 { self.assetDuration = length.seconds; self.emit() }
+            }
+        }
         wantsPlayback = true; fading = crossfade; player.volume = crossfade ? 0 : gain
         itemObservation = player.currentItem?.observe(\.status, options: [.new]) { [weak self] item, _ in
             guard item.status == .failed else { return }
@@ -271,7 +284,7 @@ final class NativePlayer {
             let transitionDuration = djTransitions[nextID]?.duration ?? 3
             if wantsPlayback && dj && queue.count > 1 && duration > 5 && duration - time < max(20, transitionDuration + 10), preparedID != nextID, let upcoming = queue.first(where: { $0.id == nextID }) {
                 prepared?.pause()
-                prepared = AVPlayer(url: upcoming.url); preparedID = nextID
+                prepared = makePlayer(upcoming.url); preparedID = nextID
                 prepared?.currentItem?.preferredForwardBufferDuration = 10
                 prepared?.preroll(atRate: 1) { _ in }
             }

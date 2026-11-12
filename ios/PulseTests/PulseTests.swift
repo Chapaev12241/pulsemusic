@@ -1,5 +1,6 @@
 import XCTest
 import Combine
+import AVFoundation
 #if os(iOS)
 @testable import Pulse
 #else
@@ -28,6 +29,13 @@ final class PulseTests: XCTestCase {
         let saved = try JSONDecoder().decode(PulseLibraryState.self, from: data)
         XCTAssertEqual(saved.liked, ["a"])
         XCTAssertEqual(saved.playlists.first?.name, "Дорога")
+    }
+    func testProductionMP3HasPreciseDurationForAutomaticTransitions() async throws {
+        let catalog: PulseCatalog = try await PulseAPI.request("api/catalog")
+        let track = try XCTUnwrap(catalog.tracks.first(where: { $0.title == "Captain" && $0.artist == "Miyagi" }))
+        let asset = AVURLAsset(url: try XCTUnwrap(URL(string: track.audio)), options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])
+        let duration = try await asset.load(.duration)
+        XCTAssertTrue(duration.seconds.isFinite && duration.seconds > 20, "Automatic transitions need a finite audio duration")
     }
     func testPlaylistCoverSurvivesCloudStateRoundTrip() throws {
         let playlist = PulsePlaylist(id: "p", name: "Дорога", tracks: ["a"], cover: "data:image/jpeg;base64,/9j/AAAA")

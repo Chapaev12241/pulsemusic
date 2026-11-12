@@ -12,8 +12,11 @@ final class PulseDownloads: ObservableObject {
     }
     nonisolated static func localURL(_ id: String) -> URL? {
         guard id.count == 64, id.allSatisfy({ $0.isHexDigit }) else { return nil }
-        let url = directory.appendingPathComponent(id + ".audio")
-        return FileManager.default.fileExists(atPath: url.path) ? url : nil
+        for ext in ["mp3", "m4a", "aac", "wav", "flac", "ogg", "opus"] {
+            let url = directory.appendingPathComponent(id + "." + ext)
+            if FileManager.default.fileExists(atPath: url.path) { return url }
+        }
+        return nil
     }
     init() {
         if let data = try? Data(contentsOf: Self.directory.appendingPathComponent("index.json")), let saved = try? JSONDecoder().decode([PulseTrack].self, from: data) { tracks = saved.filter { Self.localURL($0.id) != nil } }
@@ -27,7 +30,9 @@ final class PulseDownloads: ObservableObject {
             guard let http = response as? HTTPURLResponse, http.statusCode == 200, http.mimeType?.hasPrefix("audio/") == true else { throw URLError(.badServerResponse) }
             try FileManager.default.createDirectory(at: Self.directory, withIntermediateDirectories: true)
             var folder = Self.directory; var flags = URLResourceValues(); flags.isExcludedFromBackup = true; try? folder.setResourceValues(flags)
-            try FileManager.default.moveItem(at: temporary, to: Self.directory.appendingPathComponent(track.id + ".audio"))
+            let formats = ["audio/mpeg": "mp3", "audio/mp3": "mp3", "audio/mp4": "m4a", "audio/x-m4a": "m4a", "audio/aac": "aac", "audio/wav": "wav", "audio/x-wav": "wav", "audio/flac": "flac", "audio/ogg": "ogg"]
+            guard let ext = formats[http.mimeType ?? ""] else { throw URLError(.cannotDecodeContentData) }
+            try FileManager.default.moveItem(at: temporary, to: Self.directory.appendingPathComponent(track.id + "." + ext))
             tracks.append(track); try persist()
         } catch { self.error = "Не удалось скачать: " + error.localizedDescription }
     }
