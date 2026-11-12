@@ -5,12 +5,13 @@ function chooseCover(items,artist,title){return items.filter(t=>t.artworkUrl100&
 const artworkJobs=new Map();
 async function artworkLookup(env,artist,title){
  if(!title&&typeof ARTWORK_INDEX!=='undefined'){const portrait=ARTWORK_INDEX[coverNorm(artist)+'|'];if(portrait?.url)return{found:true,...portrait}}
- const key=(title?'artwork/v3/':'artwork/portraits-v1/')+hex(await crypto.subtle.digest('SHA-256',enc.encode(coverNorm(artist)+'|'+coverNorm(title))));
+ const key=(title?'artwork/v4/':'artwork/portraits-v1/')+hex(await crypto.subtle.digest('SHA-256',enc.encode(coverNorm(artist)+'|'+coverNorm(title))));
  const cached=await env.BUCKET.get(key);if(cached){const entry=JSON.parse(await cached.text());if(entry.until>Date.now()&&(entry.result?.found||entry.providers===2))return entry.result}
  const bundled=typeof ARTWORK_INDEX!=='undefined'?ARTWORK_INDEX[coverNorm(artist)+'|'+coverNorm(title)]:null;if(bundled?.url)return{found:true,...bundled,url:!/^https?:/.test(bundled.url)?'https://pulse-vibe-music.desyatnichenkoiosyf2.chatgpt.site/'+bundled.url:bundled.url};
  if(artworkJobs.has(key))return artworkJobs.get(key);
  const job=(async()=>{
   try{const matched=await searchYandexArtwork(artist,title);if(matched){await env.BUCKET.put(key,JSON.stringify({until:Date.now()+30*86400000,providers:2,result:matched}));return matched}}catch{}
+  try{const matched=await searchImportArtwork(artist,title);if(matched){await env.BUCKET.put(key,JSON.stringify({until:Date.now()+30*86400000,providers:2,result:matched}));return matched}}catch{}
   let hit;
   for(const country of ['us','kz']){
    const artistKey='artwork/artists-v3/'+country+'/'+hex(await crypto.subtle.digest('SHA-256',enc.encode(coverNorm(artist))));
@@ -35,3 +36,19 @@ async function artworkRoute(r,env){const url=new URL(r.url);if(url.pathname!=='/
 
 function bundledArtworkUrl(artist,title){const cover=typeof ARTWORK_INDEX!=='undefined'?ARTWORK_INDEX[coverNorm(artist)+'|'+coverNorm(title)]:null;return cover?.url?(/^https?:/.test(cover.url)?cover.url:'https://pulse-vibe-music.desyatnichenkoiosyf2.chatgpt.site/'+cover.url):''}
 async function searchYandexArtwork(artist,title){if(!title){const response=await fetch('https://api.music.yandex.net/search?'+new URLSearchParams({text:artist,type:'artist',page:'0'}),{signal:AbortSignal.timeout(8000)});if(!response.ok)return null;const data=await response.json(),hits=(data.result?.artists?.results||[]).filter(a=>coverArtistMatch(a.name,artist)&&coverNorm(a.name)===coverNorm(artist)).sort((a,b)=>Number(b.cover?.type==='from-artist-photos')-Number(a.cover?.type==='from-artist-photos')),hit=hits[0],image=hit?.cover?.uri;if(!image?.startsWith('avatars.yandex.net/get-music-content/'))return null;return{found:true,url:'https://'+image.replace('%%','600x600'),source:'Яндекс Музыка',sourceUrl:'https://music.yandex.ru/artist/'+hit.id}}const clean=s=>String(s).replace(/\s*\([^)]*(?:раунд|17\s*ib)[^)]*\)/ig,'').replace(/\s*\(prod\.[^)]*\)/ig,'').trim();const response=await fetch('https://api.music.yandex.net/search?'+new URLSearchParams({text:artist+' '+clean(title),type:'track',page:'0'}),{signal:AbortSignal.timeout(8000)});if(!response.ok)return null;const data=await response.json(),items=data.result?.tracks?.results||[];const hit=items.find(t=>coverArtistMatch(t.artists?.map(a=>a.name).join(' & '),artist)&&[clean(t.title),clean(t.title+(t.version?' ('+t.version+')':''))].some(v=>coverTitle(v)===coverTitle(clean(title)))&&(!/remix|instrumental|hip.hop version|live/i.test(title)||coverTitle(t.title+' '+(t.version||''))===coverTitle(title)));const image=hit?.coverUri||hit?.albums?.[0]?.coverUri;if(!image||!image.startsWith('avatars.yandex.net/get-music-content/'))return null;return{found:true,url:'https://'+image.replace('%%','600x600'),source:'Яндекс Музыка',sourceUrl:'https://music.yandex.ru/track/'+hit.id}}
+
+function sourceCoverDecode(value){return String(value||'').replace(/&(?:amp|quot|apos|#39|lt|gt);/g,x=>({'&amp;':'&','&quot;':'"','&apos;':"'",'&#39;':"'",'&lt;':'<','&gt;':'>'}[x]))}
+async function searchImportArtwork(artist,title){
+ if(!title)return null;
+ const source='https://one.muzso.net/query?'+new URLSearchParams({q:artist+' '+title.replace(/\s*[([](?:feat\.?|ft\.?)[^)]*[)\]]/ig,'')});
+ const response=await fetch(source,{headers:{'user-agent':'Mozilla/5.0 PulseImport/1.0'},signal:AbortSignal.timeout(10000)});if(!response.ok)return null;
+ const html=await response.text();if(html.length>2000000)return null;
+ for(const tag of html.matchAll(/<div\b[^>]*\bdata-tid="[^"]+"[^>]*>/g)){
+  const attrs={};for(const a of tag[0].matchAll(/\b(data-[\w-]+)="([^"]*)"/g))attrs[a[1]]=sourceCoverDecode(a[2]);
+  if(!coverArtistMatch(attrs['data-artist'],artist)||coverTitle(attrs['data-title'])!==coverTitle(title))continue;
+  let url;try{url=new URL(attrs['data-thumb'])}catch{continue}
+  if(url.protocol!=='https:'||!['yt3.googleusercontent.com','i.ytimg.com','img.youtube.com'].includes(url.hostname))continue;
+  return {found:true,url:url.href,source:'Источник импорта',sourceUrl:source};
+ }
+ return null;
+}
