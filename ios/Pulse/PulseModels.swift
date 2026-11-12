@@ -17,7 +17,7 @@ struct PulseUser: Codable { let id: String; let email: String; let name: String 
 struct PulseSession: Decodable { let user: PulseUser; let token: String }
 struct PulseIdentity: Decodable { let authenticated: Bool; let user: PulseUser? }
 struct PulseCatalog: Decodable { let tracks: [PulseTrack]; let indexing: Bool? }
-struct PulsePlaylist: Codable, Identifiable, Equatable, Sendable { let id: String; let name: String; let tracks: [String] }
+struct PulsePlaylist: Codable, Identifiable, Equatable, Sendable { let id: String; let name: String; let tracks: [String]; var cover: String? = nil }
 struct PulseHistory: Codable, Equatable, Sendable { let id: String; let at: String }
 struct PulseLibraryState: Codable, Equatable {
     var liked: [String] = []
@@ -39,7 +39,7 @@ enum PulseCollection: String, CaseIterable, Identifiable {
         case .home: return "Главная"
         case .catalog: return "Вся музыка"
         case .library: return "Моя медиатека"
-        case .liked: return "Избранное"
+        case .liked: return "Понравилось"
         case .playlists: return "Плейлисты"
         case .history: return "История"
         case .search: return "Поиск"

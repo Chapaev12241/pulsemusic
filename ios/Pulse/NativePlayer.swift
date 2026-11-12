@@ -17,7 +17,7 @@ final class NativePlayer {
             guard let id = value["id"] as? String, let audio = value["audio"] as? String,
                   let url = URL(string: audio), url.scheme == "https",
                   url.host == "pulse-vibe-music.desyatnichenkoiosyf2.chatgpt.site" else { return nil }
-            self.id = id; self.url = url
+            self.id = id; self.url = PulseDownloads.localURL(id) ?? url
             title = value["title"] as? String ?? ""; artist = value["artist"] as? String ?? ""
             album = value["album"] as? String ?? ""
             let imageURL = URL(string: value["artwork"] as? String ?? "")
@@ -36,6 +36,8 @@ final class NativePlayer {
     private var index = 0
     private var player = AVPlayer()
     private var outgoing: AVPlayer?
+    private var prepared: AVPlayer?
+    private var preparedID: String?
     private let equalizer = PulseEQController()
     private var observation: NSKeyValueObservation?
     private var itemObservation: NSKeyValueObservation?
@@ -211,7 +213,8 @@ final class NativePlayer {
         currentMix = djTransitions[queue[target].id] ?? PulseDJMix(effect: .blend, duration: 3)
         if let clock = clock { player.removeTimeObserver(clock); self.clock = nil }
         if crossfade { outgoing = player } else { player.pause() }
-        player = AVPlayer(url: queue[target].url)
+        player = preparedID == queue[target].id ? (prepared ?? AVPlayer(url: queue[target].url)) : AVPlayer(url: queue[target].url)
+        prepared = nil; preparedID = nil
         equalizer.attach(to: player.currentItem)
         player.automaticallyWaitsToMinimizeStalling = true
         player.currentItem?.preferredForwardBufferDuration = 15
@@ -266,7 +269,13 @@ final class NativePlayer {
             if !recorded && duration > 0 && listened >= min(30, duration / 2) { saveHistory() }
             let nextID = adjacentID(1) ?? ""
             let transitionDuration = djTransitions[nextID]?.duration ?? 3
-            if wantsPlayback && dj && !fading && duration > 20 && duration - time <= transitionDuration + 0.8 && duration - time > 0 && queue.count > 1 { next(1); return }
+            if wantsPlayback && dj && queue.count > 1 && duration > 5 && duration - time < max(20, transitionDuration + 10), preparedID != nextID, let upcoming = queue.first(where: { $0.id == nextID }) {
+                prepared?.pause()
+                prepared = AVPlayer(url: upcoming.url); preparedID = nextID
+                prepared?.currentItem?.preferredForwardBufferDuration = 10
+                prepared?.preroll(atRate: 1) { _ in }
+            }
+            if wantsPlayback && dj && !fading && duration > 5 && duration - time <= transitionDuration + 0.8 && duration - time > 0 && queue.count > 1 { next(1); return }
         }
         emit()
     }

@@ -151,6 +151,9 @@ struct PulseExpandedPlayer: View {
                             }.frame(maxWidth: .infinity, alignment: .leading)
                         }.padding(16).pulseGlass(cornerRadius: 30)
                     }
+                    .simultaneousGesture(DragGesture(minimumDistance: 20)
+                        .onChanged { value in if store.currentTrack != nil { swipe.drag(value) } }
+                        .onEnded { value in if store.currentTrack != nil { swipe.end(value, width: geometry.size.width, reducedMotion: reducedMotion, action: store.next) } })
                     PulseTimeline(store: store)
                         .background(GeometryReader { proxy in Color.clear.preference(key: PulseSeekFrameKey.self, value: proxy.frame(in: .named("PulseFullPlayer"))) })
                     HStack(spacing: 40) {
@@ -160,13 +163,10 @@ struct PulseExpandedPlayer: View {
                     }.buttonStyle(.plain).disabled(store.currentTrack == nil)
                     Toggle("DJ · плавные переходы", isOn: $store.dj).font(.system(size: 13)).tint(PulseTheme.accent)
                     PulseLyricsView(store: store)
-                    Text("Твоя музыка. Твой вайб.").font(PulseTheme.heading(24)).foregroundStyle(PulseTheme.muted)
                     Spacer(minLength: 20)
                 }.padding(24).frame(minHeight: geometry.size.height)
             }
-            .simultaneousGesture(DragGesture(minimumDistance: 16, coordinateSpace: .named("PulseFullPlayer"))
-                .onChanged { value in if store.currentTrack != nil { swipe.drag(value, excluding: seekFrame) } }
-                .onEnded { value in if store.currentTrack != nil { swipe.end(value, width: geometry.size.width, reducedMotion: reducedMotion, excluding: seekFrame, action: store.next) } })
+
         }
         .coordinateSpace(name: "PulseFullPlayer")
         .onPreferenceChange(PulseSeekFrameKey.self) { seekFrame = $0 }

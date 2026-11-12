@@ -23,6 +23,7 @@ final class PulseStore: ObservableObject {
     let beat = PulseBeat()
     let djLibrary = PulseDJStore()
     let ai = PulseAIStore()
+    let downloads = PulseDownloads()
     private var equalizerSubscription: AnyCancellable?
     private var favoriteSubscription: AnyCancellable?
     @Published var dj = UserDefaults.standard.object(forKey: "pulse_dj_native") as? Bool ?? true {
@@ -53,6 +54,7 @@ final class PulseStore: ObservableObject {
         await Task.detached(priority: .userInitiated) { PulseKeychain.load() }.value
     }) {
         self.loadSession = loadSession
+        tracks = downloads.tracks
         player.onState = { [weak self] value in self?.receivePlayback(value) }
         player.onBeat = { [weak self] value in self?.beat.receive(value) }
         player.onFavorite = { [weak self] id in
@@ -179,12 +181,35 @@ final class PulseStore: ObservableObject {
             if let api = error as? PulseAPIError, api.status == 401 {
                 clearSession(); self.error = "Сессия закончилась. Войди снова."
             } else {
-                tracks = PulseLibrary.merge(publicTracks: publicTracks, ownedTracks: ownedTracks)
-                self.error = "Медиатека не обновлена: \(error.localizedDescription)"
+                tracks = PulseLibrary.merge(publicTracks: publicTracks, ownedTracks: ownedTracks + downloads.tracks)
+                if tracks.isEmpty { self.error = "Медиатека не обновлена: \(error.localizedDescription)" }
             }
         }
     }
     private func configureSocial() { ai.configure(owner: user?.id ?? "guest"); social.configure(token: token, userID: user?.id ?? ""); djLibrary.configure(owner: user?.id ?? "guest") }
+    func playWave() {
+        let liked = Set(state.liked)
+        let artists = Set(tracks.filter { liked.contains($0.id) }.map(\.artist))
+        let recent = Set(state.history.prefix(20).map(\.id))
+        let shuffled = tracks.shuffled()
+        let familiar = shuffled.filter { artists.contains($0.artist) && !recent.contains($0.id) }
+        let discovery = shuffled.filter { !artists.contains($0.artist) && !recent.contains($0.id) }
+        var queue: [PulseTrack] = []
+        for i in 0..<max(familiar.count, discovery.count) {
+            if familiar.indices.contains(i) { queue.append(familiar[i]) }
+            if discovery.indices.contains(i) { queue.append(discovery[i]) }
+        }
+        queue += shuffled.filter { recent.contains($0.id) }
+        if let first = queue.first { play(first, within: queue) }
+    }
+    func setPlaylistCover(_ id: String, url: URL) async {
+        let access = url.startAccessingSecurityScopedResource()
+        defer { if access { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let data = try await Task.detached(priority: .userInitiated) { try PulseCoverCodec.encode(url) }.value
+            mutate(["type": "playlistCover", "id": id, "cover": "data:image/jpeg;base64," + data.base64EncodedString()])
+        } catch { self.error = error.localizedDescription }
+    }
     func play(_ track: PulseTrack, within queue: [PulseTrack]) {
         player.setDJTransitions([:])
         player.command(["action": "play", "id": track.id, "tracks": queue.map(\.nativeValue), "token": token, "dj": dj])

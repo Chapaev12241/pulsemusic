@@ -10,7 +10,8 @@ struct PulseRootView: View {
     @State private var importing = false
     @State private var newPlaylist = false
     @State private var playlistName = ""
-    @State private var activePlaylist: String?
+    @State private var activePlaylist: String? = "liked"
+    @State private var choosingCover = false
     @Namespace private var tabAnimation
     private var visibleTracks: [PulseTrack] {
         let values: [PulseTrack]
@@ -20,7 +21,11 @@ struct PulseRootView: View {
         case .library: values = store.tracks.filter { store.ownedIDs.contains($0.id) }
         case .liked: values = PulseLibrary.ordered(store.state.liked, in: store.tracks)
         case .history: values = PulseLibrary.ordered(store.state.history.map(\.id), in: store.tracks)
-        case .playlists: values = PulseLibrary.ordered(store.state.playlists.first { $0.id == activePlaylist }?.tracks ?? [], in: store.tracks)
+        case .playlists:
+            if activePlaylist == "liked" { values = PulseLibrary.ordered(store.state.liked, in: store.tracks) }
+            else if activePlaylist == "library" { values = store.tracks.filter { store.ownedIDs.contains($0.id) } }
+            else if activePlaylist == "downloads" { values = store.downloads.tracks }
+            else { values = PulseLibrary.ordered(store.state.playlists.first { $0.id == activePlaylist }?.tracks ?? [], in: store.tracks) }
         }
         return values
     }
@@ -48,7 +53,7 @@ struct PulseRootView: View {
                                 if visibleTracks.isEmpty { emptyState }
                                 else { trackList }
                             }
-                            syncStatus
+                            if store.uploading { syncStatus }
                         }
                         .padding(.horizontal, contentPadding).padding(.top, 10).padding(.bottom, 24)
                     }
@@ -72,6 +77,9 @@ struct PulseRootView: View {
         .frame(minWidth: 840, minHeight: 580)
         #endif
         .sheet(isPresented: $showAccount) { PulseAccountView().environmentObject(store).tint(PulseTheme.accent).preferredColorScheme(.dark) }
+        .fileImporter(isPresented: $choosingCover, allowedContentTypes: [.image]) { result in
+            if case .success(let url) = result, let id = activePlaylist { Task { await store.setPlaylistCover(id, url: url) } }
+        }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.audio, .data], allowsMultipleSelection: true) { result in
             switch result {
             case .success(let urls): Task { await store.importFiles(urls) }
@@ -86,10 +94,11 @@ struct PulseRootView: View {
             }
             Button("Отмена", role: .cancel) { }
         }
+        .alert("Скачивание", isPresented: Binding(get: { store.downloads.error != nil }, set: { if !$0 { store.downloads.error = nil } })) { Button("Понятно") { store.downloads.error = nil } } message: { Text(store.downloads.error ?? "") }
         .alert("Pulse", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {
             Button("Понятно") { store.error = nil }
         } message: { Text(store.error ?? "") }
-        .onChange(of: store.state.playlists.map(\.id)) { _, ids in if !ids.contains(activePlaylist ?? "") { activePlaylist = ids.first } }
+        .onChange(of: store.state.playlists.map(\.id)) { _, ids in if !["liked", "library", "downloads"].contains(activePlaylist ?? "") && !ids.contains(activePlaylist ?? "") { activePlaylist = "liked" } }
         .onChange(of: collection) { _, next in if next == .playlists && activePlaylist == nil { activePlaylist = store.state.playlists.first?.id } }
     }
     private var contentPadding: CGFloat {
@@ -117,7 +126,7 @@ struct PulseRootView: View {
         VStack(alignment: .leading, spacing: 28) {
             Text("Pulse").font(PulseTheme.heading(46)).padding(.horizontal, 14).padding(.top, 14)
             ScrollView(.vertical) { VStack(spacing: 6) {
-                ForEach(PulseCollection.allCases) { item in
+                ForEach([PulseCollection.home, .search, .playlists, .dj, .settings]) { item in
                     Button { select(item) } label: {
                         HStack(spacing: 12) {
                             Image(systemName: item.symbol).font(.system(size: 17)).frame(width: 22)
@@ -144,7 +153,7 @@ struct PulseRootView: View {
     }
     private var mobileNavigation: some View {
         HStack(spacing: 0) {
-            ForEach([PulseCollection.home, .search, .vibe, .dj, .library, .playlists]) { item in
+            ForEach([PulseCollection.home, .search, .playlists]) { item in
                 Button { select(item) } label: {
                     VStack(spacing: 5) {
                         Image(systemName: item.symbol).font(.system(size: 19))
@@ -160,11 +169,14 @@ struct PulseRootView: View {
     private var collectionHeader: some View {
         HStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 8) {
-                Text(collection == .playlists ? (store.state.playlists.first { $0.id == activePlaylist }?.name ?? collection.title) : collection.title).font(PulseTheme.heading(40))
-                Text(collection == .library ? "Твоя облачная коллекция — всегда рядом" : "\(visibleTracks.count) треков · твой следующий любимый уже здесь").font(.system(size: 12)).foregroundStyle(PulseTheme.muted)
+                Text(collection == .playlists ? (activePlaylist == "liked" ? "Понравилось" : activePlaylist == "library" ? "Моя музыка" : activePlaylist == "downloads" ? "Скачано" : store.state.playlists.first { $0.id == activePlaylist }?.name ?? collection.title) : collection.title).font(PulseTheme.heading(40))
+                Text("\(visibleTracks.count) треков").font(.system(size: 12)).foregroundStyle(PulseTheme.muted)
             }
             Spacer()
             if collection == .playlists {
+                if store.state.playlists.contains(where: { $0.id == activePlaylist }) {
+                    Button { choosingCover = true } label: { Image(systemName: "photo").frame(width: 38, height: 38) }.buttonStyle(.plain).accessibilityLabel("Изменить обложку плейлиста")
+                }
                 Button { if store.signedIn { newPlaylist = true } else { showAccount = true } } label: { Image(systemName: "plus").frame(width: 38, height: 38) }.buttonStyle(.plain).background(PulseTheme.raised, in: RoundedRectangle(cornerRadius: 12))
             } else {
                 Button(action: importMusic) { Image(systemName: "plus").frame(width: 38, height: 38) }.buttonStyle(.plain).background(PulseTheme.raised, in: RoundedRectangle(cornerRadius: 12)).accessibilityLabel("Добавить музыку")
@@ -187,9 +199,14 @@ struct PulseRootView: View {
     private var playlistPicker: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
+                ForEach([("liked", "Понравилось", "heart.fill"), ("library", "Моя музыка", "music.note.list"), ("downloads", "Скачано", "arrow.down.circle")], id: \.0) { item in
+                    Button { activePlaylist = item.0 } label: {
+                        Label(item.1, systemImage: item.2).font(.system(size: 12)).padding(12).background(activePlaylist == item.0 ? PulseTheme.accent.opacity(0.2) : PulseTheme.panel, in: Capsule())
+                    }.buttonStyle(.plain)
+                }
                 ForEach(store.state.playlists) { playlist in
                     Button { activePlaylist = playlist.id } label: {
-                        Label(playlist.name, systemImage: "music.note.list").font(.system(size: 12)).padding(.horizontal, 15).padding(.vertical, 12)
+                        HStack { PulsePlaylistCover(cover: playlist.cover); Text(playlist.name) }.font(.system(size: 12)).padding(.horizontal, 15).padding(.vertical, 12)
                             .background(activePlaylist == playlist.id ? PulseTheme.accent.opacity(0.2) : PulseTheme.panel, in: Capsule())
                             .foregroundStyle(activePlaylist == playlist.id ? PulseTheme.accent : .white)
                     }.buttonStyle(.plain)
@@ -238,13 +255,13 @@ struct PulseHomeView: View {
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 30) {
-            PulseHero(count: store.tracks.count) { select(.vibe) }
+            PulseHero(count: store.tracks.count) { store.playWave() }
             Button { select(.dj) } label: {
                 HStack(spacing: 18) {
                     Image(systemName: "waveform").font(.system(size: 32)).foregroundStyle(PulseTheme.accent)
                     VStack(alignment: .leading, spacing: 6) {
                         Text("DJ · твой бесконечный микс").font(.system(size: 18, weight: .semibold))
-                        Text("Подбор по BPM и звучанию · плавные переходы и эффекты").font(.system(size: 12)).foregroundStyle(PulseTheme.muted)
+                        Text("Плавный микс").font(.system(size: 12)).foregroundStyle(PulseTheme.muted)
                     }
                     Spacer(); Image(systemName: "arrow.up.right").foregroundStyle(PulseTheme.accent)
                 }.padding(22).frame(maxWidth: .infinity, alignment: .leading).pulseGlass(cornerRadius: 22)
@@ -284,7 +301,7 @@ struct PulseHomeView: View {
         HStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(title).font(.system(size: 20, weight: .semibold))
-                Text(subtitle).font(.system(size: 11)).foregroundStyle(PulseTheme.muted)
+                
             }
             Spacer()
             Button(action: action) { Image(systemName: "arrow.up.right").font(.system(size: 15)).frame(width: 34, height: 34).background(PulseTheme.raised, in: Circle()) }.buttonStyle(.plain).accessibilityLabel("Вся музыка")
@@ -305,16 +322,14 @@ struct PulseHero: View {
                 Text("Твоя музыка.\nТвой вайб.").font(PulseTheme.heading(36)).lineSpacing(4).lineLimit(2).minimumScaleFactor(0.6).frame(maxWidth: .infinity, alignment: .leading)
                 PulseReactiveVinyl(playback: store.playback, beat: store.beat).frame(width: 84, height: 84).accessibilityHidden(true)
             }
-            Text("Момент — твой. Саундтрек — Pulse.").font(.system(size: 11)).foregroundStyle(PulseTheme.muted)
-            Button(action: play) { Label("Собрать мой вайб · ИИ", systemImage: "sparkles") }.buttonStyle(PulsePrimaryButton()).disabled(count == 0)
+            Button(action: play) { Label("Слушать волну", systemImage: "play.fill") }.buttonStyle(PulsePrimaryButton()).disabled(count == 0)
         }.frame(maxWidth: .infinity, alignment: .leading)
         #else
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 16) {
                 Label("НА ТВОЕЙ ВОЛНЕ", systemImage: "sparkle").font(.system(size: 9, weight: .medium)).tracking(2).foregroundStyle(PulseTheme.accent)
                 Text("Твоя музыка.\nТвой вайб.").font(PulseTheme.heading(titleSize)).lineSpacing(4).minimumScaleFactor(0.75).fixedSize(horizontal: false, vertical: true)
-                Text("Момент — твой. Саундтрек — Pulse.").font(.system(size: 11)).foregroundStyle(PulseTheme.muted)
-                Button(action: play) { Label("Запустить вайб", systemImage: "play.fill") }.buttonStyle(PulsePrimaryButton()).disabled(count == 0)
+                    Button(action: play) { Label("Слушать волну", systemImage: "play.fill") }.buttonStyle(PulsePrimaryButton()).disabled(count == 0)
             }
             Spacer(minLength: 0)
             PulseReactiveVinyl(playback: store.playback, beat: store.beat).frame(width: vinylSize, height: vinylSize).accessibilityHidden(true)
@@ -443,6 +458,7 @@ struct PulseTrackActions: View {
     @EnvironmentObject private var store: PulseStore
     let track: PulseTrack
     var body: some View {
+        PulseDownloadAction(track: track, downloads: store.downloads)
         Button(store.state.liked.contains(track.id) ? "Убрать из избранного" : "В избранное", systemImage: "heart") { store.like(track) }
         if !store.state.playlists.isEmpty {
             Menu("Добавить в плейлист") { ForEach(store.state.playlists) { playlist in Button(playlist.name) { store.add(track, to: playlist) } } }
