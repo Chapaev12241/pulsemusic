@@ -9,6 +9,7 @@ struct PulseRootView: View {
     @State private var showAccount = false
     @State private var importing = false
     @State private var newPlaylist = false
+    @State private var showAIPlaylist = false
     @State private var playlistName = ""
     @State private var activePlaylist: String? = "liked"
     @State private var choosingCover = false
@@ -76,6 +77,7 @@ struct PulseRootView: View {
         #if os(macOS)
         .frame(minWidth: 840, minHeight: 580)
         #endif
+        .sheet(isPresented: $showAIPlaylist) { PulseVibeView(store: store).preferredColorScheme(.dark).tint(PulseTheme.accent) }
         .sheet(isPresented: $showAccount) { PulseAccountView().environmentObject(store).tint(PulseTheme.accent).preferredColorScheme(.dark) }
         .fileImporter(isPresented: $choosingCover, allowedContentTypes: [.image]) { result in
             if case .success(let url) = result, let id = activePlaylist { Task { await store.setPlaylistCover(id, url: url) } }
@@ -177,7 +179,10 @@ struct PulseRootView: View {
                 if store.state.playlists.contains(where: { $0.id == activePlaylist }) {
                     Button { choosingCover = true } label: { Image(systemName: "photo").frame(width: 38, height: 38) }.buttonStyle(.plain).accessibilityLabel("Изменить обложку плейлиста")
                 }
-                Button { if store.signedIn { newPlaylist = true } else { showAccount = true } } label: { Image(systemName: "plus").frame(width: 38, height: 38) }.buttonStyle(.plain).background(PulseTheme.raised, in: RoundedRectangle(cornerRadius: 12))
+                Menu {
+                    Button("Новый плейлист") { if store.signedIn { newPlaylist = true } else { showAccount = true } }
+                    Button("Подобрать с ИИ") { showAIPlaylist = true }
+                } label: { Image(systemName: "plus").frame(width: 38, height: 38) }.background(PulseTheme.raised, in: RoundedRectangle(cornerRadius: 12)).accessibilityLabel("Создать плейлист")
             } else {
                 Button(action: importMusic) { Image(systemName: "plus").frame(width: 38, height: 38) }.buttonStyle(.plain).background(PulseTheme.raised, in: RoundedRectangle(cornerRadius: 12)).accessibilityLabel("Добавить музыку")
             }
