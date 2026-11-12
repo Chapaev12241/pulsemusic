@@ -38,6 +38,7 @@ final class NativePlayer {
     private var outgoing: AVPlayer?
     private var prepared: AVPlayer?
     private var preparedID: String?
+    private var preparedObservation: NSKeyValueObservation?
     private var durationTask: Task<Void, Never>?
     private var assetDuration = 0.0
     private let equalizer = PulseEQController()
@@ -220,7 +221,7 @@ final class NativePlayer {
         if let clock = clock { player.removeTimeObserver(clock); self.clock = nil }
         if crossfade { outgoing = player } else { player.pause() }
         player = preparedID == queue[target].id ? (prepared ?? makePlayer(queue[target].url)) : makePlayer(queue[target].url)
-        prepared = nil; preparedID = nil
+        preparedObservation = nil; prepared = nil; preparedID = nil
         equalizer.attach(to: player.currentItem)
         player.automaticallyWaitsToMinimizeStalling = true
         player.currentItem?.preferredForwardBufferDuration = 15
@@ -283,10 +284,18 @@ final class NativePlayer {
             let nextID = adjacentID(1) ?? ""
             let transitionDuration = djTransitions[nextID]?.duration ?? 3
             if wantsPlayback && dj && queue.count > 1 && duration > 5 && duration - time < max(20, transitionDuration + 10), preparedID != nextID, let upcoming = queue.first(where: { $0.id == nextID }) {
-                prepared?.pause()
-                prepared = makePlayer(upcoming.url); preparedID = nextID
-                prepared?.currentItem?.preferredForwardBufferDuration = 10
-                prepared?.preroll(atRate: 1) { _ in }
+                preparedObservation = nil; prepared?.pause()
+                let candidate = makePlayer(upcoming.url)
+                prepared = candidate; preparedID = nextID
+                candidate.currentItem?.preferredForwardBufferDuration = 10
+                preparedObservation = candidate.observe(\.status, options: [.initial, .new]) { [weak self] candidate, _ in
+                    guard candidate.status == .readyToPlay else { return }
+                    DispatchQueue.main.async {
+                        guard let self, self.prepared === candidate, candidate.status == .readyToPlay else { return }
+                        self.preparedObservation = nil
+                        candidate.preroll(atRate: 1) { _ in }
+                    }
+                }
             }
             if wantsPlayback && dj && !fading && duration > 5 && duration - time <= transitionDuration + 0.8 && duration - time > 0 && queue.count > 1 { next(1); return }
         }

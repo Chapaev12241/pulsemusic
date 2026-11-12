@@ -30,6 +30,26 @@ final class PulseTests: XCTestCase {
         XCTAssertEqual(saved.liked, ["a"])
         XCTAssertEqual(saved.playlists.first?.name, "Дорога")
     }
+    @MainActor
+    func testAutomaticTransitionPreloadsOnlyAfterPlayerIsReady() async throws {
+        let catalog: PulseCatalog = try await PulseAPI.request("api/catalog")
+        let first = try XCTUnwrap(catalog.tracks.first(where: { $0.title == "Captain" && $0.artist == "Miyagi" }))
+        let second = try XCTUnwrap(catalog.tracks.first(where: { $0.id != first.id }))
+        let player = NativePlayer()
+        player.command(["action": "volume", "value": 0])
+        defer { player.command(["action": "pause"]) }
+        let ready = expectation(description: "Finite duration"), advanced = expectation(description: "Automatic next track")
+        var length = 0.0, didAdvance = false
+        player.onState = { value in
+            if value["id"] as? String == first.id, let duration = value["duration"] as? Double, duration > 20, length == 0 { length = duration; ready.fulfill() }
+            if value["id"] as? String == second.id && !didAdvance { didAdvance = true; advanced.fulfill() }
+        }
+        player.command(["action": "play", "id": first.id, "tracks": [first, second].map(\.nativeValue), "dj": true])
+        await fulfillment(of: [ready], timeout: 45)
+        guard length > 20 else { return }
+        player.command(["action": "seek", "time": length - 7])
+        await fulfillment(of: [advanced], timeout: 25)
+    }
     func testProductionMP3HasPreciseDurationForAutomaticTransitions() async throws {
         let catalog: PulseCatalog = try await PulseAPI.request("api/catalog")
         let track = try XCTUnwrap(catalog.tracks.first(where: { $0.title == "Captain" && $0.artist == "Miyagi" }))
