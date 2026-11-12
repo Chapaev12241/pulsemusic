@@ -29,6 +29,14 @@ final class PulseTests: XCTestCase {
         XCTAssertEqual(saved.liked, ["a"])
         XCTAssertEqual(saved.playlists.first?.name, "Дорога")
     }
+    func testPlaylistCoverSurvivesCloudStateRoundTrip() throws {
+        let playlist = PulsePlaylist(id: "p", name: "Дорога", tracks: ["a"], cover: "data:image/jpeg;base64,/9j/AAAA")
+        XCTAssertEqual(try JSONDecoder().decode(PulsePlaylist.self, from: JSONEncoder().encode(playlist)), playlist)
+    }
+    func testOfflinePathRejectsUntrustedTrackIdentifiers() {
+        XCTAssertNil(PulseDownloads.localURL("../index.json"))
+        XCTAssertNil(PulseDownloads.localURL(String(repeating: "z", count: 64)))
+    }
     func testAPIUsesProductionHTTPSAndNoCustomDomainDependency() {
         XCTAssertEqual(PulseAPI.base.scheme, "https")
         XCTAssertEqual(PulseAPI.base.host, "pulse-vibe-music.desyatnichenkoiosyf2.chatgpt.site")

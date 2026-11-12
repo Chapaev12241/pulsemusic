@@ -41,11 +41,13 @@ struct PulseDownloadAction: View {
     let track: PulseTrack
     @ObservedObject var downloads: PulseDownloads
     var body: some View {
+        Group {
         if downloads.tracks.contains(where: { $0.id == track.id }) {
             Button("Удалить скачанный файл", systemImage: "trash") { downloads.remove(track) }
         } else {
             Button(downloads.pending.contains(track.id) ? "Скачивается…" : "Скачать на устройство", systemImage: "arrow.down.circle") { Task { await downloads.download(track) } }.disabled(downloads.pending.contains(track.id))
         }
+        }.alert("Скачивание", isPresented: Binding(get: { downloads.error != nil }, set: { if !$0 { downloads.error = nil } })) { Button("Понятно") { downloads.error = nil } } message: { Text(downloads.error ?? "") }
     }
 }
 enum PulseCoverCodec {

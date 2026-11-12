@@ -26,6 +26,7 @@ final class PulseStore: ObservableObject {
     let downloads = PulseDownloads()
     private var equalizerSubscription: AnyCancellable?
     private var favoriteSubscription: AnyCancellable?
+    private var downloadSubscription: AnyCancellable?
     @Published var dj = UserDefaults.standard.object(forKey: "pulse_dj_native") as? Bool ?? true {
         didSet { UserDefaults.standard.set(dj, forKey: "pulse_dj_native"); player.command(["action": "dj", "enabled": dj]) }
     }
@@ -55,6 +56,7 @@ final class PulseStore: ObservableObject {
     }) {
         self.loadSession = loadSession
         tracks = downloads.tracks
+        downloadSubscription = downloads.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
         player.onState = { [weak self] value in self?.receivePlayback(value) }
         player.onBeat = { [weak self] value in self?.beat.receive(value) }
         player.onFavorite = { [weak self] id in
