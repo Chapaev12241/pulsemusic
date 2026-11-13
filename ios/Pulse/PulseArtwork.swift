@@ -33,11 +33,11 @@ actor PulseArtworkCache {
         return norm(artist) + "|" + norm(title)
     }
     func image(for track: PulseTrack) async -> CGImage? {
-        let key = Self.key(artist: track.artist, title: track.title)
+        let key = Self.key(artist: track.artist, title: track.title) + "|hq2|" + (track.artwork ?? "")
         if let image = images.object(forKey: key as NSString) { return image }
         if let expiry = missing[key], expiry > Date() { return nil }
         if let task = inflight[key] { return await task.value }
-        let preferred = bundled[key]?.url
+        let preferred = track.artworkURL == nil ? bundled[Self.key(artist: track.artist, title: track.title)]?.url : nil
         let task = Task<CGImage?, Never> {
             await self.acquire()
             let result = await self.fetchImage(for: track, preferred: preferred)
@@ -81,7 +81,7 @@ actor PulseArtworkCache {
               let (data, response) = try? await session.data(from: url),
               (response as? HTTPURLResponse)?.statusCode == 200, data.count <= 8 * 1024 * 1024,
               let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
-        return CGImageSourceCreateThumbnailAtIndex(source, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: 512, kCGImageSourceCreateThumbnailWithTransform: true] as CFDictionary)
+        return CGImageSourceCreateThumbnailAtIndex(source, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: 1024, kCGImageSourceCreateThumbnailWithTransform: true] as CFDictionary)
     }
 }
 
@@ -100,7 +100,7 @@ struct PulseArtworkView: View {
             }
         }
         .frame(width: size, height: size).clipShape(RoundedRectangle(cornerRadius: radius))
-        .task(id: track?.id) {
+        .task(id: (track?.id ?? "") + "|" + (track?.artwork ?? "")) {
             image = nil
             if let track { let result = await PulseArtworkCache.shared.image(for: track); if !Task.isCancelled { image = result } }
         }

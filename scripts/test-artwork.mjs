@@ -1,6 +1,12 @@
 import vm from 'node:vm';import assert from 'node:assert/strict';import{readFileSync}from'node:fs';
-const scope={};vm.runInNewContext(readFileSync('worker/artwork.mjs','utf8')+'\nthis.choose=chooseCover;',scope);
+const scope={URL};vm.runInNewContext(readFileSync('worker/artwork.mjs','utf8')+'\nthis.choose=chooseCover;',scope);
 const items=[{artistName:'Other',trackName:'My song',artworkUrl100:'wrong'},{artistName:'Artist',trackName:'My song (Live)',artworkUrl100:'live'},{artistName:'Artist',trackName:'My Song',artworkUrl100:'correct'}];
 assert.equal(scope.choose(items,'Artist','My song').artworkUrl100,'correct');assert.equal(scope.choose(items,'Artist','My song (Live)').artworkUrl100,'live');assert.equal(scope.choose(items,'Unknown','My song'),undefined);
 assert.equal(scope.choose([{artistName:'Первый & Второй',trackName:'Полет',artworkUrl100:'duet'}],'Первый, Второй','Полёт').artworkUrl100,'duet');
 console.log('PASS: artwork title/artist matching, edition distinction, wrong-artist rejection and collaboration normalization');
+vm.runInNewContext('this.hq=highQualityArtwork;',scope);
+assert.equal(scope.hq('https://yt3.googleusercontent.com/photo=w120-h120-l90-rj'),'https://yt3.googleusercontent.com/photo=w1000-h1000-l90-rj');
+assert.equal(scope.hq('https://is1-ssl.mzstatic.com/image/100x100bb.jpg'),'https://is1-ssl.mzstatic.com/image/1200x1200bb.jpg');
+assert.equal(scope.hq('https://avatars.yandex.net/get-music-content/id/100x100'),'https://avatars.yandex.net/get-music-content/id/1000x1000');
+assert.equal(scope.hq('https://other.example/120x120.jpg'),'https://other.example/120x120.jpg');
+console.log('PASS original-size covers, cached miniatures upgrade, unknown sources unchanged');
