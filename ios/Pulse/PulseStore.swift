@@ -28,19 +28,20 @@ final class PulseStore: ObservableObject {
     private var remoteClock: Task<Void, Never>?
     private var remoteActive = false
     private var applyingDevice = false
+    private var syncingDeviceSettings = false
     private var transferError: String?
 
     private var equalizerSubscription: AnyCancellable?
     private var favoriteSubscription: AnyCancellable?
     private var downloadSubscription: AnyCancellable?
     @Published var shuffle = UserDefaults.standard.bool(forKey: "pulse_shuffle") {
-        didSet { UserDefaults.standard.set(shuffle, forKey: "pulse_shuffle"); if !applyingDevice && devices.controlsRemote { devices.control("shuffle", enabled: shuffle) } else { player.command(["action": "shuffle", "enabled": shuffle]) } }
+        didSet { if syncingDeviceSettings { return }; UserDefaults.standard.set(shuffle, forKey: "pulse_shuffle"); if !applyingDevice && devices.controlsRemote { devices.control("shuffle", enabled: shuffle) } else { player.command(["action": "shuffle", "enabled": shuffle]) } }
     }
     @Published var dj = UserDefaults.standard.object(forKey: "pulse_dj_native") as? Bool ?? true {
-        didSet { UserDefaults.standard.set(dj, forKey: "pulse_dj_native"); player.command(["action": "dj", "enabled": dj]) }
+        didSet { if syncingDeviceSettings { return }; UserDefaults.standard.set(dj, forKey: "pulse_dj_native"); if !applyingDevice && devices.controlsRemote { devices.control("dj", enabled: dj) } else { player.command(["action": "dj", "enabled": dj]) } }
     }
     @Published var volume = min(1, max(0, UserDefaults.standard.object(forKey: "pulse_native_volume") as? Double ?? 0.8)) {
-        didSet { UserDefaults.standard.set(volume, forKey: "pulse_native_volume"); if !applyingDevice && devices.controlsRemote { devices.control("volume", value: volume) } else { player.command(["action": "volume", "value": volume]) } }
+        didSet { if syncingDeviceSettings { return }; UserDefaults.standard.set(volume, forKey: "pulse_native_volume"); if !applyingDevice && devices.controlsRemote { devices.control("volume", value: volume) } else { player.command(["action": "volume", "value": volume]) } }
     }
     private var token = ""
     private let loadSession: () async -> String
@@ -71,8 +72,10 @@ final class PulseStore: ObservableObject {
         devices.onFocus = { [weak self] focus in self?.deviceFocus(focus) }
         devices.onActionError = { [weak self] message in self?.error = message }
         player.onSystemCommand = { [weak self] action, position in
-            guard let self, self.devices.controlsRemote else { return false }
-            self.devices.control(action, position: position); return true
+            guard let self else { return false }
+            if self.devices.controlsRemote { self.devices.control(action, position: position); return true }
+            if ["resume", "next", "previous"].contains(action) { self.devices.claimLocal() }
+            return false
         }
         player.onState = { [weak self] value in self?.receivePlayback(value) }
         player.onBeat = { [weak self] value in self?.beat.receive(value) }
@@ -234,20 +237,28 @@ final class PulseStore: ObservableObject {
     }
     func play(_ track: PulseTrack, within queue: [PulseTrack]) {
         remoteActive = false; remoteClock?.cancel(); devices.claimLocal()
+        applyLocalTransportSettings()
         player.setDJTransitions([:])
         player.command(["action": "play", "id": track.id, "tracks": queue.map(\.nativeValue), "token": token, "dj": dj])
     }
     func playDJ(_ track: PulseTrack, within queue: [PulseTrack], transitions: [String: PulseDJMix]) {
         remoteActive = false; remoteClock?.cancel(); devices.claimLocal()
+        applyLocalTransportSettings()
         dj = true; player.setDJTransitions(transitions)
         player.command(["action": "play", "id": track.id, "tracks": queue.map(\.nativeValue), "token": token, "dj": true])
     }
     func togglePlayback() {
         if devices.controlsRemote { devices.control(paused ? "resume" : "pause"); return }
+        if paused { devices.claimLocal() }
         player.command(["action": paused ? "resume" : "pause"])
     }
-    func next(_ direction: Int) { PulseHaptics.fire(.track); if devices.controlsRemote { devices.control(direction > 0 ? "next" : "previous"); return }; player.command(["action": direction > 0 ? "next" : "previous"]) }
+    func next(_ direction: Int) { PulseHaptics.fire(.track); if devices.controlsRemote { devices.control(direction > 0 ? "next" : "previous"); return }; devices.claimLocal(); player.command(["action": direction > 0 ? "next" : "previous"]) }
     func seek(_ seconds: Double) { if devices.controlsRemote { devices.control("seek", position: seconds); return }; player.command(["action": "seek", "time": seconds]) }
+    private func applyLocalTransportSettings() {
+        player.command(["action": "shuffle", "enabled": shuffle])
+        player.command(["action": "volume", "value": volume])
+        player.command(["action": "dj", "enabled": dj])
+    }
     private func deviceSnapshot() -> PulseDeviceSnapshot {
         PulseDeviceSnapshot(state: PulseDeviceState(trackId: remoteActive ? "" : currentID, position: remoteActive ? 0 : playback.interpolatedTime, duration: playback.duration, paused: remoteActive || paused, buffering: playback.buffering, shuffle: shuffle, dj: dj, volume: volume), queue: player.queueIDs, originalQueue: player.originalQueueIDs)
     }
@@ -255,7 +266,19 @@ final class PulseStore: ObservableObject {
         let remote = focus.online && focus.deviceId != nil && focus.deviceId != devices.id
         guard !applyingDevice else { return }
         if remote && !remoteActive { remoteActive = true; player.command(["action": "pause"]) }
-        if !remote { remoteActive = false; remoteClock?.cancel(); remoteClock = nil; return }
+        if !remote {
+            let wasRemote = remoteActive
+            remoteActive = false; remoteClock?.cancel(); remoteClock = nil
+            if wasRemote { applyLocalTransportSettings(); player.command(["action": "state"]) }
+            return
+        }
+        if let state = focus.state {
+            syncingDeviceSettings = true
+            if shuffle != state.shuffle { shuffle = state.shuffle }
+            if dj != state.dj { dj = state.dj }
+            if volume != state.volume { volume = state.volume }
+            syncingDeviceSettings = false
+        }
         func update() {
             guard let state = devices.estimatedRemoteState else { return }
             playback.receive(["id": state.trackId, "time": state.position, "duration": state.duration, "paused": state.paused, "buffering": state.buffering])
@@ -299,6 +322,7 @@ final class PulseStore: ObservableObject {
             switch action {
             case "seek": player.command(["action": "seek", "time": command.payload.position ?? 0])
             case "shuffle": shuffle = command.payload.enabled ?? false
+            case "dj": dj = command.payload.enabled ?? false
             case "volume": volume = command.payload.value ?? volume
             case "resume", "pause", "next", "previous": player.command(["action": action])
             default: throw PulseAPIError(status: 400, message: "Неизвестная команда")

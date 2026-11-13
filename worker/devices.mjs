@@ -80,8 +80,8 @@ async function devicesRoute(r,env){
     payload={state:fresh,queue,originalQueue:original.length?original:queue,sourceId:from.id};
    }else{
     if(focus?.device_id!==target)return json(r,{error:'Активное устройство изменилось. Обнови список.'},409);
-    const op=String(body.command||'');if(!['resume','pause','next','previous','seek','shuffle','volume'].includes(op))throw Error('Неизвестная команда');
-    payload={command:op};if(op==='seek')payload.position=deviceNumber(body.position,0,86400);if(op==='volume')payload.value=deviceNumber(body.value,0,1);if(op==='shuffle')payload.enabled=body.enabled===true;
+    const op=String(body.command||'');if(!['resume','pause','next','previous','seek','shuffle','volume','dj'].includes(op))throw Error('Неизвестная команда');
+    payload={command:op};if(op==='seek')payload.position=deviceNumber(body.position,0,86400);if(op==='volume')payload.value=deviceNumber(body.value,0,1);if(op==='shuffle'||op==='dj')payload.enabled=body.enabled===true;
    }
    const requestId=await deviceEnqueue(env,user.id,caller,target,action,payload,body.requestId,now);
    return await deviceResponse(r,env,user.id,caller,requestId,{requestId});
