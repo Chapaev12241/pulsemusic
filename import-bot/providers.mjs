@@ -1,3 +1,4 @@
+import {spotsaverMetadata} from './spotsaver.mjs';
 import {ensureMP3} from './audio.mjs';
 import {publicRead,decodeHTML,scanTune,downloadTune,parseTuneTracks} from './tunemir.mjs';
 import {sourceURL} from './network.mjs';
@@ -22,12 +23,14 @@ export async function downloadProvider(track,signal,read=publicRead){const provi
 export async function scanSources(raw,artist='',signal,read=publicRead){
  const u=sourceURL(raw),provider=sourceProvider(raw);if(u.pathname!=='/'||!artist)return scanProvider(raw,artist,signal,read);
  const order=[provider,...Object.keys(sites).filter(p=>p!==provider)],variants=importArtistVariants(artist),found=new Map();let truncated=false,lastError='';
- function collect(result){truncated ||= !!result.truncated;for(const track of result.tracks){const meta=importMetadata(track),key=importArtistKey(meta.artist)+'|'+recordingKey(meta.title);if(!found.has(key))found.set(key,{...track,alternatives:[]});else found.get(key).alternatives.push(track)}}
+ function collect(result){truncated ||= !!result.truncated;for(const track of result.tracks){const meta=importMetadata(track),key=importArtistKey(meta.artist)+'|'+recordingKey(meta.title);if(!found.has(key))found.set(key,{...track,alternatives:[]});else if(track.url&&sourceProvider(track.url))found.get(key).alternatives.push(track)}}
  for(const p of order){if(!p)continue;let resolved=false;
   if(p==='tunemir'){const hint=verifiedArtistLinks.find(x=>importArtistMatches(x.name,artist));if(hint){try{collect(await scanProvider(hint.url,artist,signal,read));resolved=true}catch(e){if(signal?.aborted)throw e;lastError=e.message;if(/403|429/.test(e.message))continue}}}
   if(resolved)continue;
   for(const variant of variants.slice(0,4)){try{collect(await scanProvider(sites[p]+'/',variant,signal,read));break}catch(e){if(signal?.aborted)throw e;lastError=e.message;if(/Несколько исполнителей/.test(e.message)){if(!found.size)throw e;break}if(/403|429/.test(e.message))break}}
  }
+ // Supplement complete source catalogs with exact performer matches from the site's search form.
+ try{const extra=await spotsaverMetadata(artist,{signal,read});for(const track of extra.tracks){const meta=importMetadata(track),key=importArtistKey(meta.artist)+'|'+recordingKey(meta.title);if(!found.has(key))found.set(key,track)}}catch(e){if(signal?.aborted)throw e}
  if(!found.size)throw Error(lastError.includes('Несколько исполнителей')?lastError:'Не удалось найти доступные треки. Пришли точную ссылку исполнителя.');
  return {tracks:[...found.values()],truncated,unavailable:0};
 }
