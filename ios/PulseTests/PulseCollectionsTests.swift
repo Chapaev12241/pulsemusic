@@ -12,6 +12,19 @@ final class PulseCollectionsTests: XCTestCase {
         let copy = try JSONDecoder().decode(PulseLibraryState.self, from: JSONEncoder().encode(state))
         XCTAssertEqual(copy, state)
     }
+    @MainActor
+    func testBuiltInPlaylistsHaveIndependentCoversAndDynamicMembership() throws {
+        let store = PulseStore(loadSession: { "" })
+        let song = try JSONDecoder().decode(PulseTrack.self, from: Data(#"{"id":"one","title":"One","artist":"Artist","audio":"https://test.invalid/audio"}"#.utf8))
+        store.tracks = [song]; store.ownedIDs = ["one"]; store.state.playlistCovers["liked"] = "liked-cover"
+        var items = PulsePlaylistItem.all(store: store)
+        XCTAssertEqual(items.first { $0.id == "library" }?.tracks.map(\.id), ["one"])
+        XCTAssertEqual(items.first { $0.id == "liked" }?.tracks.count, 0)
+        store.state.liked = ["one"]; items = PulsePlaylistItem.all(store: store)
+        XCTAssertEqual(items.first { $0.id == "liked" }?.tracks.map(\.id), ["one"])
+        XCTAssertEqual(items.first { $0.id == "liked" }?.cover, "liked-cover")
+        XCTAssertNil(items.first { $0.id == "library" }?.cover)
+    }
     func testArtistCollectionsContainOnlyThatArtistAndMoodsUseKnownGenres() throws {
         func track(_ id: String, _ artist: String, _ genre: String) throws -> PulseTrack {
             try JSONDecoder().decode(PulseTrack.self, from: JSONSerialization.data(withJSONObject: ["id":id,"artist":artist,"title":id,"audio":"https://test.invalid/audio","genres":[genre]]))

@@ -5,7 +5,7 @@ struct PulsePlaylistItem: Identifiable {
     let id: String, name: String, symbol: String
     let tracks: [PulseTrack]
     let cover: String?
-    static func all(store: PulseStore) -> [PulsePlaylistItem] {
+    @MainActor static func all(store: PulseStore) -> [PulsePlaylistItem] {
         [PulsePlaylistItem(id: "liked", name: "Понравилось", symbol: "heart.fill", tracks: PulseLibrary.ordered(store.state.liked, in: store.tracks), cover: store.state.playlistCovers["liked"]),
          PulsePlaylistItem(id: "library", name: "Моя музыка", symbol: "music.note.list", tracks: store.tracks.filter { store.ownedIDs.contains($0.id) }, cover: store.state.playlistCovers["library"]),
          PulsePlaylistItem(id: "downloads", name: "Скачано", symbol: "arrow.down.circle.fill", tracks: store.downloads.tracks, cover: store.state.playlistCovers["downloads"])] + store.state.playlists.map { PulsePlaylistItem(id: $0.id, name: $0.name, symbol: "music.note.list", tracks: PulseLibrary.ordered($0.tracks, in: store.tracks), cover: $0.cover) }
