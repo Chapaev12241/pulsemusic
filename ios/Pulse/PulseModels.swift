@@ -74,6 +74,11 @@ enum PulseCollection: String, CaseIterable, Identifiable {
     }
 }
 enum PulseLibrary {
+    static func trackCount(_ count: Int) -> String {
+        let last = count % 10, hundred = count % 100
+        let noun = last == 1 && hundred != 11 ? "трек" : (2...4).contains(last) && !(12...14).contains(hundred) ? "трека" : "треков"
+        return "\(count) \(noun)"
+    }
     static func merge(publicTracks: [PulseTrack], ownedTracks: [PulseTrack]) -> [PulseTrack] {
         var values = publicTracks
         var positions = Dictionary(uniqueKeysWithValues: values.enumerated().map { ($0.element.id, $0.offset) })

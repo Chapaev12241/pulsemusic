@@ -30,7 +30,7 @@ struct PulseCollectionPage: View {
                 HStack { Text(collection.caption).font(.caption).foregroundStyle(PulseTheme.muted); Spacer(); Button { dismiss() } label: { Image(systemName: "xmark").frame(width: 36, height: 36) }.buttonStyle(PulseTactileButton()) }
                 PulseArtworkView(track: collection.tracks.first, size: 200, radius: 24).frame(maxWidth: .infinity)
                 Text(collection.name).font(.system(size: 30, weight: .bold))
-                Text("\(collection.tracks.count) треков").font(.caption).foregroundStyle(PulseTheme.muted)
+                Text(PulseLibrary.trackCount(collection.tracks.count)).font(.caption).foregroundStyle(PulseTheme.muted)
                 HStack {
                     Button { if let first = collection.tracks.first { store.play(first, within: collection.tracks) } } label: { Label("Слушать", systemImage: "play.fill") }.buttonStyle(PulsePrimaryButton())
                     Button(saved ? "Сохранено" : "В плейлисты") { store.createPlaylist(collection.name, tracks: Array(collection.tracks.prefix(2000).map(\.id))); saved = store.signedIn }.buttonStyle(PulseTactileButton()).disabled(saved)
