@@ -17,6 +17,7 @@ struct PulsePlaylistsView: View {
     @State private var coverTarget: String?
     @State private var choosingCover = false
     @State private var creating = false
+    @State private var showingAI = false
     @State private var name = ""
     private var items: [PulsePlaylistItem] { PulsePlaylistItem.all(store: store) }
     private var item: PulsePlaylistItem? { items.first { $0.id == selected } }
@@ -30,13 +31,13 @@ struct PulsePlaylistsView: View {
                         VStack(spacing: 8) { Text(item.name).font(.system(size: 30, weight: .bold)).multilineTextAlignment(.center); Text("\(item.tracks.count) треков").font(.system(size: 13)).foregroundStyle(PulseTheme.muted) }
                         HStack(spacing: 14) {
                             Button { if let first = item.tracks.first { store.play(first, within: item.tracks) } } label: { Label("Слушать", systemImage: "play.fill").frame(minWidth: 110) }.buttonStyle(PulsePrimaryButton())
-                            Button { let shuffled = item.tracks.shuffled(); if let first = shuffled.first { store.play(first, within: shuffled) } } label: { Image(systemName: "shuffle").frame(width: 44, height: 44).background(PulseTheme.raised, in: Circle()) }.buttonStyle(PulseTactileButton(feedback: .shuffle)).accessibilityLabel("Перемешать плейлист")
+                            Button { store.shuffle = true; if let first = item.tracks.randomElement() { store.play(first, within: item.tracks) } } label: { Image(systemName: "shuffle").frame(width: 44, height: 44).background(PulseTheme.raised, in: Circle()) }.buttonStyle(PulseTactileButton(feedback: .shuffle)).accessibilityLabel("Перемешать плейлист")
                         }.disabled(item.tracks.isEmpty)
                     }.frame(maxWidth: .infinity).padding(.vertical, 8)
                     if item.tracks.isEmpty { Text("Здесь пока нет треков").foregroundStyle(PulseTheme.muted).frame(maxWidth: .infinity).padding(30) }
                     LazyVStack(spacing: 0) { ForEach(Array(item.tracks.enumerated()), id: \.element.id) { index, track in PulseTrackRow(track: track, index: index + 1) { store.play(track, within: item.tracks) }; Divider().overlay(PulseTheme.line) } }
                 } else {
-                    HStack { Text("Плейлисты").font(PulseTheme.heading(36)); Spacer(); Button { creating = true } label: { Image(systemName: "plus").frame(width: 42, height: 42).background(PulseTheme.raised, in: Circle()) }.buttonStyle(PulseTactileButton()).accessibilityLabel("Создать плейлист") }
+                    HStack { Text("Плейлисты").font(PulseTheme.heading(36)); Spacer(); Menu { Button("Новый плейлист") { creating = true }; Button("Подобрать с ИИ") { showingAI = true } } label: { Image(systemName: "plus").frame(width: 42, height: 42).background(PulseTheme.raised, in: Circle()) }.buttonStyle(PulseTactileButton()).accessibilityLabel("Создать плейлист") }
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 145, maximum: 240), spacing: 20)], alignment: .leading, spacing: 26) {
                         ForEach(items) { item in
                             Button { selected = item.id } label: {
@@ -52,6 +53,7 @@ struct PulsePlaylistsView: View {
             }.padding(24)
         }.refreshable { await store.refresh() }
         .fileImporter(isPresented: $choosingCover, allowedContentTypes: [.image]) { result in if case .success(let url) = result, let id = coverTarget { Task { await store.setPlaylistCover(id, url: url) } } }
+        .sheet(isPresented: $showingAI) { PulseVibeView(store: store).preferredColorScheme(.dark).tint(PulseTheme.accent) }
         .alert("Новый плейлист", isPresented: $creating) { TextField("Название", text: $name); Button("Создать") { let value = name.trimmingCharacters(in: .whitespacesAndNewlines); if !value.isEmpty { store.createPlaylist(value); name = "" } }; Button("Отмена", role: .cancel) {} }
         .onChange(of: store.state.playlists.map(\.id)) { _, _ in if selected != nil && item == nil { selected = nil } }
     }
