@@ -24,6 +24,14 @@ final class PulseVibeTests: XCTestCase {
         XCTAssertTrue(draft.artists.contains("Гуф")); XCTAssertEqual(draft.tracks.count,Set(draft.tracks).count)
         XCTAssertTrue(Set(draft.tracks).isSubset(of: Set(tracks.map(\.id))))
     }
+    func testSimilarModeAddsKnownGenreNeighborWhenSmallModelReturnsOnlySeed() throws {
+        let tracks = try [track("a", "Гуф"), track("b", "Баста"), track("c", "Metallica", genre: "metal")]
+        let input = try PulseVibe.prepare(tracks: tracks, state: PulseLibraryState(), prompt: "Рэп", mode: .similar, seed: "Гуф", discovery: 0.7, variation: 1)
+        let seed = try XCTUnwrap(input.artists.firstIndex(where: { $0.name == "Гуф" }))
+        let draft = try PulseVibe.draft(PulseAIPlan(name: "Рядом", summary: nil, artists: [seed]), input: input)
+        XCTAssertEqual(Set(draft.artists), Set(["Гуф", "Баста"]))
+        XCTAssertEqual(Set(draft.tracks), Set(["a", "b"]))
+    }
     func testPersonalPreferencesAffectContextWithoutChangingLibrary() throws {
         let tracks = try [track("a","Liked"),track("b","Other")]
         var state = PulseLibraryState(); state.liked = ["a"]

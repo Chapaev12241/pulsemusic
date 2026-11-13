@@ -88,6 +88,12 @@ enum PulseVibe {
         var seen = Set<Int>(); var indexes = plan.artists.filter { input.artists.indices.contains($0) && seen.insert($0).inserted }
         if input.mode == .artist { indexes = [0] }
         if input.mode == .similar, let seed = input.artists.firstIndex(where: { key($0.name) == key(input.seed) }), !indexes.contains(seed) { indexes.insert(seed, at: 0) }
+        if input.mode == .similar, indexes.count == 1 {
+            let wanted = genreFamilies([input.prompt] + (input.artists.first(where: { key($0.name) == key(input.seed) })?.genres ?? []))
+            if !wanted.isEmpty, let neighbor = input.artists.indices.first(where: {
+                !indexes.contains($0) && !genreFamilies(input.artists[$0].genres).intersection(wanted).isEmpty
+            }) { indexes.append(neighbor) }
+        }
         indexes = Array(indexes.prefix(8))
         guard !indexes.isEmpty else { throw PulseAIError.message("ИИ не выбрал подходящих исполнителей. Уточни настроение и попробуй ещё раз.") }
         let recent = Set(input.state.history.prefix(25).map(\.id)), liked = Set(input.state.liked)
