@@ -45,7 +45,7 @@ struct PulseAccountBadge: View {
                     Image(systemName: "chevron.right").font(.caption2).foregroundStyle(PulseTheme.muted)
                 }
             }
-        }.buttonStyle(.plain).accessibilityLabel("Профиль и настройки")
+        }.buttonStyle(PulseTactileButton()).accessibilityLabel("Профиль и настройки")
     }
 }
 struct PulseProfileView: View {
@@ -131,7 +131,7 @@ struct PulseProfileEditor: View {
                     ColorPicker("Свой цвет", selection: Binding(get: { Color(pulseHex: color) }, set: { color = PulseColorValue.hex($0) }), supportsOpacity: false)
                     HStack {
                         ForEach(["#a59aff", "#88baff", "#ff93b7", "#83d7b0", "#e9bd77", "#dc9dea"], id: \.self) { value in
-                            Button { color = value } label: { Circle().fill(Color(pulseHex: value)).frame(width: 31, height: 31).overlay(Circle().stroke(color == value ? Color.white : .clear, lineWidth: 3)) }.buttonStyle(.plain).accessibilityLabel("Цвет \(value)")
+                            Button { color = value } label: { Circle().fill(Color(pulseHex: value)).frame(width: 31, height: 31).overlay(Circle().stroke(color == value ? Color.white : .clear, lineWidth: 3)) }.buttonStyle(PulseTactileButton()).accessibilityLabel("Цвет \(value)")
                         }
                     }
                 }
@@ -219,7 +219,7 @@ struct PulseFriendsView: View {
                 HStack { Text("Друзья").font(.title3.bold()); Text("\(social.friends.count)").foregroundStyle(PulseTheme.muted); Spacer(); if social.loading { ProgressView().controlSize(.small) } }
                 if social.friends.isEmpty { Text("Пригласи друга по ссылке или QR-коду. После подтверждения заявки здесь появится ваш чат.").foregroundStyle(PulseTheme.muted).font(.callout) }
                 ForEach(social.friends) { person in
-                    Button { selected = person } label: { HStack { personRow(person); Spacer(); Image(systemName: "bubble.left.and.bubble.right").foregroundStyle(PulseTheme.accent) }.padding(16).pulseGlass(cornerRadius: 18) }.buttonStyle(.plain)
+                    Button { selected = person } label: { HStack { personRow(person); Spacer(); Image(systemName: "bubble.left.and.bubble.right").foregroundStyle(PulseTheme.accent) }.padding(16).pulseGlass(cornerRadius: 18) }.buttonStyle(PulseTactileButton())
                 }
                 if let error = social.error { Text(error).foregroundStyle(.red).font(.callout) }
             }.padding(20)
@@ -292,7 +292,7 @@ struct PulseChatView: View {
             if let error = chat.error { Text(error).foregroundStyle(.red).font(.caption) }
             HStack(alignment: .bottom, spacing: 10) {
                 TextField("Сообщение", text: $draft, axis: .vertical).lineLimit(1...5).textFieldStyle(.plain).padding(12).background(PulseTheme.raised, in: RoundedRectangle(cornerRadius: 13)).onSubmit(send)
-                Button(action: send) { if chat.sending { ProgressView().controlSize(.small).frame(width: 40, height: 40) } else { Image(systemName: "arrow.up").font(.system(size: 17, weight: .semibold)).foregroundStyle(.black).frame(width: 40, height: 40).background(PulseTheme.gradient, in: Circle()) } }.buttonStyle(.plain).disabled(chat.sending || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || draft.utf16.count > 2000).accessibilityLabel("Отправить сообщение")
+                Button(action: send) { if chat.sending { ProgressView().controlSize(.small).frame(width: 40, height: 40) } else { Image(systemName: "arrow.up").font(.system(size: 17, weight: .semibold)).foregroundStyle(.black).frame(width: 40, height: 40).background(PulseTheme.gradient, in: Circle()) } }.buttonStyle(PulseTactileButton()).disabled(chat.sending || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || draft.utf16.count > 2000).accessibilityLabel("Отправить сообщение")
             }
             if draft.utf16.count > 1800 { Text("\(draft.utf16.count) / 2000").font(.caption2).foregroundStyle(draft.utf16.count > 2000 ? .red : PulseTheme.muted).frame(maxWidth: .infinity, alignment: .trailing) }
         }.padding(14).background(PulseTheme.panel)

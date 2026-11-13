@@ -16,7 +16,7 @@ enum PulseTheme {
         }
     }
 }
-struct PulsePrimaryButton: ButtonStyle {
+struct PulsePrimaryVisual: ButtonStyle {
     @Environment(\.pulseReducedMotion) private var reducedMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label.font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.black.opacity(0.9))
@@ -27,7 +27,7 @@ struct PulsePrimaryButton: ButtonStyle {
             .animation(reducedMotion ? nil : .easeOut(duration: 0.14), value: configuration.isPressed)
     }
 }
-struct PulseIconButton: ButtonStyle {
+struct PulseIconVisual: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label.frame(width: 40, height: 40).foregroundStyle(PulseTheme.muted)
             .background(configuration.isPressed ? PulseTheme.raised.opacity(0.5) : .clear, in: RoundedRectangle(cornerRadius: 14))
@@ -53,6 +53,6 @@ struct PulseHeartButton: View {
                 .scaleEffect(liked && !reducedMotion ? 1.12 : 1)
                 .animation(reducedMotion ? nil : .spring(response: 0.25, dampingFraction: 0.55), value: liked)
                 .frame(width: 32, height: 40)
-        }.buttonStyle(.plain).accessibilityLabel("Избранное: \(track.title)")
+        }.buttonStyle(PulseTactileButton(feedback: .favorite)).accessibilityLabel("Избранное: \(track.title)")
     }
 }

@@ -63,7 +63,7 @@ struct PulseLoginView: View {
                             .textInputAutocapitalization(.never).autocorrectionDisabled().textContentType(register ? .newPassword : .password)
                             #endif
                             .onSubmit(submit)
-                            Button { visiblePassword.toggle() } label: { Image(systemName: visiblePassword ? "eye.slash" : "eye").foregroundStyle(PulseTheme.muted) }.buttonStyle(.plain).accessibilityLabel(visiblePassword ? "Скрыть пароль" : "Показать пароль")
+                            Button { visiblePassword.toggle() } label: { Image(systemName: visiblePassword ? "eye.slash" : "eye").foregroundStyle(PulseTheme.muted) }.buttonStyle(PulseTactileButton()).accessibilityLabel(visiblePassword ? "Скрыть пароль" : "Показать пароль")
                         }
                     }
                     if let formError { Text(formError).font(.callout).foregroundStyle(.red).transition(.opacity) }

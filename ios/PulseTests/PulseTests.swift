@@ -57,6 +57,18 @@ final class PulseTests: XCTestCase {
         let duration = try await asset.load(.duration)
         XCTAssertTrue(duration.seconds.isFinite && duration.seconds > 20, "Automatic transitions need a finite audio duration")
     }
+    func testScrubHapticsAreMovementDrivenSoftPulseRateAndStopOnRelease() {
+        var gate = PulseScrubFeedbackGate()
+        XCTAssertFalse(gate.moved(to: 10, now: 0))
+        gate.begin(at: 10)
+        XCTAssertFalse(gate.moved(to: 10, now: 0))
+        XCTAssertTrue(gate.moved(to: 11, now: 1))
+        XCTAssertFalse(gate.moved(to: 12, now: 1.02))
+        XCTAssertTrue(gate.moved(to: 13, now: 1.07))
+        XCTAssertFalse(gate.moved(to: 13, now: 2))
+        gate.end()
+        XCTAssertFalse(gate.moved(to: 20, now: 3))
+    }
     func testShuffleKeepsCurrentTrackAndEveryOtherTrackExactlyOnce() {
         let source = ["a", "b", "c", "d", "e"]
         var orders = Set<String>()

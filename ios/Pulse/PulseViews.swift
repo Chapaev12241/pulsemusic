@@ -139,7 +139,7 @@ struct PulseRootView: View {
                         .foregroundStyle(collection == item ? Color.white : PulseTheme.muted).padding(.horizontal, 14).frame(height: 45)
                         .background(collection == item ? PulseTheme.raised : .clear, in: RoundedRectangle(cornerRadius: 12))
                         .overlay(alignment: .leading) { if collection == item { Capsule().fill(PulseTheme.accent).frame(width: 3, height: 18) } }
-                    }.buttonStyle(.plain)
+                    }.buttonStyle(PulseTactileButton())
                 }
             } }.scrollIndicators(.hidden)
             VStack(alignment: .leading, spacing: 12) {
@@ -164,7 +164,7 @@ struct PulseRootView: View {
                         .background {
                             if collection == item { Capsule().fill(PulseTheme.accent.opacity(0.22)).overlay(Capsule().strokeBorder(.white.opacity(0.12))).matchedGeometryEffect(id: "selected-tab", in: tabAnimation) }
                         }
-                }.buttonStyle(.plain)
+                }.buttonStyle(PulseTactileButton())
             }
         }.padding(6).pulseGlass(cornerRadius: 30, style: .chrome).padding(.horizontal, 12).padding(.top, 8).padding(.bottom, 6)
     }
@@ -177,14 +177,14 @@ struct PulseRootView: View {
             Spacer()
             if collection == .playlists {
                 if store.state.playlists.contains(where: { $0.id == activePlaylist }) {
-                    Button { choosingCover = true } label: { Image(systemName: "photo").frame(width: 38, height: 38) }.buttonStyle(.plain).accessibilityLabel("Изменить обложку плейлиста")
+                    Button { choosingCover = true } label: { Image(systemName: "photo").frame(width: 38, height: 38) }.buttonStyle(PulseTactileButton()).accessibilityLabel("Изменить обложку плейлиста")
                 }
                 Menu {
                     Button("Новый плейлист") { if store.signedIn { newPlaylist = true } else { showAccount = true } }
                     Button("Подобрать с ИИ") { showAIPlaylist = true }
                 } label: { Image(systemName: "plus").frame(width: 38, height: 38) }.background(PulseTheme.raised, in: RoundedRectangle(cornerRadius: 12)).accessibilityLabel("Создать плейлист")
             } else {
-                Button(action: importMusic) { Image(systemName: "plus").frame(width: 38, height: 38) }.buttonStyle(.plain).background(PulseTheme.raised, in: RoundedRectangle(cornerRadius: 12)).accessibilityLabel("Добавить музыку")
+                Button(action: importMusic) { Image(systemName: "plus").frame(width: 38, height: 38) }.buttonStyle(PulseTactileButton()).background(PulseTheme.raised, in: RoundedRectangle(cornerRadius: 12)).accessibilityLabel("Добавить музыку")
             }
         }
     }
@@ -196,7 +196,7 @@ struct PulseRootView: View {
                         Text(item == .library ? "Загрузки" : item.title).font(.system(size: 11)).padding(.horizontal, 16).padding(.vertical, 10)
                             .foregroundStyle(collection == item ? Color.black : PulseTheme.muted)
                             .background(collection == item ? Color.white : PulseTheme.raised, in: Capsule())
-                    }.buttonStyle(.plain)
+                    }.buttonStyle(PulseTactileButton())
                 }
             }
         }
@@ -207,14 +207,14 @@ struct PulseRootView: View {
                 ForEach([("liked", "Понравилось", "heart.fill"), ("library", "Моя музыка", "music.note.list"), ("downloads", "Скачано", "arrow.down.circle")], id: \.0) { item in
                     Button { activePlaylist = item.0 } label: {
                         Label(item.1, systemImage: item.2).font(.system(size: 12)).padding(12).background(activePlaylist == item.0 ? PulseTheme.accent.opacity(0.2) : PulseTheme.panel, in: Capsule())
-                    }.buttonStyle(.plain)
+                    }.buttonStyle(PulseTactileButton())
                 }
                 ForEach(store.state.playlists) { playlist in
                     Button { activePlaylist = playlist.id } label: {
                         HStack { PulsePlaylistCover(cover: playlist.cover); Text(playlist.name) }.font(.system(size: 12)).padding(.horizontal, 15).padding(.vertical, 12)
                             .background(activePlaylist == playlist.id ? PulseTheme.accent.opacity(0.2) : PulseTheme.panel, in: Capsule())
                             .foregroundStyle(activePlaylist == playlist.id ? PulseTheme.accent : .white)
-                    }.buttonStyle(.plain)
+                    }.buttonStyle(PulseTactileButton())
                 }
             }
         }
@@ -270,7 +270,7 @@ struct PulseHomeView: View {
                     }
                     Spacer(); Image(systemName: "arrow.up.right").foregroundStyle(PulseTheme.accent)
                 }.padding(22).frame(maxWidth: .infinity, alignment: .leading).pulseGlass(cornerRadius: 22)
-            }.buttonStyle(.plain)
+            }.buttonStyle(PulseTactileButton())
             sectionTitle("Твой следующий любимый", subtitle: "Знакомые чувства. Новое звучание.") { select(.catalog) }
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(alignment: .top, spacing: 16) {
@@ -288,7 +288,7 @@ struct PulseHomeView: View {
                                     Text(artist.name).font(.system(size: 12, weight: .medium)).lineLimit(1)
                                     Text("\(artist.count) треков").font(.system(size: 10)).foregroundStyle(PulseTheme.muted)
                                 }.frame(width: 115)
-                            }.buttonStyle(.plain)
+                            }.buttonStyle(PulseTactileButton())
                         }
                     }
                 }.padding(.top, -12)
@@ -309,7 +309,7 @@ struct PulseHomeView: View {
                 
             }
             Spacer()
-            Button(action: action) { Image(systemName: "arrow.up.right").font(.system(size: 15)).frame(width: 34, height: 34).background(PulseTheme.raised, in: Circle()) }.buttonStyle(.plain).accessibilityLabel("Вся музыка")
+            Button(action: action) { Image(systemName: "arrow.up.right").font(.system(size: 15)).frame(width: 34, height: 34).background(PulseTheme.raised, in: Circle()) }.buttonStyle(PulseTactileButton()).accessibilityLabel("Вся музыка")
         }
     }
 }
@@ -418,7 +418,7 @@ struct PulseTrackCard: View {
                 Text(track.artist).font(.system(size: 10)).foregroundStyle(PulseTheme.muted).lineLimit(1)
             }.frame(width: 150, alignment: .leading).padding(12).pulseGlass(cornerRadius: 20)
                 .overlay(RoundedRectangle(cornerRadius: 20).stroke(hover ? PulseTheme.accent.opacity(0.45) : PulseTheme.line))
-        }.buttonStyle(.plain).scaleEffect(hover && !reducedMotion ? 1.015 : 1).animation(reducedMotion ? nil : .easeOut(duration: 0.18), value: hover).onHover { hover = $0 }.contextMenu { PulseTrackActions(track: track) }
+        }.buttonStyle(PulseTactileButton()).scaleEffect(hover && !reducedMotion ? 1.015 : 1).animation(reducedMotion ? nil : .easeOut(duration: 0.18), value: hover).onHover { hover = $0 }.contextMenu { PulseTrackActions(track: track) }
     }
 }
 struct PulseTrackRow: View {
@@ -445,7 +445,7 @@ struct PulseTrackRow: View {
                     }
                     Spacer(minLength: 0)
                 }.contentShape(Rectangle())
-            }.buttonStyle(.plain).accessibilityLabel("Воспроизвести \(track.title), \(track.artist)")
+            }.buttonStyle(PulseTactileButton()).accessibilityLabel("Воспроизвести \(track.title), \(track.artist)")
             #if os(macOS)
             Text(track.album ?? "").font(.system(size: 10)).foregroundStyle(PulseTheme.muted).lineLimit(1).frame(maxWidth: 180, alignment: .leading)
             #endif

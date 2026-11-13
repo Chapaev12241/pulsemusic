@@ -4,6 +4,7 @@ struct PulseSettingsView: View {
     @ObservedObject var store: PulseStore
     @ObservedObject private var equalizer: PulseEqualizerSettings
     @Environment(\.accessibilityReduceMotion) private var systemReducedMotion
+    @AppStorage("pulse_haptics") private var haptics = true
     @AppStorage("pulse_reduce_motion") private var reducedMotion = false
     @AppStorage("pulse_glass_enabled") private var glass = true
     @AppStorage("pulse_glass_motion") private var glassMotion = true
@@ -46,6 +47,9 @@ struct PulseSettingsView: View {
                 VStack(spacing: 18) {
                     Toggle("DJ · плавные переходы", isOn: $store.dj)
                     Toggle("Меньше анимаций", isOn: $reducedMotion)
+                    #if os(iOS)
+                    Toggle("Тактильный отклик", isOn: $haptics)
+                    #endif
                     if systemReducedMotion { Text("Уменьшение движения включено — анимации интерфейса ограничены.").font(.caption).foregroundStyle(PulseTheme.muted) }
                     HStack { Image(systemName: "speaker.wave.2"); Slider(value: $store.volume, in: 0...1); Text("\(Int(store.volume * 100))%").font(.caption.monospacedDigit()).frame(width: 36) }
                 }.font(.callout).padding(22).pulseGlass(cornerRadius: 22)

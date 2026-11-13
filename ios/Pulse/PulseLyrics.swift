@@ -151,7 +151,7 @@ struct PulseLyricsView: View {
                                             Text(line.text).font(.system(size: 24, weight: .semibold)).foregroundStyle(PulseTheme.muted.opacity(active.map { line.id < $0 } == true ? 0.5 : 0.8))
                                         }
                                     }.frame(maxWidth: .infinity, alignment: .leading).multilineTextAlignment(.leading).padding(.vertical, 2)
-                                }.buttonStyle(.plain).id(line.id)
+                                }.buttonStyle(PulseTactileButton()).id(line.id)
                             }
                         }.padding(.vertical, 20)
                     }

@@ -227,7 +227,7 @@ final class PulseStore: ObservableObject {
     func togglePlayback() {
         player.command(["action": paused ? "resume" : "pause"])
     }
-    func next(_ direction: Int) { player.command(["action": direction > 0 ? "next" : "previous"]) }
+    func next(_ direction: Int) { PulseHaptics.fire(.track); player.command(["action": direction > 0 ? "next" : "previous"]) }
     func seek(_ seconds: Double) { player.command(["action": "seek", "time": seconds]) }
     func like(_ track: PulseTrack) { mutate(["type": "like", "id": track.id, "value": !state.liked.contains(track.id)]) }
     func createPlaylist(_ name: String) { mutate(["type": "playlist", "id": UUID().uuidString, "name": name]) }

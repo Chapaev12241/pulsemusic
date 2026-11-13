@@ -35,7 +35,7 @@ struct PulseVibeView: View {
                         TextField("Ночной город, русский рэп, без грусти…", text: $prompt, axis: .vertical).lineLimit(2...4).padding(14).background(PulseTheme.background, in: RoundedRectangle(cornerRadius: 14)).disabled(ai.building)
                         ScrollView(.horizontal, showsIndicators: false) { HStack(spacing: 8) {
                             ForEach(["Ночная поездка", "Больше энергии", "Спокойный вечер", "Открой новое"], id: \.self) { value in
-                                Button { prompt = value } label: { Text(value).font(.caption).padding(.horizontal, 12).padding(.vertical, 8).background(PulseTheme.raised, in: Capsule()) }.buttonStyle(.plain).disabled(ai.building)
+                                Button { prompt = value } label: { Text(value).font(.caption).padding(.horizontal, 12).padding(.vertical, 8).background(PulseTheme.raised, in: Capsule()) }.buttonStyle(PulseTactileButton()).disabled(ai.building)
                             }
                         } }
                         HStack { Text("Знакомое"); Slider(value: $discovery, in: 0...1).accessibilityLabel("Доля открытий"); Text("Открытия") }.font(.caption).foregroundStyle(PulseTheme.muted).disabled(ai.building)
@@ -64,7 +64,7 @@ struct PulseVibeView: View {
                                 if !store.signedIn { showAccount = true; return }
                                 saving = true
                                 Task { if await store.saveAIPlaylist(draft) { ai.markSaved() }; saving = false }
-                            } label: { Label(ai.saved ? "Сохранено" : saving ? "Сохраняем…" : "Сохранить", systemImage: ai.saved ? "checkmark" : "plus").font(.callout).frame(maxWidth: .infinity).padding(.vertical, 13).background(PulseTheme.raised, in: Capsule()) }.buttonStyle(.plain).disabled(saving || ai.saved || result.isEmpty)
+                            } label: { Label(ai.saved ? "Сохранено" : saving ? "Сохраняем…" : "Сохранить", systemImage: ai.saved ? "checkmark" : "plus").font(.callout).frame(maxWidth: .infinity).padding(.vertical, 13).background(PulseTheme.raised, in: Capsule()) }.buttonStyle(PulseTactileButton()).disabled(saving || ai.saved || result.isEmpty)
                         }
                     }.padding(20).pulseGlass(cornerRadius: 22)
                     ForEach(Array(result.enumerated()), id: \.element.id) { index, track in PulseTrackRow(track: track, index: index + 1) { store.play(track, within: result) } }

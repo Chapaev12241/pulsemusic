@@ -13,6 +13,7 @@ struct PulseApp: App {
                 .environmentObject(store)
                 #if os(macOS)
                 .background(PulseTouchBarHost(store: store).frame(width: 0, height: 0))
+                .background(PulseMacWindowChrome().frame(width: 0, height: 0))
                 #endif
                 .background(PulseGlassLifecycle())
                 .environment(\.pulseReducedMotion, systemReducedMotion || appReducedMotion)
@@ -24,6 +25,7 @@ struct PulseApp: App {
                 }
         }
         #if os(macOS)
+        .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1120, height: 760)
         .commands {
             CommandGroup(after: .newItem) {

@@ -28,7 +28,7 @@ struct PulseSearchView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 24) {
                 if let artist {
-                    Button { self.artist = nil } label: { Label("К результатам", systemImage: "chevron.left") }.buttonStyle(.plain).foregroundStyle(PulseTheme.accent)
+                    Button { self.artist = nil } label: { Label("К результатам", systemImage: "chevron.left") }.buttonStyle(PulseTactileButton()).foregroundStyle(PulseTheme.accent)
                     HStack(spacing: 20) {
                         PulseArtworkView(track: tracks.first, size: 96, radius: 48)
                         VStack(alignment: .leading, spacing: 8) {
@@ -46,7 +46,7 @@ struct PulseSearchView: View {
                             .textInputAutocapitalization(.never).autocorrectionDisabled().submitLabel(.search)
                             #endif
                             .onSubmit { focused = false }
-                        if !query.isEmpty { Button { query = ""; focused = true } label: { Image(systemName: "xmark.circle.fill") }.buttonStyle(.plain).accessibilityLabel("Очистить поиск") }
+                        if !query.isEmpty { Button { query = ""; focused = true } label: { Image(systemName: "xmark.circle.fill") }.buttonStyle(PulseTactileButton()).accessibilityLabel("Очистить поиск") }
                     }.padding(16).pulseGlass(cornerRadius: 16)
                     if !artists.isEmpty {
                         Text(query.isEmpty ? "Исполнители" : "Найденные исполнители").font(.title3.bold())
@@ -58,7 +58,7 @@ struct PulseSearchView: View {
                                             PulseArtworkView(track: store.tracks.first { $0.artist == name }, size: 88, radius: 44)
                                             Text(name).font(.system(size: 12, weight: .semibold)).lineLimit(2).multilineTextAlignment(.center)
                                         }.frame(width: 104)
-                                    }.buttonStyle(.plain).accessibilityLabel("Исполнитель \(name)")
+                                    }.buttonStyle(PulseTactileButton()).accessibilityLabel("Исполнитель \(name)")
                                 }
                             }.padding(.vertical, 4)
                         }
