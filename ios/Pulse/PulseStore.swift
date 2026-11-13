@@ -331,6 +331,7 @@ final class PulseStore: ObservableObject {
     }
     func like(_ track: PulseTrack) { mutate(["type": "like", "id": track.id, "value": !state.liked.contains(track.id)]) }
     func createPlaylist(_ name: String) { mutate(["type": "playlist", "id": UUID().uuidString, "name": name]) }
+    func createPlaylist(_ name: String, tracks: [String]) { mutate(["type": "playlist", "id": UUID().uuidString, "name": name, "tracks": tracks]) }
     func add(_ track: PulseTrack, to playlist: PulsePlaylist) { mutate(["type": "add", "id": track.id, "playlist": playlist.id]) }
     private func mutate(_ operation: [String: Any]) {
         guard signedIn else { error = "Войди в аккаунт, чтобы сохранить музыку"; return }

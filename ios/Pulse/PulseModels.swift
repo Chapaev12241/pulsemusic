@@ -23,6 +23,16 @@ struct PulseLibraryState: Codable, Equatable {
     var liked: [String] = []
     var history: [PulseHistory] = []
     var playlists: [PulsePlaylist] = []
+    var playlistCovers: [String: String] = [:]
+    init() { }
+    enum CodingKeys: String, CodingKey { case liked, history, playlists, playlistCovers }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        liked = try c.decodeIfPresent([String].self, forKey: .liked) ?? []
+        history = try c.decodeIfPresent([PulseHistory].self, forKey: .history) ?? []
+        playlists = try c.decodeIfPresent([PulsePlaylist].self, forKey: .playlists) ?? []
+        playlistCovers = try c.decodeIfPresent([String: String].self, forKey: .playlistCovers) ?? [:]
+    }
 }
 struct PulseOK: Decodable { let ok: Bool? }
 struct PulseUpload: Decodable { let id: String; let duplicate: Bool? }

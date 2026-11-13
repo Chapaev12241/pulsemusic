@@ -11,6 +11,7 @@ const sqlite=new DatabaseSync(':memory:');sqlite.exec(readFileSync('drizzle/0000
 sqlite.exec(readFileSync('drizzle/0002_artwork.sql','utf8'));
 sqlite.exec(readFileSync('drizzle/0003_admin.sql','utf8').replaceAll('--> statement-breakpoint',''));
 sqlite.exec(readFileSync('drizzle/0004_telegram.sql','utf8').replaceAll('--> statement-breakpoint',''));
+sqlite.exec(readFileSync('drizzle/0009_playlist_covers.sql','utf8'));
 const DB={async batch(statements){const results=[];for(const statement of statements)results.push(await statement.run());return results},
   prepare(sql){
     return {async all(){return {results:sqlite.prepare(sql).all()}},bind(...args){
@@ -43,6 +44,14 @@ const updated=await call('/api/music/'+id+'/meta',{token:one.token,method:'POST'
 const profile=await call('/api/artists/resolve',{token:one.token,method:'POST',body:{artist:'Артист',genres:['trap']}});assert.equal(profile.status,200);const edited=await(await call('/api/music',{token:one.token})).json();assert.equal(edited.tracks[0].title,'Волна 2');assert.equal(edited.tracks[0].genres[0],'trap');assert.equal(edited.tracks[0].genreSource,'manual');
 const realFetch=globalThis.fetch;
 try{globalThis.fetch=async url=>String(url).includes('musicbrainz.org')?new Response('{}',{status:503}):new Response(JSON.stringify({results:[{artistName:'FallbackArtist',artistId:123,primaryGenreName:'Jazz'}]}),{headers:{'content-type':'application/json'}});const fallback=await call('/api/artists/resolve',{token:one.token,method:'POST',body:{artist:'FallbackArtist'}});assert.equal(fallback.status,200);const resolved=await fallback.json();assert.equal(resolved.source,'apple');assert.equal(resolved.genres[0],'jazz');assert.equal(resolved.artistId,'apple:123')}finally{globalThis.fetch=realFetch}
+const builtinCover='data:image/jpeg;base64,/9j/AA==';
+for(const builtin of ['liked','library','downloads']){
+ const changed=await call('/api/state',{token:one.token,method:'POST',body:{op:{type:'playlistCover',id:builtin,cover:builtinCover}}});assert.equal(changed.status,200,'built-in playlist accepts its own cover');
+ assert.equal((await changed.json()).playlistCovers[builtin],builtinCover);
+}
+const afterCover=await(await call('/api/state',{token:secondSession.token})).json();assert.equal(afterCover.playlistCovers.liked,builtinCover);assert.equal(afterCover.liked[0],id);assert.equal(afterCover.playlists.length,1);
+assert.deepEqual((await(await call('/api/state',{token:two.token})).json()).playlistCovers,{});
+assert.equal((await call('/api/state',{token:one.token,method:'POST',body:{op:{type:'playlistCover',id:'liked',cover:'javascript:bad'}}})).status,400);
 // Simulate an upload made before the shared catalog existed.
 sqlite.prepare('DELETE FROM pulse_catalog WHERE id=?').run(id);
 const catalogResponse=await(await call('/api/catalog')).json();assert(catalogResponse.tracks.some(t=>t.id===id));assert.equal(catalogResponse.tracks.find(t=>t.id===id).title,'Волна 2');assert.equal(catalogResponse.indexing,false);assert.equal((await(await call('/api/catalog',{token:two.token})).json()).tracks.find(t=>t.id===id).artist,'Артист');

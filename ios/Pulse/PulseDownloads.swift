@@ -1,5 +1,6 @@
 import SwiftUI
 import ImageIO
+import CryptoKit
 import UniformTypeIdentifiers
 
 @MainActor
@@ -67,11 +68,28 @@ enum PulseCoverCodec {
 }
 struct PulsePlaylistCover: View {
     let cover: String?
+    var size: CGFloat = 30
+    var symbol: String = "music.note.list"
     var body: some View {
         Group {
-            if let cover, let data = Data(base64Encoded: String(cover.dropFirst("data:image/jpeg;base64,".count))), let source = CGImageSourceCreateWithData(data as CFData, nil), let image = CGImageSourceCreateImageAtIndex(source, 0, nil) {
+            if let image = PulsePlaylistCoverImages.image(cover, size: size) {
                 Image(decorative: image, scale: 1).resizable().scaledToFill()
-            } else { Image(systemName: "music.note.list").resizable().scaledToFit().padding(6) }
-        }.frame(width: 30, height: 30).clipShape(RoundedRectangle(cornerRadius: 7))
+            } else { Image(systemName: symbol).resizable().scaledToFit().padding(size * 0.25).foregroundStyle(PulseTheme.accent).background(PulseTheme.raised) }
+        }.frame(width: size, height: size).clipped().clipShape(RoundedRectangle(cornerRadius: min(24, size * 0.16)))
+    }
+}
+
+private enum PulsePlaylistCoverImages {
+    static let cache: NSCache<NSString, CGImage> = {
+        let value = NSCache<NSString, CGImage>(); value.countLimit = 32; value.totalCostLimit = 24 * 1024 * 1024; return value
+    }()
+    static func image(_ cover: String?, size: CGFloat) -> CGImage? {
+        guard let cover, cover.hasPrefix("data:image/jpeg;base64,"), let data = Data(base64Encoded: String(cover.dropFirst("data:image/jpeg;base64,".count))) else { return nil }
+        let pixels = Int(min(1024, max(60, size * 2)))
+        let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        let key = "\(digest)|\(pixels)" as NSString
+        if let image = cache.object(forKey: key) { return image }
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil), let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: pixels, kCGImageSourceCreateThumbnailWithTransform: true] as CFDictionary) else { return nil }
+        cache.setObject(image, forKey: key, cost: image.bytesPerRow * image.height); return image
     }
 }
