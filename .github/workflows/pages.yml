@@ -26,6 +26,7 @@ jobs:
           node scripts/build-worker.mjs
           node scripts/validate-artifact.mjs
           node scripts/test-backend.mjs
+          node scripts/test-devices.mjs
           node scripts/test-music.mjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
