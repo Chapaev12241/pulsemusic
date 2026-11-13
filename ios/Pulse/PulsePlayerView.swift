@@ -32,6 +32,7 @@ struct PulsePlayerBar: View {
                 PulseTimeline(store: store)
             }.frame(maxWidth: 400)
             HStack(spacing: 12) {
+                PulseDevicesButton(store: store)
                 Button { store.dj.toggle() } label: {
                     Text("DJ").font(.system(size: 10, weight: .semibold)).padding(.horizontal, 9).padding(.vertical, 7)
                         .foregroundStyle(store.dj ? PulseTheme.accent : PulseTheme.muted)
@@ -52,6 +53,7 @@ struct PulsePlayerBar: View {
                     }
                 }.buttonStyle(PulseTactileButton()).clipped()
                 Spacer(minLength: 0)
+                PulseDevicesButton(store: store)
                 PulseShuffleButton(store: store)
                 Button { store.togglePlayback() } label: { Image(systemName: playback.paused ? "play.fill" : "pause.fill").font(.system(size: 19)).contentTransition(.symbolEffect(.replace)).animation(systemReducedMotion || appReducedMotion ? nil : .spring(response: 0.28, dampingFraction: 0.78), value: playback.paused).frame(width: 34, height: 40) }.buttonStyle(PulseTactileButton(feedback: .transport)).disabled(store.currentTrack == nil).accessibilityLabel(playback.paused ? "Воспроизвести" : "Пауза")
                 Button { swipe.advance(1, width: 300, reducedMotion: systemReducedMotion || appReducedMotion, action: store.next) } label: { Image(systemName: "forward.end.fill").font(.system(size: 16)).frame(width: 28, height: 40) }.buttonStyle(PulseTactileButton(feedback: nil)).disabled(store.currentTrack == nil).accessibilityLabel("Следующий трек")
@@ -161,12 +163,24 @@ struct PulseExpandedPlayer: View {
                         .onEnded { value in if store.currentTrack != nil { swipe.end(value, width: geometry.size.width, reducedMotion: reducedMotion, action: store.next) } })
                     PulseTimeline(store: store)
                         .background(GeometryReader { proxy in Color.clear.preference(key: PulseSeekFrameKey.self, value: proxy.frame(in: .named("PulseFullPlayer"))) })
-                    HStack(spacing: 26) {
-                        PulseShuffleButton(store: store)
-                        Button { swipe.advance(-1, width: geometry.size.width, reducedMotion: reducedMotion, action: store.next) } label: { Image(systemName: "backward.end.fill").font(.title2) } .buttonStyle(PulseTactileButton(feedback: nil))
-                        Button { store.togglePlayback() } label: { Image(systemName: playback.paused ? "play.fill" : "pause.fill").font(.title).foregroundStyle(.black).frame(width: 68, height: 68).background(Color.white, in: Circle()) } .buttonStyle(PulseTactileButton(feedback: .transport))
-                        Button { swipe.advance(1, width: geometry.size.width, reducedMotion: reducedMotion, action: store.next) } label: { Image(systemName: "forward.end.fill").font(.title2) } .buttonStyle(PulseTactileButton(feedback: nil))
-                    }.buttonStyle(PulseTactileButton()).disabled(store.currentTrack == nil)
+                    HStack(spacing: 0) {
+                        PulseShuffleButton(store: store).frame(width: 34)
+                        Spacer(minLength: 4)
+                        Button { swipe.advance(-1, width: geometry.size.width, reducedMotion: reducedMotion, action: store.next) } label: {
+                            Image(systemName: "backward.end.fill").font(.title2).frame(width: 44, height: 44)
+                        }.buttonStyle(PulseTactileButton(feedback: nil)).accessibilityLabel("Предыдущий трек")
+                        Spacer(minLength: 4)
+                        Button { store.togglePlayback() } label: {
+                            Image(systemName: playback.paused ? "play.fill" : "pause.fill").font(.title).foregroundStyle(.black)
+                                .frame(width: 68, height: 68).background(Color.white, in: Circle())
+                        }.buttonStyle(PulseTactileButton(feedback: .transport)).accessibilityLabel(playback.paused ? "Воспроизвести" : "Пауза")
+                        Spacer(minLength: 4)
+                        Button { swipe.advance(1, width: geometry.size.width, reducedMotion: reducedMotion, action: store.next) } label: {
+                            Image(systemName: "forward.end.fill").font(.title2).frame(width: 44, height: 44)
+                        }.buttonStyle(PulseTactileButton(feedback: nil)).accessibilityLabel("Следующий трек")
+                        Spacer(minLength: 4)
+                        PulseDevicesButton(store: store).frame(width: 34)
+                    }.frame(maxWidth: 400).disabled(store.currentTrack == nil)
                     Toggle("DJ · плавные переходы", isOn: $store.dj).font(.system(size: 13)).tint(PulseTheme.accent)
                     PulseLyricsView(store: store)
                     Spacer(minLength: 20)

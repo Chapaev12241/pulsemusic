@@ -1,0 +1,42 @@
+name: Windows app
+on:
+  push:
+    paths: ['desktop/windows/**', '.github/workflows/windows.yml', 'docs/icons/pulse-512.png']
+  workflow_dispatch:
+concurrency:
+  group: pulse-windows-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: desktop/windows
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install pinned dependencies
+        run: npm install --no-audit --no-fund
+      - name: Check renderer boundary
+        run: npm test
+      - name: Build installer and portable app
+        run: npm run dist
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Smoke-test Windows app
+        shell: pwsh
+        run: |
+          $pulseProcess = Start-Process -FilePath './release/win-unpacked/Pulse.exe' -ArgumentList '--pulse-smoke-test' -Wait -PassThru -RedirectStandardOutput 'smoke.log' -RedirectStandardError 'smoke-error.log'
+          Get-Content smoke.log
+          if ($pulseProcess.ExitCode -ne 0) { Get-Content smoke-error.log; exit 1 }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pulse-Windows-x64
+          path: |
+            desktop/windows/release/Pulse-Setup-*.exe
+            desktop/windows/release/Pulse-Portable-*.exe
+            desktop/windows/smoke.log

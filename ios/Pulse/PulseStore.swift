@@ -24,17 +24,23 @@ final class PulseStore: ObservableObject {
     let djLibrary = PulseDJStore()
     let ai = PulseAIStore()
     let downloads = PulseDownloads()
+    let devices = PulseDevices()
+    private var remoteClock: Task<Void, Never>?
+    private var remoteActive = false
+    private var applyingDevice = false
+    private var transferError: String?
+
     private var equalizerSubscription: AnyCancellable?
     private var favoriteSubscription: AnyCancellable?
     private var downloadSubscription: AnyCancellable?
     @Published var shuffle = UserDefaults.standard.bool(forKey: "pulse_shuffle") {
-        didSet { UserDefaults.standard.set(shuffle, forKey: "pulse_shuffle"); player.command(["action": "shuffle", "enabled": shuffle]) }
+        didSet { UserDefaults.standard.set(shuffle, forKey: "pulse_shuffle"); if !applyingDevice && devices.controlsRemote { devices.control("shuffle", enabled: shuffle) } else { player.command(["action": "shuffle", "enabled": shuffle]) } }
     }
     @Published var dj = UserDefaults.standard.object(forKey: "pulse_dj_native") as? Bool ?? true {
         didSet { UserDefaults.standard.set(dj, forKey: "pulse_dj_native"); player.command(["action": "dj", "enabled": dj]) }
     }
     @Published var volume = min(1, max(0, UserDefaults.standard.object(forKey: "pulse_native_volume") as? Double ?? 0.8)) {
-        didSet { UserDefaults.standard.set(volume, forKey: "pulse_native_volume"); player.command(["action": "volume", "value": volume]) }
+        didSet { UserDefaults.standard.set(volume, forKey: "pulse_native_volume"); if !applyingDevice && devices.controlsRemote { devices.control("volume", value: volume) } else { player.command(["action": "volume", "value": volume]) } }
     }
     private var token = ""
     private let loadSession: () async -> String
@@ -60,6 +66,14 @@ final class PulseStore: ObservableObject {
         self.loadSession = loadSession
         tracks = downloads.tracks
         downloadSubscription = downloads.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
+        devices.snapshot = { [weak self] in self?.deviceSnapshot() ?? PulseDeviceSnapshot(state: PulseDeviceState(), queue: [], originalQueue: []) }
+        devices.applyCommand = { [weak self] command, now in guard let self else { throw CancellationError() }; try await self.applyDevice(command, now: now) }
+        devices.onFocus = { [weak self] focus in self?.deviceFocus(focus) }
+        devices.onActionError = { [weak self] message in self?.error = message }
+        player.onSystemCommand = { [weak self] action, position in
+            guard let self, self.devices.controlsRemote else { return false }
+            self.devices.control(action, position: position); return true
+        }
         player.onState = { [weak self] value in self?.receivePlayback(value) }
         player.onBeat = { [weak self] value in self?.beat.receive(value) }
         player.onFavorite = { [weak self] id in
@@ -77,7 +91,8 @@ final class PulseStore: ObservableObject {
     // exercised by the regression test for library invalidations.
     func receivePlayback(_ value: [String: Any]) {
         if value["historySaved"] as? Bool == true { Task { await self.refresh() }; return }
-        if let message = value["error"] as? String { error = message; return }
+        if let message = value["error"] as? String { transferError = message; error = message; return }
+        if remoteActive && !applyingDevice { return }
         playback.receive(value)
         let id = value["id"] as? String ?? ""
         let nextPaused = value["paused"] as? Bool ?? true
@@ -135,6 +150,7 @@ final class PulseStore: ObservableObject {
         await refresh()
     }
     private func clearSession(deleteKeychain: Bool = true) {
+        devices.configure(token: "", owner: ""); remoteClock?.cancel(); remoteActive = false
         djLibrary.clear(); ai.configure(owner: "guest")
         generation = UUID(); mutation?.cancel(); mutation = nil
         player.command(["action": "stop"])
@@ -192,7 +208,7 @@ final class PulseStore: ObservableObject {
             }
         }
     }
-    private func configureSocial() { ai.configure(owner: user?.id ?? "guest"); social.configure(token: token, userID: user?.id ?? ""); djLibrary.configure(owner: user?.id ?? "guest") }
+    private func configureSocial() { devices.configure(token: user == nil ? "" : token, owner: user?.id ?? ""); ai.configure(owner: user?.id ?? "guest"); social.configure(token: token, userID: user?.id ?? ""); djLibrary.configure(owner: user?.id ?? "guest") }
     func playWave() {
         let liked = Set(state.liked)
         let artists = Set(tracks.filter { liked.contains($0.id) }.map(\.artist))
@@ -217,18 +233,78 @@ final class PulseStore: ObservableObject {
         } catch { self.error = error.localizedDescription }
     }
     func play(_ track: PulseTrack, within queue: [PulseTrack]) {
+        remoteActive = false; remoteClock?.cancel(); devices.claimLocal()
         player.setDJTransitions([:])
         player.command(["action": "play", "id": track.id, "tracks": queue.map(\.nativeValue), "token": token, "dj": dj])
     }
     func playDJ(_ track: PulseTrack, within queue: [PulseTrack], transitions: [String: PulseDJMix]) {
+        remoteActive = false; remoteClock?.cancel(); devices.claimLocal()
         dj = true; player.setDJTransitions(transitions)
         player.command(["action": "play", "id": track.id, "tracks": queue.map(\.nativeValue), "token": token, "dj": true])
     }
     func togglePlayback() {
+        if devices.controlsRemote { devices.control(paused ? "resume" : "pause"); return }
         player.command(["action": paused ? "resume" : "pause"])
     }
-    func next(_ direction: Int) { PulseHaptics.fire(.track); player.command(["action": direction > 0 ? "next" : "previous"]) }
-    func seek(_ seconds: Double) { player.command(["action": "seek", "time": seconds]) }
+    func next(_ direction: Int) { PulseHaptics.fire(.track); if devices.controlsRemote { devices.control(direction > 0 ? "next" : "previous"); return }; player.command(["action": direction > 0 ? "next" : "previous"]) }
+    func seek(_ seconds: Double) { if devices.controlsRemote { devices.control("seek", position: seconds); return }; player.command(["action": "seek", "time": seconds]) }
+    private func deviceSnapshot() -> PulseDeviceSnapshot {
+        PulseDeviceSnapshot(state: PulseDeviceState(trackId: remoteActive ? "" : currentID, position: remoteActive ? 0 : playback.interpolatedTime, duration: playback.duration, paused: remoteActive || paused, buffering: playback.buffering, shuffle: shuffle, dj: dj, volume: volume), queue: player.queueIDs, originalQueue: player.originalQueueIDs)
+    }
+    private func deviceFocus(_ focus: PulseDeviceFocus) {
+        let remote = focus.online && focus.deviceId != nil && focus.deviceId != devices.id
+        guard !applyingDevice else { return }
+        if remote && !remoteActive { remoteActive = true; player.command(["action": "pause"]) }
+        if !remote { remoteActive = false; remoteClock?.cancel(); remoteClock = nil; return }
+        func update() {
+            guard let state = devices.estimatedRemoteState else { return }
+            playback.receive(["id": state.trackId, "time": state.position, "duration": state.duration, "paused": state.paused, "buffering": state.buffering])
+            if currentID != state.trackId { currentID = state.trackId }
+            if paused != state.paused { paused = state.paused }
+        }
+        update()
+        if remoteClock == nil {
+            remoteClock = Task { [weak self] in
+                while !Task.isCancelled {
+                    guard let self, self.remoteActive else { return }
+                    if let state = self.devices.estimatedRemoteState { self.playback.receive(["time": state.position, "duration": state.duration]) }
+                    do { try await Task.sleep(nanoseconds: 250_000_000) } catch { return }
+                }
+            }
+        }
+    }
+    private func applyDevice(_ command: PulseDeviceCommand, now: Double) async throws {
+        applyingDevice = true
+        defer { applyingDevice = false }
+        if command.type == "transfer", var state = command.payload.state {
+            await refresh()
+            let byID = Dictionary(uniqueKeysWithValues: tracks.map { ($0.id, $0) })
+            guard let track = byID[state.trackId] else { throw PulseAPIError(status: 404, message: "Трек недоступен на этом устройстве") }
+            var queue = (command.payload.queue ?? []).compactMap { byID[$0] }
+            if !queue.contains(where: { $0.id == track.id }) { queue.insert(track, at: 0) }
+            let original = (command.payload.originalQueue ?? []).compactMap { byID[$0] }
+            if !state.paused && !state.buffering { state.position += max(0, min(30, (now - command.createdAt) / 1000)) }
+            remoteActive = false; remoteClock?.cancel(); remoteClock = nil; transferError = nil
+            shuffle = state.shuffle; dj = state.dj; volume = state.volume
+            player.command(["action": "play", "id": track.id, "tracks": queue.map(\.nativeValue), "originalTracks": original.map(\.nativeValue), "preserveOrder": true, "shuffle": state.shuffle, "token": token, "dj": state.dj, "time": state.position, "paused": state.paused])
+            for _ in 0..<100 {
+                try Task.checkCancellation()
+                if let transferError { throw PulseAPIError(status: 409, message: transferError) }
+                if player.readyForTransfer && (state.paused || !playback.buffering) && abs(playback.time - state.position) < 5 { return }
+                try await Task.sleep(nanoseconds: 200_000_000)
+            }
+            player.command(["action": "pause"])
+            throw PulseAPIError(status: 408, message: "Не удалось подготовить трек. Попробуй ещё раз")
+        } else if let action = command.payload.command {
+            switch action {
+            case "seek": player.command(["action": "seek", "time": command.payload.position ?? 0])
+            case "shuffle": shuffle = command.payload.enabled ?? false
+            case "volume": volume = command.payload.value ?? volume
+            case "resume", "pause", "next", "previous": player.command(["action": action])
+            default: throw PulseAPIError(status: 400, message: "Неизвестная команда")
+            }
+        }
+    }
     func like(_ track: PulseTrack) { mutate(["type": "like", "id": track.id, "value": !state.liked.contains(track.id)]) }
     func createPlaylist(_ name: String) { mutate(["type": "playlist", "id": UUID().uuidString, "name": name]) }
     func add(_ track: PulseTrack, to playlist: PulsePlaylist) { mutate(["type": "add", "id": track.id, "playlist": playlist.id]) }

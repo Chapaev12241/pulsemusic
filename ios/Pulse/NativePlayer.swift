@@ -24,6 +24,7 @@ final class NativePlayer {
             artwork = imageURL?.scheme == "https" ? imageURL : nil
         }
     }
+    var onSystemCommand: ((String, Double?) -> Bool)?
     var onState: (([String: Any]) -> Void)?
     var onBeat: ((Double) -> Void)?
     var onFavorite: ((String) -> Void)?
@@ -70,10 +71,10 @@ final class NativePlayer {
 
     init() {
         let commands = MPRemoteCommandCenter.shared()
-        bind(commands.playCommand) { [weak self] in self?.resume() }
-        bind(commands.pauseCommand) { [weak self] in self?.pause() }
-        bind(commands.nextTrackCommand) { [weak self] in self?.next(1) }
-        bind(commands.previousTrackCommand) { [weak self] in self?.next(-1) }
+        bind(commands.playCommand) { [weak self] in if self?.onSystemCommand?("resume", nil) != true { self?.resume() } }
+        bind(commands.pauseCommand) { [weak self] in if self?.onSystemCommand?("pause", nil) != true { self?.pause() } }
+        bind(commands.nextTrackCommand) { [weak self] in if self?.onSystemCommand?("next", nil) != true { self?.next(1) } }
+        bind(commands.previousTrackCommand) { [weak self] in if self?.onSystemCommand?("previous", nil) != true { self?.next(-1) } }
         for command in [commands.likeCommand, commands.bookmarkCommand] {
             command.isEnabled = false
             remoteTargets.append((command, command.addTarget { [weak self] _ in
@@ -83,7 +84,7 @@ final class NativePlayer {
         }
         let seek = commands.changePlaybackPositionCommand.addTarget { [weak self] event in
             guard let event = event as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
-            DispatchQueue.main.async { self?.seek(event.positionTime) }; return .success
+            DispatchQueue.main.async { if self?.onSystemCommand?("seek", event.positionTime) != true { self?.seek(event.positionTime) } }; return .success
         }
         remoteTargets.append((commands.changePlaybackPositionCommand, seek))
         let center = NotificationCenter.default
@@ -151,19 +152,24 @@ final class NativePlayer {
         equalizer.onError = { [weak self] message in self?.emit(error: message) }
         equalizer.attach(to: player.currentItem); equalizer.attach(to: outgoing?.currentItem)
     }
+    var queueIDs: [String] { queue.map(\.id) }
+    var originalQueueIDs: [String] { originalQueue.map(\.id) }
+    var readyForTransfer: Bool { player.currentItem?.status == .readyToPlay }
     func command(_ body: [String: Any]) {
         switch body["action"] as? String {
         case "play":
             let incoming = (body["tracks"] as? [[String: Any]] ?? []).compactMap(Track.init)
             guard let id = body["id"] as? String else { return }
-            let items = shuffleEnabled ? PulseQueueOrder.shuffled(incoming, keeping: id, key: { $0.id }) : incoming
+            let preserving = body["preserveOrder"] as? Bool == true
+            let items = shuffleEnabled && !preserving ? PulseQueueOrder.shuffled(incoming, keeping: id, key: { $0.id }) : incoming
             guard let target = items.firstIndex(where: { $0.id == id }) else { return }
-            originalQueue = incoming
+            originalQueue = (body["originalTracks"] as? [[String: Any]])?.compactMap(Track.init) ?? incoming
+            if let enabled = body["shuffle"] as? Bool { shuffleEnabled = enabled }
             bearer = body["token"] as? String ?? ""
             dj = body["dj"] as? Bool ?? true
-            if queue.indices.contains(index), queue[index].id == id, player.currentItem != nil, player.currentItem?.status != .failed {
+            if !preserving, queue.indices.contains(index), queue[index].id == id, player.currentItem != nil, player.currentItem?.status != .failed {
                 queue = items; index = target; resume()
-            } else { queue = items; start(target, crossfade: false) }
+            } else { queue = items; start(target, crossfade: false, at: body["time"] as? Double ?? 0, shouldPlay: !(body["paused"] as? Bool ?? false)) }
         case "update":
             bearer = body["token"] as? String ?? ""
             let fresh = Dictionary(uniqueKeysWithValues: (body["tracks"] as? [[String: Any]] ?? []).compactMap(Track.init).map { ($0.id, $0) })
@@ -226,7 +232,7 @@ final class NativePlayer {
         let asset = AVURLAsset(url: url, options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])
         return AVPlayer(playerItem: AVPlayerItem(asset: asset))
     }
-    private func start(_ target: Int, crossfade: Bool) {
+    private func start(_ target: Int, crossfade: Bool, at position: Double = 0, shouldPlay: Bool = true) {
         guard queue.indices.contains(target) else { return }
         do { try activate() } catch { emit(error: "Не удалось включить системный звук"); return }
         finishFade(); observation = nil; itemObservation = nil
@@ -246,7 +252,7 @@ final class NativePlayer {
                 if length.seconds.isFinite && length.seconds > 0 { self.assetDuration = length.seconds; self.emit() }
             }
         }
-        wantsPlayback = true; fading = crossfade; player.volume = crossfade ? 0 : gain
+        wantsPlayback = shouldPlay; fading = crossfade; player.volume = crossfade ? 0 : gain
         itemObservation = player.currentItem?.observe(\.status, options: [.new]) { [weak self] item, _ in
             guard item.status == .failed else { return }
             DispatchQueue.main.async {
@@ -263,7 +269,17 @@ final class NativePlayer {
                 self.emit()
             }
         }
-        player.play(); startMeter(); emit()
+        let incoming = player
+        if position > 0 {
+            lastTime = position
+            incoming.seek(to: CMTime(seconds: position, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero) { [weak self, weak incoming] finished in
+                DispatchQueue.main.async {
+                    guard let self, let incoming, self.player === incoming, finished else { return }
+                    if self.wantsPlayback { incoming.play(); self.startMeter() }; self.emit()
+                }
+            }
+        } else if shouldPlay { player.play(); startMeter() }
+        emit()
     }
     private func beginFade() {
         var last = ProcessInfo.processInfo.systemUptime
