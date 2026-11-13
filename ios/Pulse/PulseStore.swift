@@ -27,6 +27,9 @@ final class PulseStore: ObservableObject {
     private var equalizerSubscription: AnyCancellable?
     private var favoriteSubscription: AnyCancellable?
     private var downloadSubscription: AnyCancellable?
+    @Published var shuffle = UserDefaults.standard.bool(forKey: "pulse_shuffle") {
+        didSet { UserDefaults.standard.set(shuffle, forKey: "pulse_shuffle"); player.command(["action": "shuffle", "enabled": shuffle]) }
+    }
     @Published var dj = UserDefaults.standard.object(forKey: "pulse_dj_native") as? Bool ?? true {
         didSet { UserDefaults.standard.set(dj, forKey: "pulse_dj_native"); player.command(["action": "dj", "enabled": dj]) }
     }
@@ -64,6 +67,7 @@ final class PulseStore: ObservableObject {
             self.like(track)
         }
         player.command(["action": "volume", "value": volume])
+        player.command(["action": "shuffle", "enabled": shuffle])
         equalizerSubscription = equalizer.$config.sink { [weak self] value in self?.player.setEqualizer(value) }
         favoriteSubscription = Publishers.CombineLatest3($currentID, $user, $state).sink { [weak self] id, user, state in
             self?.player.setFavoriteState(trackID: id, available: user != nil, liked: state.liked.contains(id))

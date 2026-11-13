@@ -52,6 +52,7 @@ struct PulsePlayerBar: View {
                     }
                 }.buttonStyle(.plain).clipped()
                 Spacer(minLength: 0)
+                PulseShuffleButton(store: store)
                 Button { store.togglePlayback() } label: { Image(systemName: playback.paused ? "play.fill" : "pause.fill").font(.system(size: 19)).frame(width: 34, height: 40) }.buttonStyle(.plain).disabled(store.currentTrack == nil).accessibilityLabel(playback.paused ? "Воспроизвести" : "Пауза")
                 Button { swipe.advance(1, width: 300, reducedMotion: systemReducedMotion || appReducedMotion, action: store.next) } label: { Image(systemName: "forward.end.fill").font(.system(size: 16)).frame(width: 28, height: 40) }.buttonStyle(.plain).disabled(store.currentTrack == nil).accessibilityLabel("Следующий трек")
             }.padding(.horizontal, 18).padding(.top, 10).padding(.bottom, 8)
@@ -88,6 +89,7 @@ struct PulsePlayerBar: View {
     }
     private func controls(large: Bool) -> some View {
         HStack(spacing: large ? 34 : 24) {
+            PulseShuffleButton(store: store)
             Button { store.next(-1) } label: { Image(systemName: "backward.end.fill").font(.system(size: large ? 22 : 15)) }.buttonStyle(.plain).accessibilityLabel("Предыдущий трек")
             Button { store.togglePlayback() } label: {
                 Image(systemName: playback.paused ? "play.fill" : "pause.fill").font(.system(size: large ? 24 : 17)).foregroundStyle(.black)
@@ -156,7 +158,8 @@ struct PulseExpandedPlayer: View {
                         .onEnded { value in if store.currentTrack != nil { swipe.end(value, width: geometry.size.width, reducedMotion: reducedMotion, action: store.next) } })
                     PulseTimeline(store: store)
                         .background(GeometryReader { proxy in Color.clear.preference(key: PulseSeekFrameKey.self, value: proxy.frame(in: .named("PulseFullPlayer"))) })
-                    HStack(spacing: 40) {
+                    HStack(spacing: 26) {
+                        PulseShuffleButton(store: store)
                         Button { swipe.advance(-1, width: geometry.size.width, reducedMotion: reducedMotion, action: store.next) } label: { Image(systemName: "backward.end.fill").font(.title2) }
                         Button { store.togglePlayback() } label: { Image(systemName: playback.paused ? "play.fill" : "pause.fill").font(.title).foregroundStyle(.black).frame(width: 68, height: 68).background(Color.white, in: Circle()) }
                         Button { swipe.advance(1, width: geometry.size.width, reducedMotion: reducedMotion, action: store.next) } label: { Image(systemName: "forward.end.fill").font(.title2) }
@@ -189,4 +192,16 @@ private struct PulseMiniProgress: View {
 private struct PulseSeekFrameKey: PreferenceKey {
     static let defaultValue = CGRect.null
     static func reduce(value: inout CGRect, nextValue: () -> CGRect) { value = nextValue() }
+}
+
+struct PulseShuffleButton: View {
+    @ObservedObject var store: PulseStore
+    var body: some View {
+        Button { store.shuffle.toggle() } label: {
+            Image(systemName: "shuffle").font(.system(size: 17, weight: .medium))
+                .foregroundStyle(store.shuffle ? PulseTheme.accent : PulseTheme.muted)
+                .frame(width: 34, height: 40)
+                .overlay(alignment: .bottom) { if store.shuffle { Circle().fill(PulseTheme.accent).frame(width: 4, height: 4).padding(.bottom, 1) } }
+        }.buttonStyle(.plain).accessibilityLabel("Перемешивание").accessibilityValue(store.shuffle ? "Включено" : "Выключено")
+    }
 }

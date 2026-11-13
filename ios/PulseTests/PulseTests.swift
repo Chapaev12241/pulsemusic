@@ -57,6 +57,16 @@ final class PulseTests: XCTestCase {
         let duration = try await asset.load(.duration)
         XCTAssertTrue(duration.seconds.isFinite && duration.seconds > 20, "Automatic transitions need a finite audio duration")
     }
+    func testShuffleKeepsCurrentTrackAndEveryOtherTrackExactlyOnce() {
+        let source = ["a", "b", "c", "d", "e"]
+        var orders = Set<String>()
+        for _ in 0..<100 {
+            let queue = PulseQueueOrder.shuffled(source, keeping: "c", key: { $0 })
+            XCTAssertEqual(queue.first, "c"); XCTAssertEqual(Set(queue), Set(source)); XCTAssertEqual(queue.count, source.count)
+            orders.insert(queue.joined())
+        }
+        XCTAssertGreaterThan(orders.count, 1)
+    }
     func testPlaylistCoverSurvivesCloudStateRoundTrip() throws {
         let playlist = PulsePlaylist(id: "p", name: "Дорога", tracks: ["a"], cover: "data:image/jpeg;base64,/9j/AAAA")
         XCTAssertEqual(try JSONDecoder().decode(PulsePlaylist.self, from: JSONEncoder().encode(playlist)), playlist)

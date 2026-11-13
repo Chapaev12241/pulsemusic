@@ -33,6 +33,8 @@ final class NativePlayer {
     private var currentMix = PulseDJMix(effect: .blend, duration: 3)
     func setDJTransitions(_ values: [String: PulseDJMix]) { djTransitions = values }
     private var queue: [Track] = []
+    private var originalQueue: [Track] = []
+    private var shuffleEnabled = false
     private var index = 0
     private var player = AVPlayer()
     private var outgoing: AVPlayer?
@@ -152,8 +154,11 @@ final class NativePlayer {
     func command(_ body: [String: Any]) {
         switch body["action"] as? String {
         case "play":
-            let items = (body["tracks"] as? [[String: Any]] ?? []).compactMap(Track.init)
-            guard let id = body["id"] as? String, let target = items.firstIndex(where: { $0.id == id }) else { return }
+            let incoming = (body["tracks"] as? [[String: Any]] ?? []).compactMap(Track.init)
+            guard let id = body["id"] as? String else { return }
+            let items = shuffleEnabled ? PulseQueueOrder.shuffled(incoming, keeping: id, key: { $0.id }) : incoming
+            guard let target = items.firstIndex(where: { $0.id == id }) else { return }
+            originalQueue = incoming
             bearer = body["token"] as? String ?? ""
             dj = body["dj"] as? Bool ?? true
             if queue.indices.contains(index), queue[index].id == id, player.currentItem != nil, player.currentItem?.status != .failed {
@@ -163,6 +168,7 @@ final class NativePlayer {
             bearer = body["token"] as? String ?? ""
             let fresh = Dictionary(uniqueKeysWithValues: (body["tracks"] as? [[String: Any]] ?? []).compactMap(Track.init).map { ($0.id, $0) })
             let currentID = queue.indices.contains(index) ? queue[index].id : ""
+            originalQueue = originalQueue.compactMap { fresh[$0.id] }
             queue = queue.compactMap { fresh[$0.id] }
             if let target = queue.firstIndex(where: { $0.id == currentID }) { index = target }
             else if !currentID.isEmpty { command(["action": "stop"]) }
@@ -174,8 +180,15 @@ final class NativePlayer {
         case "previous": next(-1)
         case "seek": if let time = body["time"] as? Double { seek(time) }
         case "volume": gain = min(1, max(0, (body["value"] as? NSNumber)?.floatValue ?? 0.8)); if !fading { player.volume = gain }
+        case "shuffle":
+            shuffleEnabled = body["enabled"] as? Bool ?? false
+            let current = queue.indices.contains(index) ? queue[index].id : ""
+            preparedObservation = nil; prepared?.pause(); prepared = nil; preparedID = nil
+            queue = shuffleEnabled ? PulseQueueOrder.shuffled(originalQueue, keeping: current, key: { $0.id }) : originalQueue
+            index = queue.firstIndex(where: { $0.id == current }) ?? 0
+            emit()
         case "dj": dj = body["enabled"] as? Bool ?? false; if !dj { finishFade() }
-        case "stop": pause(); generation += 1; historyTask?.cancel(); bearer = ""; queue = []; player.replaceCurrentItem(with: nil); emit()
+        case "stop": pause(); generation += 1; historyTask?.cancel(); bearer = ""; queue = []; originalQueue = []; player.replaceCurrentItem(with: nil); emit()
         case "state": emit()
         default: break
         }
