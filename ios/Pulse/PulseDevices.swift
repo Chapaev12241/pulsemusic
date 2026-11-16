@@ -245,7 +245,7 @@ struct PulseDevicesButton: View {
     var body: some View {
         Button { showing = true } label: {
             Image(systemName: devices.controlsRemote ? "hifispeaker.fill" : "airplay.audio")
-                .font(.system(size: 17)).foregroundStyle(devices.controlsRemote ? PulseTheme.accent : PulseTheme.muted).frame(width: 34, height: 40)
+                .font(PulseTheme.body(17)).foregroundStyle(devices.controlsRemote ? PulseTheme.accent : PulseTheme.muted).frame(width: 34, height: 40)
         }.buttonStyle(PulseTactileButton(feedback: .navigation)).accessibilityLabel("Устройства в аккаунте")
         .help(devices.controlsRemote ? "Играет на \(devices.focus.name)" : "Передать музыку на другое устройство")
         .sheet(isPresented: $showing) {
@@ -269,7 +269,7 @@ private struct PulseDevicesSheet: View {
                             HStack(spacing: 15) {
                                 Image(systemName: device.symbol).font(.title2).frame(width: 34)
                                 VStack(alignment: .leading, spacing: 5) {
-                                    Text(device.name).font(.system(size: 15, weight: .semibold))
+                                    Text(device.name).font(PulseTheme.body(15, weight: .semibold))
                                     Text(selected ? "Сейчас играет здесь" : !device.ready ? "Разреши воспроизведение на устройстве" : device.id == devices.id ? "Это устройство" : "Продолжить здесь").font(.caption).foregroundStyle(PulseTheme.muted)
                                 }
                                 Spacer()

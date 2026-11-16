@@ -25,7 +25,7 @@ struct PulsePlayerBar: View {
         .sheet(isPresented: $expanded) { PulseExpandedPlayer(store: store).preferredColorScheme(.dark).tint(PulseTheme.accent) }
     }
     private var desktopPlayer: some View {
-        HStack(spacing: 28) {
+        HStack(spacing: 24) {
             nowPlaying.contentShape(Rectangle()).onTapGesture { if store.currentTrack != nil { expanded = true } }.frame(maxWidth: .infinity, alignment: .leading)
             VStack(spacing: 8) {
                 controls(large: false)
@@ -34,30 +34,30 @@ struct PulsePlayerBar: View {
             HStack(spacing: 12) {
                 PulseDevicesButton(store: store)
                 Button { store.dj.toggle() } label: {
-                    Text("DJ").font(.system(size: 10, weight: .semibold)).padding(.horizontal, 9).padding(.vertical, 7)
+                    Text("DJ").font(PulseTheme.body(10, weight: .semibold)).padding(.horizontal, 9).padding(.vertical, 7)
                         .foregroundStyle(store.dj ? PulseTheme.accent : PulseTheme.muted)
                         .background(store.dj ? PulseTheme.accent.opacity(0.12) : PulseTheme.raised, in: RoundedRectangle(cornerRadius: 7))
                 }.buttonStyle(PulseTactileButton()).help("Плавные переходы между треками")
-                Image(systemName: "speaker.wave.2").font(.system(size: 14)).foregroundStyle(PulseTheme.muted)
+                Image(systemName: "speaker.wave.2").font(PulseTheme.body(14)).foregroundStyle(PulseTheme.muted)
                 Slider(value: $store.volume, in: 0...1).frame(width: 88).controlSize(.small).accessibilityLabel("Громкость")
-                Text("\(Int(store.volume * 100))%").font(.system(size: 10).monospacedDigit()).foregroundStyle(PulseTheme.muted).frame(width: 32)
+                Text("\(Int(store.volume * 100))%").font(PulseTheme.body(10).monospacedDigit()).foregroundStyle(PulseTheme.muted).frame(width: 32)
             }.frame(maxWidth: .infinity, alignment: .trailing)
-        }.padding(.horizontal, 24).padding(.vertical, 15).frame(height: 100)
+        }.padding(.horizontal, 28).padding(.vertical, 18).frame(height: 110)
     }
     private var mobilePlayer: some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 Button { if store.currentTrack != nil && abs(swipe.offset) < 5 { expanded = true } } label: {
                     PulseSwipeDeck(motion: swipe, current: store.currentTrack, incoming: store.adjacentTrack, width: 300, reducedMotion: systemReducedMotion || appReducedMotion) { track in
-                        compactTrack(track).padding(.vertical, 2).frame(maxWidth: .infinity, alignment: .leading).background(PulseTheme.panel.opacity(0.35), in: RoundedRectangle(cornerRadius: 14))
+                        compactTrack(track).padding(.vertical, 2).frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }.buttonStyle(PulseTactileButton()).clipped()
                 Spacer(minLength: 0)
                 PulseDevicesButton(store: store)
                 PulseShuffleButton(store: store)
-                Button { store.togglePlayback() } label: { Image(systemName: playback.paused ? "play.fill" : "pause.fill").font(.system(size: 19)).contentTransition(.symbolEffect(.replace)).animation(systemReducedMotion || appReducedMotion ? nil : .spring(response: 0.28, dampingFraction: 0.78), value: playback.paused).frame(width: 34, height: 40) }.buttonStyle(PulseTactileButton(feedback: .transport)).disabled(store.currentTrack == nil).accessibilityLabel(playback.paused ? "Воспроизвести" : "Пауза")
-                Button { swipe.advance(1, width: 300, reducedMotion: systemReducedMotion || appReducedMotion, action: store.next) } label: { Image(systemName: "forward.end.fill").font(.system(size: 16)).frame(width: 28, height: 40) }.buttonStyle(PulseTactileButton(feedback: nil)).disabled(store.currentTrack == nil).accessibilityLabel("Следующий трек")
-            }.padding(.horizontal, 18).padding(.top, 10).padding(.bottom, 8)
+                Button { store.togglePlayback() } label: { Image(systemName: playback.paused ? "play.fill" : "pause.fill").font(PulseTheme.body(19)).contentTransition(.symbolEffect(.replace)).animation(systemReducedMotion || appReducedMotion ? nil : .spring(response: 0.28, dampingFraction: 0.78), value: playback.paused).frame(width: 34, height: 40) }.buttonStyle(PulseTactileButton(feedback: .transport)).disabled(store.currentTrack == nil).accessibilityLabel(playback.paused ? "Воспроизвести" : "Пауза")
+                Button { swipe.advance(1, width: 300, reducedMotion: systemReducedMotion || appReducedMotion, action: store.next) } label: { Image(systemName: "forward.end.fill").font(PulseTheme.body(16)).frame(width: 28, height: 40) }.buttonStyle(PulseTactileButton(feedback: nil)).disabled(store.currentTrack == nil).accessibilityLabel("Следующий трек")
+            }.padding(.horizontal, 14).padding(.top, 12).padding(.bottom, 10)
             PulseMiniProgress(playback: store.playback).padding(.horizontal, 24).padding(.bottom, 2)
         }
         .scaleEffect(expanded && !systemReducedMotion && !appReducedMotion ? 0.985 : 1)
@@ -70,19 +70,19 @@ struct PulsePlayerBar: View {
     }
     private func compactTrack(_ track: PulseTrack?) -> some View {
         HStack(spacing: 12) {
-            PulseArtworkView(track: track, size: 46, radius: 11)
+            PulseArtworkView(track: track, size: 46, radius: 12)
             VStack(alignment: .leading, spacing: 6) {
-                Text(track?.title ?? "На твоей волне").font(.system(size: 12, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
-                Text(track?.artist ?? "Выбери свой первый трек").font(.system(size: 10)).foregroundStyle(PulseTheme.muted).lineLimit(1)
+                Text(track?.title ?? "На твоей волне").font(PulseTheme.body(13, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
+                Text(track?.artist ?? "Выбери свой первый трек").font(PulseTheme.body(11)).foregroundStyle(PulseTheme.muted).lineLimit(1)
             }
         }
     }
     private var nowPlaying: some View {
         HStack(spacing: 12) {
-            PulseArtworkView(track: store.currentTrack, size: 46, radius: 11)
+            PulseArtworkView(track: store.currentTrack, size: 52, radius: 14)
             VStack(alignment: .leading, spacing: 6) {
-                Text(store.currentTrack?.title ?? "На твоей волне").font(.system(size: 12, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
-                Text(playback.buffering ? "Загрузка…" : store.currentTrack?.artist ?? "Выбери свой первый трек").font(.system(size: 10)).foregroundStyle(PulseTheme.muted).lineLimit(1)
+                Text(store.currentTrack?.title ?? "На твоей волне").font(PulseTheme.body(14, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
+                Text(playback.buffering ? "Загрузка…" : store.currentTrack?.artist ?? "Выбери свой первый трек").font(PulseTheme.body(12)).foregroundStyle(PulseTheme.muted).lineLimit(1)
             }
             #if os(macOS)
             if let track = store.currentTrack {
@@ -93,13 +93,14 @@ struct PulsePlayerBar: View {
     }
     private func controls(large: Bool) -> some View {
         HStack(spacing: large ? 34 : 24) {
-            PulseShuffleButton(store: store)
+            PulseShuffleButton(store: store).frame(width: 34)
             Button { store.next(-1) } label: { Image(systemName: "backward.end.fill").font(.system(size: large ? 22 : 15)) }.buttonStyle(PulseTactileButton(feedback: nil)).accessibilityLabel("Предыдущий трек")
             Button { store.togglePlayback() } label: {
                 Image(systemName: playback.paused ? "play.fill" : "pause.fill").font(.system(size: large ? 24 : 17)).foregroundStyle(.black)
                     .frame(width: large ? 62 : 38, height: large ? 62 : 38).background(Color.white, in: Circle())
             }.buttonStyle(PulseTactileButton(feedback: .transport)).accessibilityLabel(playback.paused ? "Воспроизвести" : "Пауза")
             Button { store.next(1) } label: { Image(systemName: "forward.end.fill").font(.system(size: large ? 22 : 15)) }.buttonStyle(PulseTactileButton(feedback: nil)).accessibilityLabel("Следующий трек")
+            Color.clear.frame(width: 34, height: 40).accessibilityHidden(true)
         }.disabled(store.currentTrack == nil)
     }
 }
@@ -118,7 +119,7 @@ struct PulseTimeline: View {
                 if editing { seekTime = playback.time; PulseHaptics.beginScrub(at: seekTime) } else { store.seek(seekTime); PulseHaptics.endScrub() }
             }.controlSize(.small).disabled(store.currentTrack == nil).accessibilityLabel("Позиция воспроизведения")
             Text(Self.clock(playback.duration)).frame(width: 32, alignment: .trailing)
-        }.font(.system(size: 10).monospacedDigit()).foregroundStyle(PulseTheme.muted)
+        }.font(PulseTheme.body(10).monospacedDigit()).foregroundStyle(PulseTheme.muted)
         .onDisappear { PulseHaptics.endScrub(completed: false) }
     }
     private static func clock(_ value: Double) -> String {
@@ -138,11 +139,11 @@ struct PulseExpandedPlayer: View {
     var body: some View {
         GeometryReader { geometry in
             ScrollView {
-                VStack(spacing: 28) {
+                VStack(spacing: 26) {
                     HStack {
                         Button { dismiss() } label: { Image(systemName: "chevron.down").frame(width: 36, height: 36) }.buttonStyle(PulseTactileButton())
                         Spacer()
-                        Text("СЕЙЧАС ИГРАЕТ").font(.system(size: 10, weight: .medium)).tracking(2).foregroundStyle(PulseTheme.muted)
+                        Text("Сейчас играет").font(PulseTheme.body(13, weight: .medium)).foregroundStyle(PulseTheme.muted)
                         Spacer()
                         if let track = store.currentTrack {
                             PulseHeartButton(store: store, track: track)
@@ -150,13 +151,14 @@ struct PulseExpandedPlayer: View {
                     }
                     Spacer(minLength: 10)
                     PulseSwipeDeck(motion: swipe, current: store.currentTrack, incoming: store.adjacentTrack, width: geometry.size.width, reducedMotion: reducedMotion) { track in
-                        VStack(spacing: 28) {
-                            PulseArtworkView(track: track, size: min(geometry.size.width - 80, 360), radius: 24)
-                            VStack(alignment: .leading, spacing: 10) {
-                                Text(track?.title ?? "Выбери трек").font(.system(size: 25, weight: .semibold))
-                                Text(track?.artist ?? "Pulse").font(.system(size: 16)).foregroundStyle(PulseTheme.muted)
+                        VStack(spacing: 30) {
+                            PulseArtworkView(track: track, size: min(max(geometry.size.width - 64, 120), 360), radius: 30)
+                                .shadow(color: .black.opacity(0.25), radius: 22, y: 14)
+                            VStack(alignment: .leading, spacing: 9) {
+                                Text(track?.title ?? "Выбери трек").font(PulseTheme.display(28)).lineLimit(2).minimumScaleFactor(0.8)
+                                Text(track?.artist ?? "Твоя музыка в Pulse").font(PulseTheme.body(16)).foregroundStyle(PulseTheme.muted).lineLimit(2)
                             }.frame(maxWidth: .infinity, alignment: .leading)
-                        }.padding(16).pulseGlass(cornerRadius: 30)
+                        }.frame(maxWidth: 400)
                     }
                     .simultaneousGesture(DragGesture(minimumDistance: 20)
                         .onChanged { value in if store.currentTrack != nil { swipe.drag(value) } }
@@ -171,8 +173,9 @@ struct PulseExpandedPlayer: View {
                         }.buttonStyle(PulseTactileButton(feedback: nil)).accessibilityLabel("Предыдущий трек")
                         Spacer(minLength: 4)
                         Button { store.togglePlayback() } label: {
-                            Image(systemName: playback.paused ? "play.fill" : "pause.fill").font(.title).foregroundStyle(.black)
-                                .frame(width: 68, height: 68).background(Color.white, in: Circle())
+                            Image(systemName: playback.paused ? "play.fill" : "pause.fill").font(.system(size: 29, weight: .semibold)).foregroundStyle(.black)
+                                .contentTransition(.symbolEffect(.replace))
+                                .frame(width: 76, height: 76).background(Color.white, in: Circle())
                         }.buttonStyle(PulseTactileButton(feedback: .transport)).accessibilityLabel(playback.paused ? "Воспроизвести" : "Пауза")
                         Spacer(minLength: 4)
                         Button { swipe.advance(1, width: geometry.size.width, reducedMotion: reducedMotion, action: store.next) } label: {
@@ -181,18 +184,31 @@ struct PulseExpandedPlayer: View {
                         Spacer(minLength: 4)
                         PulseDevicesButton(store: store).frame(width: 34)
                     }.frame(maxWidth: 400).disabled(store.currentTrack == nil)
-                    Toggle("DJ · плавные переходы", isOn: $store.dj).font(.system(size: 13)).tint(PulseTheme.accent)
+                    HStack(spacing: 14) {
+                        Toggle("Плавные переходы", isOn: $store.dj).font(PulseTheme.body(13)).tint(PulseTheme.accent)
+                        if let track = store.currentTrack {
+                            Menu { PulseDownloadAction(track: track, downloads: store.downloads) } label: {
+                                Image(systemName: "ellipsis").font(.system(size: 20, weight: .medium)).frame(width: 44, height: 44)
+                                    .background(PulseTheme.raised, in: Circle())
+                            }
+                            #if os(macOS)
+                            .menuStyle(.borderlessButton).menuIndicator(.hidden)
+                            #endif
+                            .fixedSize().accessibilityLabel("Действия с треком")
+                        }
+                    }.padding(.horizontal, 16).padding(.vertical, 8).background(PulseTheme.panel, in: RoundedRectangle(cornerRadius: 20)).frame(maxWidth: 400)
                     PulseLyricsView(store: store)
                     Spacer(minLength: 20)
-                }.padding(24).frame(minHeight: geometry.size.height)
+                }.padding(.horizontal, 24).padding(.vertical, 20).frame(maxWidth: 448).frame(minHeight: geometry.size.height).frame(maxWidth: .infinity)
             }
 
         }
         .coordinateSpace(name: "PulseFullPlayer")
         .onPreferenceChange(PulseSeekFrameKey.self) { seekFrame = $0 }
+        .animation(reducedMotion ? nil : .spring(response: 0.32, dampingFraction: 0.84), value: playback.paused)
         .background(PulseAmbientBackground())
         #if os(macOS)
-        .frame(width: 650, height: 730)
+        .frame(width: 650, height: 790)
         #endif
     }
 }
@@ -221,11 +237,14 @@ private struct PulseSeekFrameKey: PreferenceKey {
 
 struct PulseShuffleButton: View {
     @ObservedObject var store: PulseStore
+    @Environment(\.pulseReducedMotion) private var reducedMotion
     var body: some View {
         Button { store.shuffle.toggle() } label: {
-            Image(systemName: "shuffle").font(.system(size: 17, weight: .medium))
+            Image(systemName: "shuffle").font(PulseTheme.body(17, weight: .medium))
                 .foregroundStyle(store.shuffle ? PulseTheme.accent : PulseTheme.muted)
                 .frame(width: 34, height: 40)
+                .scaleEffect(store.shuffle && !reducedMotion ? 1.06 : 1)
+                .animation(reducedMotion ? nil : .spring(response: 0.24, dampingFraction: 0.68), value: store.shuffle)
                 .overlay(alignment: .bottom) { if store.shuffle { Circle().fill(PulseTheme.accent).frame(width: 4, height: 4).padding(.bottom, 1) } }
         }.buttonStyle(PulseTactileButton(feedback: .shuffle)).accessibilityLabel("Перемешивание").accessibilityValue(store.shuffle ? "Включено" : "Выключено")
     }

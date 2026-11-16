@@ -70,12 +70,14 @@ struct PulsePlaylistCover: View {
     let cover: String?
     var size: CGFloat = 30
     var symbol: String = "music.note.list"
+    var fallback: PulseTrack? = nil
     var body: some View {
         Group {
             if let image = PulsePlaylistCoverImages.image(cover, size: size) {
                 Image(decorative: image, scale: 1).resizable().scaledToFill()
-            } else { Image(systemName: symbol).resizable().scaledToFit().padding(size * 0.25).foregroundStyle(PulseTheme.accent).background(PulseTheme.raised) }
-        }.frame(width: size, height: size).clipped().clipShape(RoundedRectangle(cornerRadius: min(24, size * 0.16)))
+            } else if let fallback { PulseArtworkView(track: fallback, size: size, radius: min(18, size * 0.12)) }
+            else { Image(systemName: symbol).resizable().scaledToFit().padding(size * 0.25).foregroundStyle(PulseTheme.accent).background(PulseTheme.raised) }
+        }.frame(width: size, height: size).clipped().clipShape(RoundedRectangle(cornerRadius: min(18, size * 0.12)))
     }
 }
 

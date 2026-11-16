@@ -19,6 +19,7 @@ struct PulseApp: App {
                 .environment(\.pulseReducedMotion, systemReducedMotion || appReducedMotion)
                 .preferredColorScheme(.dark)
                 .tint(PulseTheme.accent)
+                .font(PulseTheme.body(15))
                 .task { await store.start() }
                 .onChange(of: phase) { _, value in
                     if value == .active { Task { await store.refresh() } }

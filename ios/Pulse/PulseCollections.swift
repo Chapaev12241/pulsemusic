@@ -29,7 +29,7 @@ struct PulseCollectionPage: View {
             VStack(alignment: .leading, spacing: 22) {
                 HStack { Text(collection.caption).font(.caption).foregroundStyle(PulseTheme.muted); Spacer(); Button { dismiss() } label: { Image(systemName: "xmark").frame(width: 36, height: 36) }.buttonStyle(PulseTactileButton()) }
                 PulseArtworkView(track: collection.tracks.first, size: 200, radius: 24).frame(maxWidth: .infinity)
-                Text(collection.name).font(.system(size: 30, weight: .bold))
+                Text(collection.name).font(PulseTheme.body(30, weight: .bold))
                 Text(PulseLibrary.trackCount(collection.tracks.count)).font(.caption).foregroundStyle(PulseTheme.muted)
                 HStack {
                     Button { if let first = collection.tracks.first { store.play(first, within: collection.tracks) } } label: { Label("Слушать", systemImage: "play.fill") }.buttonStyle(PulsePrimaryButton())

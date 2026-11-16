@@ -2,14 +2,20 @@ import SwiftUI
 import CoreText
 
 enum PulseTheme {
-    static let background = Color(red: 0.031, green: 0.031, blue: 0.039)
-    static let panel = Color(red: 0.067, green: 0.067, blue: 0.082)
-    static let raised = Color(red: 0.105, green: 0.105, blue: 0.125)
-    static let line = Color.white.opacity(0.075)
-    static let accent = Color(red: 0.65, green: 0.60, blue: 1)
-    static let muted = Color(red: 0.64, green: 0.63, blue: 0.69)
-    static let gradient = LinearGradient(colors: [Color(red: 0.74, green: 0.67, blue: 1), accent, Color(red: 0.53, green: 0.70, blue: 1)], startPoint: .topLeading, endPoint: .bottomTrailing)
+    static let background = Color(red: 8/255, green: 9/255, blue: 13/255)
+    static let panel = Color(red: 20/255, green: 22/255, blue: 29/255)
+    static let raised = Color(red: 32/255, green: 35/255, blue: 45/255)
+    static let text = Color(red: 243/255, green: 244/255, blue: 248/255)
+    static let line = Color.white.opacity(0.065)
+    static let accent = Color(red: 183/255, green: 170/255, blue: 246/255)
+    static let muted = Color(red: 156/255, green: 159/255, blue: 174/255)
+    static let gradient = LinearGradient(colors: [Color(red: 0.80, green: 0.76, blue: 1), accent], startPoint: .topLeading, endPoint: .bottomTrailing)
+    // The custom display face belongs to the brand, while UI stays legible.
     static func heading(_ size: CGFloat) -> Font { .custom("Soledago", size: size) }
+    static func body(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        .custom(weight == .bold || weight == .heavy ? "HelveticaNeue-Bold" : weight == .semibold || weight == .medium ? "HelveticaNeue-Medium" : "HelveticaNeue", size: size, relativeTo: .body)
+    }
+    static func display(_ size: CGFloat) -> Font { .custom("HelveticaNeue-Medium", size: size, relativeTo: .largeTitle) }
     static func registerFonts() {
         for name in ["Soledago", "Docker One"] {
             if let url = Bundle.main.url(forResource: name, withExtension: "ttf") { CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil) }
@@ -19,19 +25,18 @@ enum PulseTheme {
 struct PulsePrimaryVisual: ButtonStyle {
     @Environment(\.pulseReducedMotion) private var reducedMotion
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.black.opacity(0.9))
-            .padding(.horizontal, 20).frame(minHeight: 44).background(PulseTheme.gradient, in: RoundedRectangle(cornerRadius: 13))
+        configuration.label.font(PulseTheme.body(15, weight: .semibold)).foregroundStyle(Color.black.opacity(0.9))
+            .padding(.horizontal, 20).frame(minHeight: 48).background(PulseTheme.gradient, in: RoundedRectangle(cornerRadius: 18))
             .opacity(configuration.isPressed ? 0.8 : 1)
-            .overlay(PulseGlassRim(radius: 13))
+            .overlay(PulseGlassRim(radius: 18))
             .scaleEffect(configuration.isPressed && !reducedMotion ? 0.97 : 1)
             .animation(reducedMotion ? nil : .easeOut(duration: 0.14), value: configuration.isPressed)
     }
 }
 struct PulseIconVisual: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.frame(width: 40, height: 40).foregroundStyle(PulseTheme.muted)
+        configuration.label.frame(width: 44, height: 44).foregroundStyle(PulseTheme.muted)
             .background(configuration.isPressed ? PulseTheme.raised.opacity(0.5) : .clear, in: RoundedRectangle(cornerRadius: 14))
-            .pulseGlass(cornerRadius: 14)
             .contentShape(Rectangle())
     }
 }
@@ -54,5 +59,15 @@ struct PulseHeartButton: View {
                 .animation(reducedMotion ? nil : .spring(response: 0.25, dampingFraction: 0.55), value: liked)
                 .frame(width: 32, height: 40)
         }.buttonStyle(PulseTactileButton(feedback: .favorite)).accessibilityLabel("Избранное: \(track.title)")
+    }
+}
+
+struct PulsePressVisual: ButtonStyle {
+    @Environment(\.pulseReducedMotion) private var reducedMotion
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.76 : 1)
+            .scaleEffect(configuration.isPressed && !reducedMotion ? 0.975 : 1)
+            .animation(reducedMotion ? nil : .easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }

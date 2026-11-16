@@ -18,8 +18,8 @@ struct PulseVibeView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 24) {
                 VStack(alignment: .leading, spacing: 12) {
-                    Label("PULSE AI · НА УСТРОЙСТВЕ", systemImage: "sparkles").font(.system(size: 10, weight: .semibold)).tracking(2).foregroundStyle(PulseTheme.accent)
-                    Text("Музыка, которая\nчувствует твой вайб.").font(PulseTheme.heading(36)).fixedSize(horizontal: false, vertical: true)
+                    Label("PULSE AI · НА УСТРОЙСТВЕ", systemImage: "sparkles").font(PulseTheme.body(10, weight: .semibold)).tracking(2).foregroundStyle(PulseTheme.accent)
+                    Text("Музыка, которая\nчувствует твой вайб.").font(PulseTheme.display(36)).fixedSize(horizontal: false, vertical: true)
                     Text("Расскажи о настроении. ИИ выберет музыку из каталога с учётом твоих лайков и истории.").font(.callout).foregroundStyle(PulseTheme.muted)
                 }
                 modelPanel
@@ -55,7 +55,7 @@ struct PulseVibeView: View {
                                 Text(draft.name).font(.title2.bold())
                                 Text(draft.summary).font(.callout).foregroundStyle(PulseTheme.muted)
                                 Text("\(result.count) треков · \(draft.artists.count) исполнителей").font(.caption).foregroundStyle(PulseTheme.accent)
-                            }; Spacer(); Image(systemName: "waveform.circle.fill").font(.system(size: 38)).foregroundStyle(PulseTheme.accent)
+                            }; Spacer(); Image(systemName: "waveform.circle.fill").font(PulseTheme.body(38)).foregroundStyle(PulseTheme.accent)
                         }
                         Text(draft.artists.joined(separator: " · ")).font(.caption).foregroundStyle(PulseTheme.muted)
                         HStack(spacing: 12) {

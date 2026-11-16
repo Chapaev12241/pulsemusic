@@ -3,28 +3,45 @@ import SwiftUI
 struct PulseAccountView: View {
     @EnvironmentObject private var store: PulseStore
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.pulseReducedMotion) private var reducedMotion
+    @Namespace private var sectionAnimation
     @State private var section = 0
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 if store.signedIn {
-                    Picker("Раздел", selection: $section) {
-                        Text("Профиль").tag(0); Text("Друзья и чаты").tag(1); Text("Настройки").tag(2)
-                    }.pickerStyle(.segmented).padding(18)
+                    HStack(spacing: 4) {
+                        accountTab("Профиль", symbol: "person.crop.circle", value: 0)
+                        accountTab("Общение", symbol: "bubble.left.and.bubble.right", value: 1)
+                        accountTab("Настройки", symbol: "slider.horizontal.3", value: 2)
+                    }.padding(5).background(PulseTheme.panel, in: Capsule()).padding(.horizontal, 20).padding(.vertical, 14)
                     Group {
                         if section == 0 { PulseProfileView(store: store) }
                         else if section == 1 { PulseFriendsView(social: store.social) }
                         else { PulseSettingsView(store: store) }
-                    }
+                    }.transition(.opacity)
                 } else { PulseLoginView(store: store) }
             }
             .background(PulseAmbientBackground())
+            .animation(reducedMotion ? nil : .spring(response: 0.3, dampingFraction: 0.86), value: section)
             .navigationTitle(store.signedIn ? "Мой Pulse" : "Аккаунт Pulse")
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Готово") { dismiss() } } }
         }
         #if os(macOS)
         .frame(width: 690, height: 650)
         #endif
+    }
+    private func accountTab(_ title: String, symbol: String, value: Int) -> some View {
+        Button { section = value } label: {
+            HStack(spacing: 6) {
+                Image(systemName: symbol).font(.system(size: 14))
+                Text(title).font(PulseTheme.body(12, weight: section == value ? .semibold : .medium))
+            }.frame(maxWidth: .infinity).frame(height: 42)
+                .foregroundStyle(section == value ? Color.white : PulseTheme.muted)
+                .background {
+                    if section == value { Capsule().fill(PulseTheme.raised).matchedGeometryEffect(id: "account-tab", in: sectionAnimation) }
+                }
+        }.buttonStyle(PulseTactileButton()).accessibilityValue(section == value ? "Выбрано" : "")
     }
 }
 struct PulseLoginView: View {
@@ -38,11 +55,11 @@ struct PulseLoginView: View {
     @State private var formError: String?
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 23) {
+            VStack(alignment: .leading, spacing: 28) {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Pulse").font(PulseTheme.heading(52)).foregroundStyle(PulseTheme.gradient)
-                    Text(register ? "Твоя музыка\nначинается здесь." : "С возвращением\nна свою волну.").font(PulseTheme.heading(35)).id(register)
-                    Text("Один аккаунт для сайта, iPhone и Mac.").font(.callout).foregroundStyle(PulseTheme.muted)
+                    Text(register ? "Твоя музыка\nначинается здесь." : "С возвращением.").font(PulseTheme.display(36)).id(register).transition(.opacity)
+                    Text("Вся твоя музыка. На каждом устройстве.").font(PulseTheme.body(14)).foregroundStyle(PulseTheme.muted)
                 }
                 Picker("Аккаунт", selection: $register) { Text("Войти").tag(false); Text("Регистрация").tag(true) }.pickerStyle(.segmented)
                 VStack(alignment: .leading, spacing: 16) {
@@ -66,13 +83,13 @@ struct PulseLoginView: View {
                             Button { visiblePassword.toggle() } label: { Image(systemName: visiblePassword ? "eye.slash" : "eye").foregroundStyle(PulseTheme.muted) }.buttonStyle(PulseTactileButton()).accessibilityLabel(visiblePassword ? "Скрыть пароль" : "Показать пароль")
                         }
                     }
-                    if let formError { Text(formError).font(.callout).foregroundStyle(.red).transition(.opacity) }
+                    if let formError { Text(formError).font(PulseTheme.body(14)).foregroundStyle(.red).transition(.opacity) }
                     Button(action: submit) {
                         HStack { if store.authenticating { ProgressView().controlSize(.small) }; Text(store.authenticating ? "Подключаем аккаунт…" : register ? "Создать аккаунт" : "Войти в Pulse") }.frame(maxWidth: .infinity)
                     }.buttonStyle(PulsePrimaryButton()).disabled(!valid || store.authenticating)
                 }
-                Label("Музыка, избранное, друзья и переписка останутся с тобой.", systemImage: "cloud").font(.caption).foregroundStyle(PulseTheme.muted)
-            }.padding(26).frame(maxWidth: 460).frame(maxWidth: .infinity)
+                Label("Общая медиатека на iPhone, Mac и Windows", systemImage: "cloud").font(PulseTheme.body(12)).foregroundStyle(PulseTheme.muted)
+            }.padding(.horizontal, 28).padding(.vertical, 32).frame(maxWidth: 460).frame(maxWidth: .infinity)
         }.background(PulseAmbientBackground())
         .animation(reducedMotion ? nil : .easeInOut(duration: 0.2), value: register)
         .onChange(of: register) { _, _ in formError = nil }
@@ -89,8 +106,8 @@ struct PulseLoginView: View {
     }
     private func labeled<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title).font(.system(size: 12, weight: .medium)).foregroundStyle(PulseTheme.muted)
-            content().font(.system(size: 14)).padding(14).background(PulseTheme.raised, in: RoundedRectangle(cornerRadius: 12)).overlay(RoundedRectangle(cornerRadius: 12).stroke(PulseTheme.line))
+            Text(title).font(PulseTheme.body(12, weight: .medium)).foregroundStyle(PulseTheme.muted)
+            content().font(PulseTheme.body(16)).padding(.horizontal, 16).frame(minHeight: 54).background(PulseTheme.panel, in: RoundedRectangle(cornerRadius: 16)).overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(PulseTheme.line))
         }
     }
 }

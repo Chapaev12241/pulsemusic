@@ -25,7 +25,7 @@ struct PulseRootView: View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 #if os(macOS)
-                sidebar.frame(width: 224)
+                sidebar.frame(width: 232)
                 Rectangle().fill(PulseTheme.line).frame(width: 1)
                 #endif
                 VStack(spacing: 0) {
@@ -63,8 +63,8 @@ struct PulseRootView: View {
             #endif
             }
         }
-        .animation(systemReducedMotion || appReducedMotion ? nil : .easeInOut(duration: 0.18), value: collection)
-        .background(PulseAmbientBackground()).foregroundStyle(Color(red: 0.95, green: 0.94, blue: 0.94))
+        .animation(systemReducedMotion || appReducedMotion ? nil : .spring(response: 0.32, dampingFraction: 0.86), value: collection)
+        .background(PulseAmbientBackground()).foregroundStyle(PulseTheme.text).font(PulseTheme.body(15))
         #if os(macOS)
         .frame(minWidth: 840, minHeight: 580)
         #endif
@@ -83,9 +83,9 @@ struct PulseRootView: View {
     }
     private var contentPadding: CGFloat {
         #if os(macOS)
-        return 32
+        return 36
         #else
-        return 18
+        return 22
         #endif
     }
     private func select(_ next: PulseCollection) { collection = next }
@@ -95,7 +95,7 @@ struct PulseRootView: View {
             #if os(iOS)
             Text("Pulse").font(PulseTheme.heading(32))
             #else
-            Text(collection.title).font(.system(size: 16, weight: .medium)).foregroundStyle(PulseTheme.muted)
+            Text(collection.title).font(PulseTheme.body(16, weight: .medium)).foregroundStyle(PulseTheme.muted)
             #endif
             Spacer()
             Button { Task { await store.refresh() } } label: { Image(systemName: "arrow.clockwise") }.buttonStyle(PulseIconButton()).disabled(store.syncing).help("Обновить медиатеку")
@@ -109,14 +109,14 @@ struct PulseRootView: View {
                 ForEach([PulseCollection.home, .search, .playlists, .dj, .settings]) { item in
                     Button { select(item) } label: {
                         HStack(spacing: 12) {
-                            Image(systemName: item.symbol).font(.system(size: 17)).frame(width: 22)
+                            Image(systemName: item.symbol).font(PulseTheme.body(17)).frame(width: 22)
                             Text(item.title).font(.system(size: 13, weight: collection == item ? .semibold : .regular))
                             Spacer()
                             if item == .liked && !store.state.liked.isEmpty { Text("\(store.state.liked.count)").font(.caption2).foregroundStyle(PulseTheme.muted) }
                         }
-                        .foregroundStyle(collection == item ? Color.white : PulseTheme.muted).padding(.horizontal, 14).frame(height: 45)
-                        .background(collection == item ? PulseTheme.raised : .clear, in: RoundedRectangle(cornerRadius: 12))
-                        .overlay(alignment: .leading) { if collection == item { Capsule().fill(PulseTheme.accent).frame(width: 3, height: 18) } }
+                        .foregroundStyle(collection == item ? PulseTheme.accent : PulseTheme.muted).padding(.horizontal, 14).frame(height: 45)
+                        .background(collection == item ? PulseTheme.accent.opacity(0.10) : .clear, in: RoundedRectangle(cornerRadius: 14))
+                        
                     }.buttonStyle(PulseTactileButton())
                 }
             } }.scrollIndicators(.hidden)
@@ -124,7 +124,7 @@ struct PulseRootView: View {
                 Button(action: importMusic) { Label(store.uploading ? "Загружаем…" : "Добавить музыку", systemImage: "plus").frame(maxWidth: .infinity) }.buttonStyle(PulsePrimaryButton()).disabled(store.uploading)
                 HStack(spacing: 8) {
                     Image(systemName: "cloud").foregroundStyle(PulseTheme.accent)
-                    Text("Одна музыка. Все устройства.").font(.system(size: 10)).foregroundStyle(PulseTheme.muted)
+                    Text("Музыка всегда рядом").font(PulseTheme.body(12)).foregroundStyle(PulseTheme.muted)
                 }
             }.padding(.horizontal, 8)
             PulseAccountBadge(social: store.social, fallbackName: store.user?.name, action: { showAccount = true })
@@ -136,8 +136,8 @@ struct PulseRootView: View {
             ForEach([PulseCollection.home, .search, .playlists]) { item in
                 Button { select(item) } label: {
                     VStack(spacing: 5) {
-                        Image(systemName: item.symbol).font(.system(size: 19))
-                        Text(item.title).font(.system(size: 9))
+                        Image(systemName: item.symbol).font(PulseTheme.body(19))
+                        Text(item.title).font(PulseTheme.body(11, weight: .medium))
                     }.frame(maxWidth: .infinity).frame(height: 54).foregroundStyle(collection == item ? .white : PulseTheme.muted)
                         .background {
                             if collection == item { Capsule().fill(PulseTheme.accent.opacity(0.22)).overlay(Capsule().strokeBorder(.white.opacity(0.12))).matchedGeometryEffect(id: "selected-tab", in: tabAnimation) }
@@ -149,8 +149,8 @@ struct PulseRootView: View {
     private var collectionHeader: some View {
         HStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 8) {
-                Text(collection.title).font(PulseTheme.heading(40))
-                Text("\(visibleTracks.count) треков").font(.system(size: 12)).foregroundStyle(PulseTheme.muted)
+                Text(collection.title).font(PulseTheme.display(40))
+                Text("\(visibleTracks.count) треков").font(PulseTheme.body(12)).foregroundStyle(PulseTheme.muted)
             }
             Spacer()
             Button(action: importMusic) { Image(systemName: "plus").frame(width: 38, height: 38) }.buttonStyle(PulseTactileButton()).accessibilityLabel("Добавить музыку")
@@ -161,7 +161,7 @@ struct PulseRootView: View {
             HStack(spacing: 9) {
                 ForEach([PulseCollection.library, .liked, .history]) { item in
                     Button { select(item) } label: {
-                        Text(item == .library ? "Загрузки" : item.title).font(.system(size: 11)).padding(.horizontal, 16).padding(.vertical, 10)
+                        Text(item == .library ? "Загрузки" : item.title).font(PulseTheme.body(11)).padding(.horizontal, 16).padding(.vertical, 10)
                             .foregroundStyle(collection == item ? Color.black : PulseTheme.muted)
                             .background(collection == item ? Color.white : PulseTheme.raised, in: Capsule())
                     }.buttonStyle(PulseTactileButton())
@@ -179,7 +179,7 @@ struct PulseRootView: View {
     }
     private var emptyState: some View {
         VStack(spacing: 15) {
-            Image(systemName: collection.symbol).font(.system(size: 40)).foregroundStyle(PulseTheme.accent)
+            Image(systemName: collection.symbol).font(PulseTheme.body(40)).foregroundStyle(PulseTheme.accent)
             Text(!store.signedIn && collection != .catalog ? "Сохрани свою музыку" : "Пока ничего нет").font(.title3.bold())
             Text(!store.signedIn && collection != .catalog ? "Войди с аккаунтом сайта — и твоя медиатека будет здесь." : "Добавь треки или попробуй другой запрос.").font(.callout).foregroundStyle(PulseTheme.muted).multilineTextAlignment(.center)
             if !store.signedIn { Button("Войти в Pulse") { showAccount = true }.buttonStyle(PulsePrimaryButton()) }
@@ -192,7 +192,7 @@ struct PulseRootView: View {
             Text(store.uploading ? store.uploadStatus : store.syncing ? "Обновляем медиатеку…" : "Медиатека в облаке · \(store.tracks.count) треков")
             Spacer()
             if let date = store.lastSync { Text(date, style: .time) }
-        }.font(.system(size: 10)).foregroundStyle(PulseTheme.muted)
+        }.font(PulseTheme.body(10)).foregroundStyle(PulseTheme.muted)
     }
 }
 
@@ -207,27 +207,27 @@ struct PulseHomeView: View {
             PulseHero(count: store.tracks.count) { store.playWave() }
             Button { select(.dj) } label: {
                 HStack(spacing: 18) {
-                    Image(systemName: "waveform").font(.system(size: 32)).foregroundStyle(PulseTheme.accent)
+                    Image(systemName: "waveform").font(PulseTheme.body(24)).foregroundStyle(PulseTheme.accent)
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("DJ · твой бесконечный микс").font(.system(size: 18, weight: .semibold))
-                        Text("Плавный микс").font(.system(size: 12)).foregroundStyle(PulseTheme.muted)
+                        Text("DJ-микс").font(PulseTheme.body(17, weight: .semibold))
+                        Text("В одном ритме с тобой").font(PulseTheme.body(12)).foregroundStyle(PulseTheme.muted)
                     }
                     Spacer(); Image(systemName: "arrow.up.right").foregroundStyle(PulseTheme.accent)
-                }.padding(22).frame(maxWidth: .infinity, alignment: .leading).pulseGlass(cornerRadius: 22)
+                }.padding(20).frame(maxWidth: .infinity, alignment: .leading).background(PulseTheme.panel, in: RoundedRectangle(cornerRadius: 22))
             }.buttonStyle(PulseTactileButton())
             sectionTitle("Коллекции", subtitle: "") { select(.catalog) }
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150, maximum: 230), spacing: 18)], alignment: .leading, spacing: 24) {
                 ForEach(collections) { collection in
                     Button { selectedCollection = collection } label: {
                         VStack(alignment: .leading, spacing: 10) {
-                            GeometryReader { proxy in PulseArtworkView(track: collection.tracks.first, size: proxy.size.width, radius: 22) }.aspectRatio(1, contentMode: .fit)
-                            Text(collection.name).font(.system(size: 14, weight: .semibold)).lineLimit(2)
-                            Text(collection.caption).font(.system(size: 11)).foregroundStyle(PulseTheme.muted)
+                            GeometryReader { proxy in PulseArtworkView(track: collection.tracks.first, size: proxy.size.width, radius: 16) }.aspectRatio(1, contentMode: .fit)
+                            Text(collection.name).font(PulseTheme.body(16, weight: .semibold)).lineLimit(2)
+                            Text(collection.caption).font(PulseTheme.body(13)).foregroundStyle(PulseTheme.muted)
                         }
                     }.buttonStyle(PulseTactileButton())
                 }
             }
-            sectionTitle("Музыка всегда рядом", subtitle: "Выбирай трек и оставайся на своей волне") { select(.catalog) }
+            sectionTitle("Слушай сейчас", subtitle: "") { select(.catalog) }
             LazyVStack(spacing: 0) {
                 ForEach(Array(store.tracks.prefix(6).enumerated()), id: \.element.id) { index, track in
                     PulseTrackRow(track: track, index: index + 1) { store.play(track, within: store.tracks) }
@@ -239,11 +239,11 @@ struct PulseHomeView: View {
     private func sectionTitle(_ title: String, subtitle: String, action: @escaping () -> Void) -> some View {
         HStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(title).font(.system(size: 20, weight: .semibold))
+                Text(title).font(PulseTheme.display(25))
                 
             }
             Spacer()
-            Button(action: action) { Image(systemName: "arrow.up.right").font(.system(size: 15)).frame(width: 34, height: 34).background(PulseTheme.raised, in: Circle()) }.buttonStyle(PulseTactileButton()).accessibilityLabel("Вся музыка")
+            Button(action: action) { Image(systemName: "arrow.up.right").font(PulseTheme.body(15)).frame(width: 34, height: 34).background(PulseTheme.raised, in: Circle()) }.buttonStyle(PulseTactileButton()).accessibilityLabel("Вся музыка")
         }
     }
 }
@@ -253,57 +253,52 @@ struct PulseHero: View {
     let count: Int
     let play: () -> Void
     var body: some View {
-        Group {
-        #if os(iOS)
-        VStack(alignment: .leading, spacing: 18) {
-            Label("НА ТВОЕЙ ВОЛНЕ", systemImage: "sparkle").font(.system(size: 9, weight: .medium)).tracking(2).foregroundStyle(PulseTheme.accent)
-            HStack(spacing: 12) {
-                Text("Твоя музыка.\nТвой вайб.").font(PulseTheme.heading(36)).lineSpacing(4).lineLimit(2).minimumScaleFactor(0.6).frame(maxWidth: .infinity, alignment: .leading)
-                PulseReactiveVinyl(playback: store.playback, beat: store.beat).frame(width: 84, height: 84).accessibilityHidden(true)
-            }
-            Button(action: play) { Label("Слушать волну", systemImage: "play.fill") }.buttonStyle(PulsePrimaryButton()).disabled(count == 0)
-        }.frame(maxWidth: .infinity, alignment: .leading)
-        #else
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 16) {
-                Label("НА ТВОЕЙ ВОЛНЕ", systemImage: "sparkle").font(.system(size: 9, weight: .medium)).tracking(2).foregroundStyle(PulseTheme.accent)
-                Text("Твоя музыка.\nТвой вайб.").font(PulseTheme.heading(titleSize)).lineSpacing(4).minimumScaleFactor(0.75).fixedSize(horizontal: false, vertical: true)
-                    Button(action: play) { Label("Слушать волну", systemImage: "play.fill") }.buttonStyle(PulsePrimaryButton()).disabled(count == 0)
-            }
-            Spacer(minLength: 0)
-            PulseReactiveVinyl(playback: store.playback, beat: store.beat).frame(width: vinylSize, height: vinylSize).accessibilityHidden(true)
-        }
-        #endif
+                Text("Твоя волна").font(PulseTheme.display(titleSize)).tracking(-1.2)
+                    .lineLimit(2).minimumScaleFactor(0.8)
+                Text("Музыка под твой ритм.").font(PulseTheme.body(14)).foregroundStyle(PulseTheme.muted)
+                Button(action: play) {
+                    HStack(spacing: 10) { Image(systemName: "play.fill"); Text("Слушать") }
+                }.buttonStyle(PulsePrimaryButton()).disabled(count == 0).padding(.top, 8)
+            }.frame(maxWidth: .infinity, alignment: .leading)
+            PulseReactiveVinyl(playback: store.playback, beat: store.beat)
+                .frame(width: vinylSize, height: vinylSize).accessibilityHidden(true)
         }
         .padding(heroPadding).frame(maxWidth: .infinity, minHeight: heroHeight, alignment: .leading)
-        .pulseGlass(cornerRadius: 25, style: .hero)
+        .background {
+            RoundedRectangle(cornerRadius: 28).fill(PulseTheme.panel)
+                .overlay {
+                    RadialGradient(colors: [PulseTheme.accent.opacity(0.15), .clear], center: .trailing, startRadius: 0, endRadius: 330)
+                }.clipShape(RoundedRectangle(cornerRadius: 28))
+        }.overlay(PulseGlassRim(radius: 28, tracksMotion: true))
     }
     private var titleSize: CGFloat {
         #if os(macOS)
-        return 61
+        return 54
         #else
-        return 40
+        return 34
         #endif
     }
     private var vinylSize: CGFloat {
         #if os(macOS)
-        return 190
+        return 180
         #else
-        return 95
+        return 92
         #endif
     }
     private var heroPadding: CGFloat {
         #if os(macOS)
         return 36
         #else
-        return 22
+        return 24
         #endif
     }
     private var heroHeight: CGFloat {
         #if os(macOS)
-        return 285
+        return 260
         #else
-        return 250
+        return 228
         #endif
     }
 }
@@ -346,10 +341,10 @@ struct PulseTrackCard: View {
             VStack(alignment: .leading, spacing: 10) {
                 PulseArtworkView(track: track, size: 150, radius: 12)
                     .overlay(alignment: .bottomTrailing) {
-                        Image(systemName: "play.fill").font(.system(size: 15)).foregroundStyle(.black).frame(width: 36, height: 36).background(PulseTheme.gradient, in: Circle()).padding(8).opacity(hover ? 1 : 0.8)
+                        Image(systemName: "play.fill").font(PulseTheme.body(15)).foregroundStyle(.black).frame(width: 36, height: 36).background(PulseTheme.gradient, in: Circle()).padding(8).opacity(hover ? 1 : 0.8)
                     }
-                Text(track.title).font(.system(size: 12, weight: .semibold)).lineLimit(1)
-                Text(track.artist).font(.system(size: 10)).foregroundStyle(PulseTheme.muted).lineLimit(1)
+                Text(track.title).font(PulseTheme.body(15, weight: .semibold)).lineLimit(1)
+                Text(track.artist).font(PulseTheme.body(13)).foregroundStyle(PulseTheme.muted).lineLimit(1)
             }.frame(width: 150, alignment: .leading).padding(12).pulseGlass(cornerRadius: 20)
                 .overlay(RoundedRectangle(cornerRadius: 20).stroke(hover ? PulseTheme.accent.opacity(0.45) : PulseTheme.line))
         }.buttonStyle(PulseTactileButton()).scaleEffect(hover && !reducedMotion ? 1.015 : 1).animation(reducedMotion ? nil : .easeOut(duration: 0.18), value: hover).onHover { hover = $0 }.contextMenu { PulseTrackActions(track: track) }
@@ -368,20 +363,20 @@ struct PulseTrackRow: View {
             Group {
                 if playing { Image(systemName: "waveform").foregroundStyle(PulseTheme.accent) }
                 else { Text(String(format: "%02d", index)).foregroundStyle(PulseTheme.muted) }
-            }.font(.system(size: 11).monospacedDigit()).frame(width: 22)
+            }.font(PulseTheme.body(11).monospacedDigit()).frame(width: 22)
             #endif
             Button(action: play) {
                 HStack(spacing: 12) {
-                    PulseArtworkView(track: track, size: 46, radius: 10)
+                    PulseArtworkView(track: track, size: 50, radius: 12)
                     VStack(alignment: .leading, spacing: 6) {
-                        Text(track.title).font(.system(size: 12, weight: .medium)).foregroundStyle(playing ? PulseTheme.accent : .white).lineLimit(1)
-                        Text(track.artist).font(.system(size: 10)).foregroundStyle(PulseTheme.muted).lineLimit(1)
+                        Text(track.title).font(PulseTheme.body(15, weight: .medium)).foregroundStyle(playing ? PulseTheme.accent : .white).lineLimit(1)
+                        Text(track.artist).font(PulseTheme.body(13)).foregroundStyle(PulseTheme.muted).lineLimit(1)
                     }
                     Spacer(minLength: 0)
                 }.contentShape(Rectangle())
             }.buttonStyle(PulseTactileButton()).accessibilityLabel("Воспроизвести \(track.title), \(track.artist)")
             #if os(macOS)
-            Text(track.album ?? "").font(.system(size: 10)).foregroundStyle(PulseTheme.muted).lineLimit(1).frame(maxWidth: 180, alignment: .leading)
+            Text(track.album ?? "").font(PulseTheme.body(12)).foregroundStyle(PulseTheme.muted).lineLimit(1).frame(maxWidth: 180, alignment: .leading)
             #endif
             PulseHeartButton(store: store, track: track)
             Menu { PulseTrackActions(track: track) } label: { Image(systemName: "ellipsis").foregroundStyle(PulseTheme.muted).frame(width: 28, height: 40) }.fixedSize()

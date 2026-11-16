@@ -74,7 +74,7 @@ private final class PulseHapticDriver {
 struct PulseTactileButton: PrimitiveButtonStyle {
     var feedback: PulseFeedbackKind? = .tap
     func makeBody(configuration: Configuration) -> some View {
-        Button { if let feedback { PulseHaptics.fire(feedback) }; configuration.trigger() } label: { configuration.label }.buttonStyle(.plain)
+        Button { if let feedback { PulseHaptics.fire(feedback) }; configuration.trigger() } label: { configuration.label }.buttonStyle(PulsePressVisual())
     }
 }
 struct PulsePrimaryButton: PrimitiveButtonStyle {

@@ -3,13 +3,7 @@ import SwiftUI
 struct PulseAmbientBackground: View {
     @AppStorage("pulse_glass_enabled") private var glass = true
     var body: some View {
-        ZStack {
-            PulseTheme.background
-            if glass {
-                RadialGradient(colors: [PulseTheme.accent.opacity(0.19), .clear], center: .topLeading, startRadius: 0, endRadius: 560)
-                RadialGradient(colors: [Color(red: 0.22, green: 0.40, blue: 0.8).opacity(0.13), .clear], center: .bottomTrailing, startRadius: 0, endRadius: 500)
-            }
-        }.ignoresSafeArea().allowsHitTesting(false)
+        PulseTheme.background.ignoresSafeArea().allowsHitTesting(false)
     }
 }
 
@@ -27,13 +21,13 @@ struct PulseGlassBackground: View {
             if enabled && !reduceTransparency {
                 surface
                     .overlay { shape.fill(Color.black.opacity(0.12 + min(1, max(0, tint.isFinite ? tint : 0.38)) * 0.36)) }
-                    .overlay { shape.fill(LinearGradient(colors: [.white.opacity(0.06), .clear, PulseTheme.accent.opacity(0.035)], startPoint: .topLeading, endPoint: .bottomTrailing)) }
+                    .overlay { shape.fill(LinearGradient(colors: [.white.opacity(0.025), .clear, .clear], startPoint: .topLeading, endPoint: .bottomTrailing)) }
             } else { shape.fill(PulseTheme.panel) }
         }.allowsHitTesting(false)
     }
     @ViewBuilder private var surface: some View {
         if style == .chrome { material }
-        else { shape.fill(LinearGradient(colors: [Color(red: 0.14, green: 0.14, blue: 0.19).opacity(0.88), PulseTheme.panel.opacity(0.95)], startPoint: .topLeading, endPoint: .bottomTrailing)) }
+        else { shape.fill(PulseTheme.panel) }
     }
     @ViewBuilder private var material: some View {
         #if compiler(>=6.2)
@@ -59,7 +53,7 @@ struct PulseGlassRim: View {
         Group {
             if tracksMotion && enabled && motionEnabled && !reducedMotion && !reduceTransparency {
                 PulseMovingGlassRim(radius: radius)
-            } else { PulseGlassStroke(radius: radius, light: .zero, bright: enabled && !reduceTransparency) }
+            } else { RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(PulseTheme.line, lineWidth: 1) }
         }.allowsHitTesting(false).accessibilityHidden(true)
     }
 }
@@ -76,13 +70,13 @@ private struct PulseGlassStroke: View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
         let angle = Double(light.x * 85 + light.y * 55)
         shape.strokeBorder(AngularGradient(stops: [
-            .init(color: .white.opacity(bright ? 0.65 : 0.08), location: 0),
-            .init(color: PulseTheme.accent.opacity(bright ? 0.24 : 0.06), location: 0.15),
+            .init(color: .white.opacity(bright ? 0.28 : 0.08), location: 0),
+            .init(color: PulseTheme.accent.opacity(bright ? 0.14 : 0.06), location: 0.15),
             .init(color: .white.opacity(0.04), location: 0.3),
             .init(color: .white.opacity(0.07), location: 0.48),
-            .init(color: Color.blue.opacity(bright ? 0.35 : 0.05), location: 0.62),
+            .init(color: Color.blue.opacity(bright ? 0.18 : 0.05), location: 0.62),
             .init(color: .white.opacity(0.06), location: 0.8),
-            .init(color: .white.opacity(bright ? 0.65 : 0.08), location: 1)
+            .init(color: .white.opacity(bright ? 0.28 : 0.08), location: 1)
         ], center: UnitPoint(x: 0.5 + light.x * 0.25, y: 0.5 + light.y * 0.25), angle: .degrees(-55 + angle)), lineWidth: 1)
     }
 }

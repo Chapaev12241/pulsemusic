@@ -66,6 +66,8 @@ final class PulseDJStore: ObservableObject {
 struct PulseDJView: View {
     @ObservedObject var store: PulseStore
     @ObservedObject private var dj: PulseDJStore
+    @Environment(\.pulseReducedMotion) private var reducedMotion
+    @State private var showDetails = false
     @AppStorage("pulse_dj_transition") private var effect = "auto"
     init(store: PulseStore) { self.store = store; dj = store.djLibrary }
     private var tracks: [PulseTrack] { PulseLibrary.ordered(dj.queue.map(\.id), in: store.tracks) }
@@ -74,39 +76,46 @@ struct PulseDJView: View {
             VStack(alignment: .leading, spacing: 24) {
                 HStack(alignment: .center) {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("DJ").font(PulseTheme.heading(68))
-                        Text("Одна волна.\nНепрерывный микс.").font(.title2.bold())
-                        Text("Подбор по темпу, энергии, басу и яркости звука.").font(.callout).foregroundStyle(PulseTheme.muted)
+                        Text("Твой DJ").font(PulseTheme.display(36))
+                        Text("Без пауз.\nВ твоём ритме.").font(PulseTheme.body(20, weight: .medium)).foregroundStyle(PulseTheme.muted)
                     }
                     Spacer()
-                    PulseReactiveVinyl(playback: store.playback, beat: store.beat).frame(width: 100, height: 100).padding(8)
-                }.padding(24).pulseGlass(cornerRadius: 26)
+                    PulseReactiveVinyl(playback: store.playback, beat: store.beat).frame(width: 96, height: 96).padding(4)
+                }.padding(26).pulseGlass(cornerRadius: 28, style: .hero)
                 if dj.building {
-                    ProgressView(value: Double(dj.progress), total: Double(max(1, dj.total)))
-                    HStack {
-                        Text("Слушаю и анализирую · \(dj.progress) / \(dj.total)").font(.callout).foregroundStyle(PulseTheme.muted)
-                        Spacer(); Button("Отменить") { dj.cancel() }.buttonStyle(.bordered)
-                    }
+                    VStack(alignment: .leading, spacing: 14) {
+                        HStack {
+                            Text("Находим твой ритм").font(PulseTheme.body(15, weight: .medium))
+                            Spacer()
+                            Text("\(dj.progress) / \(dj.total)").font(PulseTheme.body(12)).monospacedDigit().foregroundStyle(PulseTheme.muted)
+                        }
+                        ProgressView(value: Double(dj.progress), total: Double(max(1, dj.total)))
+                        Button("Отменить анализ") { dj.cancel() }.font(PulseTheme.body(12)).foregroundStyle(PulseTheme.muted).buttonStyle(PulseTactileButton())
+                    }.padding(20).background(PulseTheme.panel, in: RoundedRectangle(cornerRadius: 20))
                 } else {
                     HStack(spacing: 12) {
                         Button { dj.build(tracks: store.tracks, seed: store.currentTrack, liked: Set(store.state.liked)) } label: {
-                            Label(tracks.isEmpty ? "Собрать мой микс" : "Новый микс", systemImage: "sparkles")
+                            Label(tracks.isEmpty ? "Создать микс" : "Новый микс", systemImage: "waveform")
                         }.buttonStyle(PulsePrimaryButton()).disabled(store.tracks.count < 2)
                         if tracks.count > 1 {
                             Button { play(tracks[0]) } label: { Label("Слушать", systemImage: "play.fill") }.buttonStyle(.bordered).tint(PulseTheme.accent)
                         }
                     }
                 }
-                Picker("Переходы", selection: $effect) {
-                    Text("Авто · по звучанию").tag("auto")
-                    ForEach(PulseDJTransition.allCases) { item in Text(item.title).tag(item.rawValue) }
-                }.pickerStyle(.menu)
-                Text("Музыка подбирается по звучанию на устройстве. Первый анализ загружает до 16 треков и сохраняет результаты для следующих миксов. BPM приблизительный; песни играют в исходной скорости.")
-                    .font(.caption).foregroundStyle(PulseTheme.muted)
+                VStack(alignment: .leading, spacing: 16) {
+                    Picker("Переходы", selection: $effect) {
+                        Text("Авто · по звучанию").tag("auto")
+                        ForEach(PulseDJTransition.allCases) { item in Text(item.title).tag(item.rawValue) }
+                    }.pickerStyle(.menu).font(PulseTheme.body(14))
+                    DisclosureGroup("Как работает микс", isExpanded: $showDetails) {
+                        Text("Pulse сопоставляет темп, энергию и характер звучания на устройстве. Первый анализ загружает до 16 треков, затем использует сохранённые результаты. Темп приблизительный; песни играют в исходной скорости.")
+                            .font(PulseTheme.body(12)).foregroundStyle(PulseTheme.muted).padding(.top, 8)
+                    }.font(PulseTheme.body(13)).foregroundStyle(PulseTheme.muted)
+                }.padding(20).background(PulseTheme.panel, in: RoundedRectangle(cornerRadius: 20))
                 if let error = dj.error { Text(error).foregroundStyle(.orange) }
-                if dj.skipped > 0 { Text("Пропущено недоступных для анализа треков: \(dj.skipped)").font(.caption).foregroundStyle(PulseTheme.muted) }
+                if dj.skipped > 0 { Text("Пропущено недоступных для анализа треков: \(dj.skipped)").font(PulseTheme.body(12)).foregroundStyle(PulseTheme.muted) }
                 if !tracks.isEmpty {
-                    Text("Твой DJ-плейлист · \(tracks.count)").font(.title3.bold())
+                    HStack { Text("В миксе").font(PulseTheme.body(22, weight: .semibold)); Spacer(); Text("\(tracks.count) треков").font(PulseTheme.body(12)).foregroundStyle(PulseTheme.muted) }
                     LazyVStack(spacing: 0) {
                         ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
                             VStack(alignment: .leading, spacing: 4) {
@@ -116,17 +125,19 @@ struct PulseDJView: View {
                                         Text(value.bpm.map { "≈ \(Int($0.rounded())) BPM" } ?? "Свободный ритм")
                                         Text("Энергия \(Int(value.energy * 100))%")
                                         if let transition = dj.transitions[track.id], index > 0 { Text(transition.effect.title) }
-                                    }.font(.caption2).foregroundStyle(PulseTheme.accent).padding(.leading, 70).padding(.bottom, 12)
+                                    }.font(PulseTheme.body(11)).foregroundStyle(PulseTheme.accent).padding(.leading, 70).padding(.bottom, 12)
                                 }
                                 Rectangle().fill(PulseTheme.line).frame(height: 1)
                             }
                         }
                     }
                 } else if !dj.building {
-                    Text("Начни с любимой песни: запусти её и собери микс вокруг этого звучания.").font(.callout).foregroundStyle(PulseTheme.muted).padding(.vertical, 20)
+                    Text("Начни с любимой песни: запусти её и собери микс вокруг этого звучания.").font(PulseTheme.body(14)).foregroundStyle(PulseTheme.muted).padding(.vertical, 20)
                 }
-            }.padding(22)
+            }.padding(24).frame(maxWidth: 820).frame(maxWidth: .infinity)
         }
+        .animation(reducedMotion ? nil : .easeInOut(duration: 0.24), value: dj.building)
+        .animation(reducedMotion ? nil : .easeInOut(duration: 0.24), value: showDetails)
     }
     private func play(_ track: PulseTrack) {
         var transitions = dj.transitions
