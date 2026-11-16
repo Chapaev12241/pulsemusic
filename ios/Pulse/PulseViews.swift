@@ -379,7 +379,7 @@ struct PulseTrackRow: View {
             Text(track.album ?? "").font(PulseTheme.body(12)).foregroundStyle(PulseTheme.muted).lineLimit(1).frame(maxWidth: 180, alignment: .leading)
             #endif
             PulseHeartButton(store: store, track: track)
-            Menu { PulseTrackActions(track: track) } label: { Image(systemName: "ellipsis").foregroundStyle(PulseTheme.muted).frame(width: 28, height: 40) }.fixedSize()
+            Menu { PulseTrackActions(track: track) } label: { Image(systemName: "ellipsis").foregroundStyle(PulseTheme.muted).frame(width: 44, height: 44) }.fixedSize()
                 #if os(macOS)
                 .menuStyle(.borderlessButton)
                 #endif

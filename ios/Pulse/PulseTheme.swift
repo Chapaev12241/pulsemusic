@@ -65,7 +65,7 @@ struct PulseHeartButton: View {
 struct PulsePressVisual: ButtonStyle {
     @Environment(\.pulseReducedMotion) private var reducedMotion
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
+        configuration.label.frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
             .opacity(configuration.isPressed ? 0.76 : 1)
             .scaleEffect(configuration.isPressed && !reducedMotion ? 0.975 : 1)
             .animation(reducedMotion ? nil : .easeOut(duration: 0.12), value: configuration.isPressed)

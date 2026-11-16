@@ -69,7 +69,7 @@ struct PulsePlaylistsView: View {
     }
     private func playlistInfo(_ item: PulsePlaylistItem) -> some View {
         VStack(alignment: infoAlignment, spacing: 12) {
-            Text(item.name).font(PulseTheme.display(34)).fixedSize(horizontal: false, vertical: true)
+            Text(item.name).font(PulseTheme.display(34)).multilineTextAlignment(infoTextAlignment).fixedSize(horizontal: false, vertical: true)
             Text(PulseLibrary.trackCount(item.tracks.count)).font(PulseTheme.body(14)).foregroundStyle(PulseTheme.muted)
             HStack(spacing: 14) {
                 Button { if let first = item.tracks.first { store.play(first, within: item.tracks) } } label: { Label("Слушать", systemImage: "play.fill").frame(minWidth: 100) }.buttonStyle(PulsePrimaryButton())
@@ -77,6 +77,13 @@ struct PulsePlaylistsView: View {
             }.disabled(item.tracks.isEmpty).padding(.top, 8)
             Button("Изменить обложку") { chooseCover(item.id) }.font(PulseTheme.body(12)).foregroundStyle(PulseTheme.muted).buttonStyle(PulseTactileButton())
         }
+    }
+    private var infoTextAlignment: TextAlignment {
+        #if os(macOS)
+        return .leading
+        #else
+        return .center
+        #endif
     }
     private var infoAlignment: HorizontalAlignment {
         #if os(macOS)

@@ -17,7 +17,7 @@ if(!app.requestSingleInstanceLock()){app.quit()}else{
   const partition=session.fromPartition('persist:pulse');
   partition.setPermissionRequestHandler((_contents,permission,callback)=>callback(['clipboard-sanitized-write','fullscreen'].includes(permission)));
   partition.setPermissionCheckHandler((_contents,permission)=>['clipboard-sanitized-write','fullscreen'].includes(permission));
-  window=new BrowserWindow({width:1200,height:820,minWidth:880,minHeight:600,frame:false,show:false,backgroundColor:'#08080a',title:'Pulse',icon:path.join(__dirname,'assets/icon.png'),autoHideMenuBar:true,webPreferences:{preload:path.join(__dirname,'preload.cjs'),partition:'persist:pulse',sandbox:true,contextIsolation:true,nodeIntegration:false,webSecurity:true,allowRunningInsecureContent:false,backgroundThrottling:false}});
+  window=new BrowserWindow({width:1200,height:820,minWidth:880,minHeight:600,frame:false,show:false,backgroundColor:'#08090d',title:'Pulse',icon:path.join(__dirname,'assets/icon.png'),autoHideMenuBar:true,webPreferences:{preload:path.join(__dirname,'preload.cjs'),partition:'persist:pulse',sandbox:true,contextIsolation:true,nodeIntegration:false,webSecurity:true,allowRunningInsecureContent:false,backgroundThrottling:false}});
   window.setMenu(null);
   const publishState=()=>{if(window&&!window.isDestroyed())window.webContents.send('pulse:window-state',{maximized:window.isMaximized()})};
   window.on('maximize',publishState);window.on('unmaximize',publishState);

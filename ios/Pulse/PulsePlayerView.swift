@@ -46,7 +46,7 @@ struct PulsePlayerBar: View {
     }
     private var mobilePlayer: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 10) {
+            HStack(spacing: 6) {
                 Button { if store.currentTrack != nil && abs(swipe.offset) < 5 { expanded = true } } label: {
                     PulseSwipeDeck(motion: swipe, current: store.currentTrack, incoming: store.adjacentTrack, width: 300, reducedMotion: systemReducedMotion || appReducedMotion) { track in
                         compactTrack(track).padding(.vertical, 2).frame(maxWidth: .infinity, alignment: .leading)
@@ -56,7 +56,6 @@ struct PulsePlayerBar: View {
                 PulseDevicesButton(store: store)
                 PulseShuffleButton(store: store)
                 Button { store.togglePlayback() } label: { Image(systemName: playback.paused ? "play.fill" : "pause.fill").font(PulseTheme.body(19)).contentTransition(.symbolEffect(.replace)).animation(systemReducedMotion || appReducedMotion ? nil : .spring(response: 0.28, dampingFraction: 0.78), value: playback.paused).frame(width: 34, height: 40) }.buttonStyle(PulseTactileButton(feedback: .transport)).disabled(store.currentTrack == nil).accessibilityLabel(playback.paused ? "Воспроизвести" : "Пауза")
-                Button { swipe.advance(1, width: 300, reducedMotion: systemReducedMotion || appReducedMotion, action: store.next) } label: { Image(systemName: "forward.end.fill").font(PulseTheme.body(16)).frame(width: 28, height: 40) }.buttonStyle(PulseTactileButton(feedback: nil)).disabled(store.currentTrack == nil).accessibilityLabel("Следующий трек")
             }.padding(.horizontal, 14).padding(.top, 12).padding(.bottom, 10)
             PulseMiniProgress(playback: store.playback).padding(.horizontal, 24).padding(.bottom, 2)
         }
