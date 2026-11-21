@@ -58,7 +58,16 @@ struct PulseDownloadAction: View {
 }
 enum PulseCoverCodec {
     static func encode(_ url: URL) throws -> Data {
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil), let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: 600, kCGImageSourceCreateThumbnailWithTransform: true] as CFDictionary) else { throw URLError(.cannotDecodeContentData) }
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { throw URLError(.cannotDecodeContentData) }
+        return try encodeSource(source)
+    }
+    static func encode(_ data: Data) throws -> Data {
+        guard data.count <= 25 * 1024 * 1024 else { throw PulseAPIError(status: 413, message: "Выбери фото до 25 МБ") }
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { throw URLError(.cannotDecodeContentData) }
+        return try encodeSource(source)
+    }
+    private static func encodeSource(_ source: CGImageSource) throws -> Data {
+        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: 600, kCGImageSourceCreateThumbnailWithTransform: true] as CFDictionary) else { throw URLError(.cannotDecodeContentData) }
         let data = NSMutableData()
         guard let destination = CGImageDestinationCreateWithData(data, UTType.jpeg.identifier as CFString, 1, nil) else { throw URLError(.cannotDecodeContentData) }
         CGImageDestinationAddImage(destination, image, [kCGImageDestinationLossyCompressionQuality: 0.7] as CFDictionary)
@@ -66,6 +75,7 @@ enum PulseCoverCodec {
         return data as Data
     }
 }
+
 struct PulsePlaylistCover: View {
     let cover: String?
     var size: CGFloat = 30

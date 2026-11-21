@@ -218,13 +218,17 @@ struct PulseHomeView: View {
             sectionTitle("Коллекции", subtitle: "") { select(.catalog) }
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150, maximum: 230), spacing: 18)], alignment: .leading, spacing: 24) {
                 ForEach(collections) { collection in
-                    Button { selectedCollection = collection } label: {
-                        VStack(alignment: .leading, spacing: 10) {
-                            GeometryReader { proxy in PulseArtworkView(track: collection.tracks.first, size: proxy.size.width, radius: 16) }.aspectRatio(1, contentMode: .fit)
-                            Text(collection.name).font(PulseTheme.body(16, weight: .semibold)).lineLimit(2)
-                            Text(collection.caption).font(PulseTheme.body(13)).foregroundStyle(PulseTheme.muted)
-                        }
-                    }.buttonStyle(PulseTactileButton())
+                    if collection.id.hasPrefix("artist-") {
+                        PulseArtistCard(store: store, artist: collection.name, size: 150).frame(maxWidth: .infinity)
+                    } else {
+                        Button { selectedCollection = collection } label: {
+                            VStack(alignment: .leading, spacing: 10) {
+                                GeometryReader { proxy in PulseArtworkView(track: collection.tracks.first, size: proxy.size.width, radius: 16) }.aspectRatio(1, contentMode: .fit)
+                                Text(collection.name).font(PulseTheme.body(16, weight: .semibold)).lineLimit(2)
+                                Text(collection.caption).font(PulseTheme.body(13)).foregroundStyle(PulseTheme.muted)
+                            }
+                        }.buttonStyle(PulseTactileButton())
+                    }
                 }
             }
             sectionTitle("Слушай сейчас", subtitle: "") { select(.catalog) }

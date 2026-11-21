@@ -134,6 +134,7 @@ struct PulseExpandedPlayer: View {
     @Environment(\.pulseReducedMotion) private var reducedMotion
     @State private var swipe = PulseSwipeMotion()
     @State private var seekFrame = CGRect.null
+    @State private var selectedArtist: PulseArtistSelection?
     init(store: PulseStore) { self.store = store; playback = store.playback.transport }
     var body: some View {
         GeometryReader { geometry in
@@ -155,7 +156,21 @@ struct PulseExpandedPlayer: View {
                                 .shadow(color: .black.opacity(0.25), radius: 22, y: 14)
                             VStack(alignment: .leading, spacing: 9) {
                                 Text(track?.title ?? "Выбери трек").font(PulseTheme.display(28)).lineLimit(2).minimumScaleFactor(0.8)
-                                Text(track?.artist ?? "Твоя музыка в Pulse").font(PulseTheme.body(16)).foregroundStyle(PulseTheme.muted).lineLimit(2)
+                                if let track, !PulseSearch.key(track.artist).isEmpty {
+                                    Button {
+                                        guard !swipe.committing, abs(swipe.offset) < 5, track.id == store.currentTrack?.id else { return }
+                                        selectedArtist = PulseArtistSelection(name: track.artist)
+                                    } label: {
+                                        HStack(spacing: 7) {
+                                            Text(track.artist).font(PulseTheme.body(16)).lineLimit(2)
+                                            Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold)).accessibilityHidden(true)
+                                        }.foregroundStyle(PulseTheme.muted).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+                                    }.buttonStyle(PulseTactileButton(feedback: .navigation))
+                                        .disabled(swipe.committing || abs(swipe.offset) >= 5 || track.id != store.currentTrack?.id)
+                                        .accessibilityLabel("Открыть исполнителя \(track.artist)")
+                                } else {
+                                    Text("Твоя музыка в Pulse").font(PulseTheme.body(16)).foregroundStyle(PulseTheme.muted)
+                                }
                             }.frame(maxWidth: .infinity, alignment: .leading)
                         }.frame(maxWidth: 400)
                     }
@@ -206,6 +221,9 @@ struct PulseExpandedPlayer: View {
         .onPreferenceChange(PulseSeekFrameKey.self) { seekFrame = $0 }
         .animation(reducedMotion ? nil : .spring(response: 0.32, dampingFraction: 0.84), value: playback.paused)
         .background(PulseAmbientBackground())
+        .sheet(item: $selectedArtist) { artist in
+            PulseArtistPage(store: store, artist: artist.name).environmentObject(store).preferredColorScheme(.dark).tint(PulseTheme.accent)
+        }
         #if os(macOS)
         .frame(width: 650, height: 790)
         #endif

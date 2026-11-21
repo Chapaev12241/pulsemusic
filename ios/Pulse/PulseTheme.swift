@@ -15,10 +15,10 @@ enum PulseTheme {
     static func body(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
         .custom(weight == .bold || weight == .heavy ? "HelveticaNeue-Bold" : weight == .semibold || weight == .medium ? "HelveticaNeue-Medium" : "HelveticaNeue", size: size, relativeTo: .body)
     }
-    static func display(_ size: CGFloat) -> Font { .custom("HelveticaNeue-Medium", size: size, relativeTo: .largeTitle) }
+    static func display(_ size: CGFloat) -> Font { .custom("AKONY-Bold", size: size * 0.78, relativeTo: .largeTitle) }
     static func registerFonts() {
-        for name in ["Soledago", "Docker One"] {
-            if let url = Bundle.main.url(forResource: name, withExtension: "ttf") { CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil) }
+        for name in ["Soledago", "Docker One", "AKONY"] {
+            if let url = Bundle.main.url(forResource: name, withExtension: name == "AKONY" ? "otf" : "ttf") { CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil) }
         }
     }
 }

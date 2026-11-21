@@ -333,22 +333,55 @@ final class PulseStore: ObservableObject {
     func createPlaylist(_ name: String) { mutate(["type": "playlist", "id": UUID().uuidString, "name": name]) }
     func createPlaylist(_ name: String, tracks: [String]) { mutate(["type": "playlist", "id": UUID().uuidString, "name": name, "tracks": tracks]) }
     func add(_ track: PulseTrack, to playlist: PulsePlaylist) { mutate(["type": "add", "id": track.id, "playlist": playlist.id]) }
+    func createPlaylistWithCover(_ name: String, cover: String?) async throws -> String {
+        let title = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty, title.count <= 100 else { throw PulseAPIError(status: 400, message: "Название: 1–100 символов") }
+        let id = UUID().uuidString
+        var operation: [String: Any] = ["type": "playlist", "id": id, "name": title]
+        if let cover { operation["cover"] = cover }
+        let saved = try await enqueueMutation(operation).value
+        guard saved.playlists.contains(where: { $0.id == id }) else { throw PulseAPIError(status: 409, message: "Не удалось создать плейлист. Попробуй ещё раз.") }
+        return id
+    }
+    func addTrack(_ track: PulseTrack, toPlaylistID id: String) async throws {
+        guard let playlist = state.playlists.first(where: { $0.id == id }) else { throw PulseAPIError(status: 404, message: "Плейлист больше недоступен") }
+        guard !playlist.tracks.contains(track.id) else { return }
+        _ = try await enqueueMutation(["type": "add", "id": track.id, "playlist": id]).value
+    }
     private func mutate(_ operation: [String: Any]) {
         guard signedIn else { error = "Войди в аккаунт, чтобы сохранить музыку"; return }
+        let request = enqueueMutation(operation), stamp = generation
+        Task { [weak self] in
+            do { _ = try await request.value }
+            catch is CancellationError { }
+            catch { if let self, self.generation == stamp { self.error = error.localizedDescription } }
+        }
+    }
+    private func enqueueMutation(_ operation: [String: Any]) -> Task<PulseLibraryState, Error> {
         stateRevision += 1
         let previous = mutation, stamp = generation, sessionToken = token
-        mutation = Task { [weak self] in
+        let request = Task<PulseLibraryState, Error> { [weak self] in
             await previous?.value
-            guard let self, !Task.isCancelled, self.generation == stamp else { return }
+            try Task.checkCancellation()
+            guard let self, self.generation == stamp else { throw CancellationError() }
+            guard self.signedIn else { throw PulseAPIError(status: 401, message: "Войди в аккаунт, чтобы сохранить музыку") }
             self.mutating = true
             defer { self.mutating = false }
-            do {
-                let saved: PulseLibraryState = try await PulseAPI.request("api/state", token: sessionToken, method: "POST", body: PulseAPI.json(["op": operation]))
-                guard self.generation == stamp else { return }
-                self.stateRevision += 1
-                self.state = saved
-            } catch { if self.generation == stamp { self.error = error.localizedDescription } }
+            let saved: PulseLibraryState = try await PulseAPI.request("api/state", token: sessionToken, method: "POST", body: PulseAPI.json(["op": operation]))
+            try Task.checkCancellation()
+            guard self.generation == stamp else { throw CancellationError() }
+            self.stateRevision += 1
+            self.state = saved
+            return saved
         }
+        mutation = Task {
+            await withTaskCancellationHandler {
+                _ = try? await request.value
+            } onCancel: {
+                request.cancel()
+            }
+        }
+        return request
     }
     func saveAIPlaylist(_ draft: PulseAIDraft) async -> Bool {
         guard signedIn else { error = "Войди в аккаунт, чтобы сохранить плейлист"; return false }

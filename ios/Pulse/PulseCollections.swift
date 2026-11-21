@@ -14,8 +14,8 @@ struct PulseMusicCollection: Identifiable {
             let list = tracks.filter { track in (track.genres ?? []).contains { genre in genres.contains { genre.lowercased().contains($0) } } }
             return list.isEmpty ? nil : PulseMusicCollection(id: "mood-" + id, name: name, caption: "Под настроение", tracks: Array(list.prefix(60)))
         }
-        let artists = Dictionary(grouping: tracks, by: \.artist).sorted { a, b in a.value.count == b.value.count ? a.key < b.key : a.value.count > b.value.count }
-        result += artists.prefix(12).map { PulseMusicCollection(id: "artist-" + $0.key, name: $0.key, caption: "Коллекция исполнителя", tracks: $0.value) }
+        let artists = Dictionary(grouping: tracks, by: { PulseSearch.key($0.artist) }).filter { !$0.key.isEmpty }.sorted { a, b in a.value.count == b.value.count ? a.key < b.key : a.value.count > b.value.count }
+        result += artists.prefix(12).map { PulseMusicCollection(id: "artist-" + $0.key, name: $0.value.first?.artist.trimmingCharacters(in: .whitespacesAndNewlines) ?? $0.key, caption: "Коллекция исполнителя", tracks: $0.value) }
         return result
     }
 }
