@@ -2,6 +2,9 @@ import SwiftUI
 import UniformTypeIdentifiers
 #if os(iOS)
 import PhotosUI
+import UIKit
+#else
+import AppKit
 #endif
 
 struct PulsePlaylistItem: Identifiable {
@@ -23,6 +26,11 @@ struct PulsePlaylistsView: View {
     @State private var creating = false
     @State private var showingAI = false
     @State private var addingTracks = false
+    @State private var renaming: PulsePlaylistRenameTarget?
+    @State private var editing = false
+    @State private var editMessage: String?
+    @State private var editGeneration = UUID()
+    @StateObject private var reorder = PulsePlaylistReorderDraft()
     private var items: [PulsePlaylistItem] { PulsePlaylistItem.all(store: store) }
     private var item: PulsePlaylistItem? { items.first { $0.id == selected } }
     var body: some View {
@@ -32,7 +40,9 @@ struct PulsePlaylistsView: View {
                     Button { selected = nil } label: { Label("Плейлисты", systemImage: "chevron.left") }.buttonStyle(PulseTactileButton())
                     playlistHeader(item)
                     if item.tracks.isEmpty { Text("Здесь пока нет треков").foregroundStyle(PulseTheme.muted).frame(maxWidth: .infinity).padding(30) }
-                    LazyVStack(spacing: 0) { ForEach(Array(item.tracks.enumerated()), id: \.element.id) { index, track in PulseTrackRow(track: track, index: index + 1) { store.play(track, within: item.tracks) }; Divider().overlay(PulseTheme.line) } }
+                    if editing { HStack(spacing: 10) { ProgressView().controlSize(.small); Text("Сохраняем плейлист…").font(PulseTheme.body(13)).foregroundStyle(PulseTheme.muted) } }
+                    if let editMessage { Text(editMessage).font(PulseTheme.body(13)).foregroundStyle(PulseTheme.accent) }
+                    playlistTracks(item)
                 } else {
                     HStack { Text("Плейлисты").font(PulseTheme.display(36)); Spacer(); creationMenu }
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 145, maximum: 240), spacing: 20)], alignment: .leading, spacing: 26) {
@@ -43,7 +53,10 @@ struct PulsePlaylistsView: View {
                                     Text(item.name).font(PulseTheme.body(15, weight: .semibold)).lineLimit(2)
                                     Text(PulseLibrary.trackCount(item.tracks.count)).font(PulseTheme.body(12)).foregroundStyle(PulseTheme.muted)
                                 }.contentShape(Rectangle())
-                            }.buttonStyle(PulseTactileButton()).contextMenu { Button("Изменить обложку", systemImage: "photo") { chooseCover(item.id) } }
+                            }.buttonStyle(PulseTactileButton()).contextMenu {
+                                Button("Изменить обложку", systemImage: "photo") { chooseCover(item.id) }
+                                if isEditable(item.id) { Button("Переименовать", systemImage: "pencil") { renaming = PulsePlaylistRenameTarget(id: item.id, name: item.name) } }
+                            }
                         }
                     }
                 }
@@ -58,7 +71,13 @@ struct PulsePlaylistsView: View {
         .sheet(isPresented: $addingTracks) {
             if let id = selected { PulsePlaylistTrackPicker(store: store, playlistID: id).preferredColorScheme(.dark).tint(PulseTheme.accent) }
         }
-        .onChange(of: store.user?.id) { _, _ in creating = false; addingTracks = false }
+        .sheet(item: $renaming) { target in PulsePlaylistRenameSheet(store: store, target: target).preferredColorScheme(.dark).tint(PulseTheme.accent) }
+        .onChange(of: store.user?.id) { _, _ in creating = false; addingTracks = false; renaming = nil; resetEditing() }
+        .onChange(of: selected) { _, _ in resetEditing() }
+        .onChange(of: item?.tracks.map(\.id)) { _, ids in
+            if let track = reorder.active?.track, ids?.contains(track) != true { reorder.reset() }
+        }
+        .onDisappear { resetEditing() }
         .onChange(of: store.state.playlists.map(\.id)) { _, _ in if selected != nil && item == nil { selected = nil } }
     }
     private func playlistHeader(_ item: PulsePlaylistItem) -> some View {
@@ -85,9 +104,104 @@ struct PulsePlaylistsView: View {
                 Button { store.shuffle = true; if let first = item.tracks.randomElement() { store.play(first, within: item.tracks) } } label: { Image(systemName: "shuffle").frame(width: 48, height: 48).background(PulseTheme.raised, in: Circle()) }.buttonStyle(PulseTactileButton(feedback: .shuffle)).accessibilityLabel("Перемешать плейлист")
             }.disabled(item.tracks.isEmpty).padding(.top, 8)
             if store.state.playlists.contains(where: { $0.id == item.id }) {
-                Button { addingTracks = true } label: { Label("Добавить треки", systemImage: "plus").font(PulseTheme.body(14, weight: .semibold)).padding(.horizontal, 16).padding(.vertical, 12).background(PulseTheme.raised, in: Capsule()) }.buttonStyle(PulseTactileButton()).disabled(!store.signedIn)
+                HStack(spacing: 12) {
+                    Button { addingTracks = true } label: { Label("Добавить треки", systemImage: "plus").font(PulseTheme.body(14, weight: .semibold)).padding(.horizontal, 16).padding(.vertical, 12).background(PulseTheme.raised, in: Capsule()) }.buttonStyle(PulseTactileButton()).disabled(!store.signedIn || editing)
+                    Menu {
+                        Button("Переименовать", systemImage: "pencil") { renaming = PulsePlaylistRenameTarget(id: item.id, name: item.name) }
+                        Button("Изменить обложку", systemImage: "photo") { chooseCover(item.id) }
+                    } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44).background(PulseTheme.raised, in: Circle()) }
+                        .menuIndicator(.hidden)
+                        #if os(macOS)
+                        .menuStyle(.borderlessButton)
+                        #endif
+                        .fixedSize().disabled(editing).accessibilityLabel("Настройки плейлиста")
+                }
             }
-            Button("Изменить обложку") { chooseCover(item.id) }.font(PulseTheme.body(12)).foregroundStyle(PulseTheme.muted).buttonStyle(PulseTactileButton())
+            if !isEditable(item.id) { Button("Изменить обложку") { chooseCover(item.id) }.font(PulseTheme.body(12)).foregroundStyle(PulseTheme.muted).buttonStyle(PulseTactileButton()) }
+        }
+    }
+    private func isEditable(_ id: String) -> Bool { store.signedIn && store.state.playlists.contains { $0.id == id } }
+    private func displayTracks(_ item: PulsePlaylistItem) -> [PulseTrack] {
+        guard reorder.playlistID == item.id, let draft = reorder.draft else { return item.tracks }
+        let tracks = Dictionary(item.tracks.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        return draft.compactMap { tracks[$0] } + item.tracks.filter { !draft.contains($0.id) }
+    }
+    @ViewBuilder private func playlistTracks(_ item: PulsePlaylistItem) -> some View {
+        if isEditable(item.id) {
+            LazyVStack(spacing: 0) {
+                ForEach(Array(displayTracks(item).enumerated()), id: \.element.id) { index, track in
+                    editableRow(track, index: index, item: item)
+                        .onDrop(of: [UTType.text.identifier], delegate: PulsePlaylistDropTarget(reorder: reorder, playlistID: item.id, owner: store.user?.id ?? "", target: track.id, commit: commitDrop))
+                    Divider().overlay(PulseTheme.line)
+                }
+                if !item.tracks.isEmpty {
+                    HStack { Image(systemName: "arrow.down"); Text(reorder.active == nil ? "Перетаскивай треки за ручку справа" : "Переместить в конец") }.font(PulseTheme.body(12)).foregroundStyle(PulseTheme.muted).frame(maxWidth: .infinity, minHeight: 48).contentShape(Rectangle())
+                        .onDrop(of: [UTType.text.identifier], delegate: PulsePlaylistDropTarget(reorder: reorder, playlistID: item.id, owner: store.user?.id ?? "", target: nil, commit: commitDrop))
+                }
+            }.animation(reducedMotion ? nil : .easeInOut(duration: 0.16), value: reorder.draft)
+        } else {
+            LazyVStack(spacing: 0) { ForEach(Array(item.tracks.enumerated()), id: \.element.id) { index, track in PulseTrackRow(track: track, index: index + 1) { store.play(track, within: item.tracks) }; Divider().overlay(PulseTheme.line) } }
+        }
+    }
+    private func editableRow(_ track: PulseTrack, index: Int, item: PulsePlaylistItem) -> some View {
+        HStack(spacing: 8) {
+            Button { store.play(track, within: item.tracks) } label: {
+                HStack(spacing: 12) {
+                    PulseArtworkView(track: track, size: 46, radius: 11)
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(track.title).font(PulseTheme.body(15, weight: .medium)).foregroundStyle(store.currentID == track.id ? PulseTheme.accent : PulseTheme.text).lineLimit(1)
+                        Text(track.artist).font(PulseTheme.body(13)).foregroundStyle(PulseTheme.muted).lineLimit(1)
+                    }.frame(maxWidth: .infinity, alignment: .leading)
+                }.contentShape(Rectangle())
+            }.buttonStyle(PulseTactileButton()).accessibilityLabel("Воспроизвести \(track.title), \(track.artist)")
+            Menu {
+                Button("Поднять выше", systemImage: "arrow.up") { moveByStep(track, item: item, direction: -1) }.disabled(index == 0)
+                Button("Опустить ниже", systemImage: "arrow.down") { moveByStep(track, item: item, direction: 1) }.disabled(index == item.tracks.count - 1)
+                Button("Убрать из плейлиста", systemImage: "minus.circle", role: .destructive) { remove(track, item: item) }
+                Divider()
+                PulseTrackActions(track: track)
+            } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44).foregroundStyle(PulseTheme.muted) }
+                .menuIndicator(.hidden)
+                #if os(macOS)
+                .menuStyle(.borderlessButton)
+                #endif
+                .fixedSize().disabled(editing || reorder.active != nil).accessibilityLabel("Действия с треком в плейлисте")
+            PulsePlaylistDragHandle(enabled: !editing, begin: {
+                guard selected == item.id, let owner = store.user?.id else { return nil }
+                return reorder.begin(playlistID: item.id, track: track.id, ids: item.tracks.map(\.id), owner: owner)
+            }, ended: { token in reorder.cancel(token) })
+            .frame(width: 44, height: 44).accessibilityLabel("Изменить порядок: \(track.title)")
+            .accessibilityAction(named: "Поднять выше") { moveByStep(track, item: item, direction: -1) }
+            .accessibilityAction(named: "Опустить ниже") { moveByStep(track, item: item, direction: 1) }
+            .help("Перетащи, чтобы изменить порядок")
+        }.padding(.vertical, 9).padding(.horizontal, 4)
+            .background(reorder.active?.track == track.id ? PulseTheme.accent.opacity(0.08) : .clear, in: RoundedRectangle(cornerRadius: 12))
+    }
+    private func resetEditing() { editGeneration = UUID(); editing = false; editMessage = nil; reorder.reset() }
+    private func remove(_ track: PulseTrack, item: PulsePlaylistItem) {
+        performEdit(playlistID: item.id) { try await store.removeTrack(track.id, fromPlaylistID: item.id) }
+    }
+    private func moveByStep(_ track: PulseTrack, item: PulsePlaylistItem, direction: Int) {
+        guard let index = item.tracks.firstIndex(where: { $0.id == track.id }) else { return }
+        let ids = item.tracks.map(\.id)
+        if direction < 0, index > 0 { performMove(track: track.id, playlistID: item.id, before: ids[index - 1]) }
+        else if direction > 0, index + 1 < ids.count { performMove(track: track.id, playlistID: item.id, before: index + 2 < ids.count ? ids[index + 2] : nil) }
+    }
+    private func commitDrop(_ move: PulsePlaylistDragMove) { performMove(track: move.track, playlistID: move.playlistID, before: move.before, dragToken: move.token) }
+    private func performMove(track: String, playlistID: String, before: String?, dragToken: UUID? = nil) {
+        performEdit(playlistID: playlistID, dragToken: dragToken) { try await store.moveTrack(track, inPlaylistID: playlistID, before: before) }
+    }
+    private func performEdit(playlistID: String, dragToken: UUID? = nil, operation: @escaping () async throws -> Void) {
+        guard !editing, selected == playlistID, let owner = store.user?.id else { if let dragToken { reorder.complete(dragToken) }; return }
+        let generation = editGeneration
+        editing = true; editMessage = nil
+        Task {
+            do { try await operation() }
+            catch is CancellationError { }
+            catch { if editGeneration == generation, selected == playlistID, store.user?.id == owner { editMessage = error.localizedDescription } }
+            guard editGeneration == generation, selected == playlistID, store.user?.id == owner else { return }
+            editing = false
+            if let dragToken { reorder.complete(dragToken) }
         }
     }
     private var infoTextAlignment: TextAlignment {
@@ -291,3 +405,178 @@ private struct PulsePlaylistTrackPicker: View {
         }
     }
 }
+
+private struct PulsePlaylistRenameTarget: Identifiable {
+    let id: String
+    let name: String
+}
+private struct PulsePlaylistRenameSheet: View {
+    @ObservedObject var store: PulseStore
+    let target: PulsePlaylistRenameTarget
+    @Environment(\.dismiss) private var dismiss
+    @State private var name: String
+    @State private var saving = false
+    @State private var message: String?
+    @FocusState private var focused: Bool
+    init(store: PulseStore, target: PulsePlaylistRenameTarget) { self.store = store; self.target = target; _name = State(initialValue: target.name) }
+    private var valid: Bool { !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !saving && store.signedIn }
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 22) {
+                Text("Название плейлиста").font(PulseTheme.display(25))
+                TextField("Название", text: $name).font(PulseTheme.body(17)).textFieldStyle(.plain).padding(18).background(PulseTheme.panel, in: RoundedRectangle(cornerRadius: 16)).focused($focused).disabled(saving)
+                    .onChange(of: name) { _, value in if value.count > 100 { name = String(value.prefix(100)) } }
+                    .onSubmit { if valid { save() } }
+                if let message { Text(message).font(PulseTheme.body(13)).foregroundStyle(PulseTheme.accent) }
+                Button(action: save) { HStack { if saving { ProgressView().controlSize(.small) }; Text(saving ? "Сохраняем…" : "Сохранить") }.frame(maxWidth: .infinity) }.buttonStyle(PulsePrimaryButton()).disabled(!valid)
+                Spacer(minLength: 0)
+            }.padding(26).background(PulseTheme.background)
+                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Отмена") { dismiss() }.disabled(saving) } }
+        }.interactiveDismissDisabled(saving)
+            .onAppear { focused = true }
+        #if os(macOS)
+        .frame(width: 480, height: 330)
+        #else
+        .presentationDetents([.medium])
+        #endif
+    }
+    private func save() {
+        guard valid else { return }
+        saving = true; message = nil; focused = false
+        Task {
+            do { try await store.renamePlaylist(target.id, name: name); dismiss() }
+            catch is CancellationError { saving = false }
+            catch { message = error.localizedDescription; saving = false }
+        }
+    }
+}
+
+private struct PulsePlaylistDragMove {
+    let playlistID: String
+    let track: String
+    let before: String?
+    let token: UUID
+}
+private final class PulsePlaylistReorderDraft: ObservableObject {
+    struct Active {
+        let playlistID: String, track: String, owner: String
+        let token: UUID
+        let original: [String]
+    }
+    @Published private(set) var active: Active?
+    @Published private(set) var draft: [String]?
+    private(set) var playlistID: String?
+    private var pendingToken: UUID?
+    func begin(playlistID: String, track: String, ids: [String], owner: String) -> UUID? {
+        guard active == nil, pendingToken == nil, ids.contains(track), !owner.isEmpty else { return nil }
+        let token = UUID()
+        self.playlistID = playlistID; draft = ids
+        active = Active(playlistID: playlistID, track: track, owner: owner, token: token, original: ids)
+        return token
+    }
+    func accepts(playlistID: String, owner: String) -> Bool { active?.playlistID == playlistID && active?.owner == owner }
+    func hover(_ target: String?) {
+        guard let active, var ids = draft, let source = ids.firstIndex(of: active.track), target != active.track else { return }
+        if let target {
+            guard let destination = ids.firstIndex(of: target) else { return }
+            ids.remove(at: source)
+            ids.insert(active.track, at: min(destination, ids.count))
+        } else {
+            ids.remove(at: source); ids.append(active.track)
+        }
+        if ids != draft { draft = ids }
+    }
+    func drop() -> PulsePlaylistDragMove? {
+        guard let active, let ids = draft, let index = ids.firstIndex(of: active.track) else { reset(); return nil }
+        guard ids != active.original else { reset(); return nil }
+        let move = PulsePlaylistDragMove(playlistID: active.playlistID, track: active.track, before: index + 1 < ids.count ? ids[index + 1] : nil, token: active.token)
+        pendingToken = active.token
+        self.active = nil
+        return move
+    }
+    func cancel(_ token: UUID) { if active?.token == token { reset() } }
+    func complete(_ token: UUID) { if pendingToken == token { reset() } }
+    func reset() { active = nil; draft = nil; playlistID = nil; pendingToken = nil }
+}
+private struct PulsePlaylistDropTarget: DropDelegate {
+    let reorder: PulsePlaylistReorderDraft
+    let playlistID: String
+    let owner: String
+    let target: String?
+    let commit: (PulsePlaylistDragMove) -> Void
+    func validateDrop(info: DropInfo) -> Bool { reorder.accepts(playlistID: playlistID, owner: owner) && info.hasItemsConforming(to: [UTType.text.identifier]) }
+    func dropEntered(info: DropInfo) { if validateDrop(info: info) { reorder.hover(target) } }
+    func dropUpdated(info: DropInfo) -> DropProposal? { validateDrop(info: info) ? DropProposal(operation: .move) : DropProposal(operation: .cancel) }
+    func performDrop(info: DropInfo) -> Bool {
+        guard validateDrop(info: info) else { return false }
+        if let move = reorder.drop() { commit(move) }
+        return true
+    }
+}
+
+// Native source callbacks report cancelled drags as well as successful drops.
+// Hover only adjusts the local draft; the drop delegate sends one cloud operation.
+#if os(iOS)
+private struct PulsePlaylistDragHandle: UIViewRepresentable {
+    let enabled: Bool
+    let begin: () -> UUID?
+    let ended: (UUID) -> Void
+    func makeCoordinator() -> Coordinator { Coordinator(begin: begin, ended: ended) }
+    func makeUIView(context: Context) -> UIImageView {
+        let view = UIImageView(image: UIImage(systemName: "line.3.horizontal", withConfiguration: UIImage.SymbolConfiguration(pointSize: 17, weight: .medium)))
+        view.contentMode = .center; view.tintColor = .secondaryLabel; view.isUserInteractionEnabled = true
+        let drag = UIDragInteraction(delegate: context.coordinator); drag.isEnabled = true
+        view.addInteraction(drag)
+        return view
+    }
+    func updateUIView(_ view: UIImageView, context: Context) { context.coordinator.enabled = enabled; context.coordinator.begin = begin; context.coordinator.ended = ended; view.alpha = enabled ? 1 : 0.4 }
+    final class Coordinator: NSObject, UIDragInteractionDelegate {
+        var enabled = true
+        var begin: () -> UUID?
+        var ended: (UUID) -> Void
+        private var token: UUID?
+        init(begin: @escaping () -> UUID?, ended: @escaping (UUID) -> Void) { self.begin = begin; self.ended = ended }
+        func dragInteraction(_ interaction: UIDragInteraction, itemsForBeginning session: UIDragSession) -> [UIDragItem] {
+            guard enabled, let token = begin() else { return [] }
+            self.token = token
+            return [UIDragItem(itemProvider: NSItemProvider(object: token.uuidString as NSString))]
+        }
+        func dragInteraction(_ interaction: UIDragInteraction, sessionAllowsMoveOperation session: UIDragSession) -> Bool { true }
+        func dragInteraction(_ interaction: UIDragInteraction, sessionIsRestrictedToDraggingApplication session: UIDragSession) -> Bool { true }
+        func dragInteraction(_ interaction: UIDragInteraction, session: UIDragSession, didEndWith operation: UIDropOperation) { if let token { ended(token) }; token = nil }
+    }
+}
+#else
+private struct PulsePlaylistDragHandle: NSViewRepresentable {
+    let enabled: Bool
+    let begin: () -> UUID?
+    let ended: (UUID) -> Void
+    func makeNSView(context: Context) -> PulsePlaylistDragNSView { PulsePlaylistDragNSView() }
+    func updateNSView(_ view: PulsePlaylistDragNSView, context: Context) { view.enabled = enabled; view.begin = begin; view.ended = ended; view.needsDisplay = true }
+}
+private final class PulsePlaylistDragNSView: NSView, NSDraggingSource {
+    override var mouseDownCanMoveWindow: Bool { false }
+    var enabled = true
+    var begin: (() -> UUID?)?
+    var ended: ((UUID) -> Void)?
+    private var token: UUID?
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.secondaryLabelColor.withAlphaComponent(enabled ? 1 : 0.4).setStroke()
+        let path = NSBezierPath(); path.lineWidth = 1.8
+        for offset in [-5.0, 0.0, 5.0] { path.move(to: NSPoint(x: bounds.midX - 8, y: bounds.midY + offset)); path.line(to: NSPoint(x: bounds.midX + 8, y: bounds.midY + offset)) }
+        path.stroke()
+    }
+    override func mouseDown(with event: NSEvent) { }
+    override func mouseDragged(with event: NSEvent) {
+        guard enabled, token == nil, let token = begin?() else { return }
+        self.token = token
+        let data = NSPasteboardItem(); data.setString(token.uuidString, forType: .string)
+        let item = NSDraggingItem(pasteboardWriter: data)
+        item.setDraggingFrame(bounds, contents: NSImage(systemSymbolName: "line.3.horizontal", accessibilityDescription: nil))
+        beginDraggingSession(with: [item], event: event, source: self)
+    }
+    func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation { context == .withinApplication ? .move : [] }
+    func ignoreModifierKeys(for session: NSDraggingSession) -> Bool { true }
+    func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) { if let token { ended?(token) }; token = nil }
+}
+#endif

@@ -348,6 +348,24 @@ final class PulseStore: ObservableObject {
         guard !playlist.tracks.contains(track.id) else { return }
         _ = try await enqueueMutation(["type": "add", "id": track.id, "playlist": id]).value
     }
+    func renamePlaylist(_ id: String, name: String) async throws {
+        guard state.playlists.contains(where: { $0.id == id }) else { throw PulseAPIError(status: 404, message: "Плейлист больше недоступен") }
+        let title = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty, title.count <= 100 else { throw PulseAPIError(status: 400, message: "Название: 1–100 символов") }
+        _ = try await enqueueMutation(["type": "playlistRename", "id": id, "name": title]).value
+    }
+    func removeTrack(_ trackID: String, fromPlaylistID id: String) async throws {
+        guard let playlist = state.playlists.first(where: { $0.id == id }) else { throw PulseAPIError(status: 404, message: "Плейлист больше недоступен") }
+        guard playlist.tracks.contains(trackID) else { return }
+        _ = try await enqueueMutation(["type": "playlistRemoveTrack", "id": id, "track": trackID]).value
+    }
+    func moveTrack(_ trackID: String, inPlaylistID id: String, before anchorID: String?) async throws {
+        guard let playlist = state.playlists.first(where: { $0.id == id }) else { throw PulseAPIError(status: 404, message: "Плейлист больше недоступен") }
+        guard playlist.tracks.contains(trackID), anchorID != trackID else { return }
+        var operation: [String: Any] = ["type": "playlistMoveTrack", "id": id, "track": trackID]
+        operation["before"] = anchorID.map { $0 as Any } ?? NSNull()
+        _ = try await enqueueMutation(operation).value
+    }
     private func mutate(_ operation: [String: Any]) {
         guard signedIn else { error = "Войди в аккаунт, чтобы сохранить музыку"; return }
         let request = enqueueMutation(operation), stamp = generation
