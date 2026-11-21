@@ -1,3 +1,4 @@
+import {scanArtistCatalog} from './catalog.mjs';
 import {spotsaverMetadata} from './spotsaver.mjs';
 import {ensureMP3} from './audio.mjs';
 import {publicRead,decodeHTML,scanTune,downloadTune,parseTuneTracks} from './tunemir.mjs';
@@ -29,8 +30,9 @@ export async function scanSources(raw,artist='',signal,read=publicRead){
   if(resolved)continue;
   for(const variant of variants.slice(0,4)){try{collect(await scanProvider(sites[p]+'/',variant,signal,read));break}catch(e){if(signal?.aborted)throw e;lastError=e.message;if(/Несколько исполнителей/.test(e.message)){if(!found.size)throw e;break}if(/403|429/.test(e.message))break}}
  }
+ try{collect(await scanArtistCatalog(artist,signal,read))}catch(e){if(signal?.aborted)throw e;truncated=true;lastError=e.message}
  // Supplement complete source catalogs with exact performer matches from the site's search form.
- try{const extra=await spotsaverMetadata(artist,{signal,read});for(const track of extra.tracks){const meta=importMetadata(track),key=importArtistKey(meta.artist)+'|'+recordingKey(meta.title);if(!found.has(key))found.set(key,track)}}catch(e){if(signal?.aborted)throw e}
+ try{const extra=await spotsaverMetadata(artist,{signal,read});if(!found.size)truncated=true;for(const track of extra.tracks){const meta=importMetadata(track),key=importArtistKey(meta.artist)+'|'+recordingKey(meta.title);if(!found.has(key))found.set(key,track)}}catch(e){if(signal?.aborted)throw e}
  if(!found.size)throw Error(lastError.includes('Несколько исполнителей')?lastError:'Не удалось найти доступные треки. Пришли точную ссылку исполнителя.');
  return {tracks:[...found.values()],truncated,unavailable:0};
 }

@@ -28,7 +28,7 @@ jobs:
         with:
           node-version: '24'
       - name: Test importer
-        run: node --test import-bot/test.mjs import-bot/open-media.test.mjs
+        run: node --test import-bot/test.mjs import-bot/open-media.test.mjs import-bot/catalog.test.mjs
       - name: Check public source downloads
         if: github.event_name == 'workflow_dispatch' && inputs.probe == true
         continue-on-error: true
