@@ -6,6 +6,12 @@ on:
   schedule:
     - cron: '*/5 * * * *'
   workflow_dispatch:
+    inputs:
+      probe:
+        description: Run optional public-source diagnostics
+        required: false
+        default: false
+        type: boolean
 permissions:
   contents: read
   id-token: write
@@ -22,9 +28,9 @@ jobs:
         with:
           node-version: '24'
       - name: Test importer
-        run: node --test import-bot/test.mjs
+        run: node --test import-bot/test.mjs import-bot/open-media.test.mjs
       - name: Check public source downloads
-        if: github.event_name == 'push'
+        if: github.event_name == 'workflow_dispatch' && inputs.probe == true
         continue-on-error: true
         run: node import-bot/probe.mjs
       - name: Process queued imports

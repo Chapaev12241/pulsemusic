@@ -6,6 +6,16 @@ import {importMetadata,importArtistKey,importArtistMatches,cleanEdition,recordin
 import {parseMuzso,downloadProvider,scanSources} from './providers.mjs';
 export function platformSource(raw){const host=sourceURL(raw).hostname.replace(/^www\./,'');if(host==='open.spotify.com')return 'spotify';if(['music.yandex.ru','music.yandex.com','music.yandex.kz','music.yandex.by'].includes(host))return 'yandex';if(['youtube.com','music.youtube.com','youtu.be'].includes(host))return 'youtube';return null}
 
+export async function resolvePlatformLink(raw,signal,read=publicRead){
+ const input=sourceURL(raw);
+ if(!['spotify.link','spotify.app.link','spoti.fi','clck.ru'].includes(input.hostname.replace(/^www\./,'')))return input.href;
+ let response;
+ try{response=await read(input.href,{signal,method:'HEAD',max:2*1024*1024})}catch(e){if(signal?.aborted)throw e;response=await read(input.href,{signal,max:2*1024*1024})}
+ const final=sourceURL(response.url||input.href).href;
+ if(!platformSource(final))throw Error('Не удалось раскрыть короткую ссылку. Пришли полную ссылку на трек, альбом или плейлист.');
+ return final;
+}
+
 function jsonScripts(html){const values=[];for(const m of html.matchAll(/<script\b[^>]*(?:type=["']application\/(?:ld\+)?json["']|id=["']__NEXT_DATA__["'])[^>]*>([\s\S]*?)<\/script>/gi)){try{values.push(JSON.parse(m[1]))}catch{}}return values}
 function walk(value,visit,depth=0){if(!value||typeof value!=='object'||depth>20)return;visit(value);for(const child of Object.values(value)){if(Array.isArray(child))for(const x of child)walk(x,visit,depth+1);else if(child&&typeof child==='object')walk(child,visit,depth+1)}}
 export function parseSpotify(html,raw){const u=sourceURL(raw),match=u.pathname.match(/\/(track|album|playlist|artist)\/([A-Za-z0-9]+)/);if(!match)throw Error('Нужна ссылка Spotify на трек, альбом, плейлист или исполнителя');let entity;for(const root of jsonScripts(html))walk(root,x=>{if(x.id===match[2]&&((x.title||x.name)||x.trackList))entity=x;if(x.uri==='spotify:'+match[1]+':'+match[2])entity=x});if(!entity)throw Error('Spotify не отдал метаданные этой страницы');if(match[1]==='artist')return {artist:String(entity.name||entity.title||''),tracks:[]};const rows=match[1]==='track'?[entity]:(entity.trackList||entity.tracks?.items||[]);const tracks=[];for(const row of rows){const item=row.track||row;const title=item.title||item.name,artist=Array.isArray(item.artists)?item.artists.map(x=>x.name).join(', '):item.subtitle||item.artist;if(!title||!artist)continue;const uri=String(item.uri||''),id=item.id||uri.split(':').pop()||match[2];tracks.push({...importMetadata({title,artist,album:match[1]==='album'?entity.name||entity.title:''}),sourceKey:'spotify:'+id,url:'https://open.spotify.com/track/'+id,duration:Number(item.duration||item.durationMs)/1000||undefined,explicit:item.contentRating?.label==='EXPLICIT'||item.explicit===true})}if(!tracks.length)throw Error('Spotify не отдал список треков. Пришли ссылку на исполнителя.');return {tracks,truncated:match[1]!=='track'&&(!Number(entity.tracks?.total||entity.totalCount||0)||Number(entity.tracks?.total||entity.totalCount)>tracks.length)}}

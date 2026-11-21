@@ -1,13 +1,14 @@
-import {cleanEdition,recordingKey,importArtistKey} from './request.mjs';
+import {cleanEdition,recordingKey,importArtistKey,importArtistMatches} from './request.mjs';
 import {spawn} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {readFileSync,chmodSync,readdirSync,realpathSync,lstatSync} from 'node:fs';
+import {readFileSync,chmodSync,readdirSync,realpathSync,lstatSync,rmSync} from 'node:fs';
 import {join,dirname,sep} from 'node:path';
-import {privateDirectory,MAX_BYTES} from './core.mjs';
+import {privateDirectory,MAX_BYTES,previewAudioURL} from './core.mjs';
 import {sourceURL} from './network.mjs';
 
-export const MAX_TRACKS=250;
-export function tools(directory){return {yt:process.env.PULSE_YTDLP||join(directory,'runtime','yt-dlp'),ffmpeg:process.env.PULSE_FFMPEG||'/usr/bin/ffmpeg'}}
+export const MAX_TRACKS=2000;
+export const YTDLP_VERSION='2026.10.26';
+export function tools(directory){const ffmpeg=process.env.PULSE_FFMPEG||'/usr/bin/ffmpeg';return {yt:process.env.PULSE_YTDLP||join(directory,'runtime','yt-dlp'),ffmpeg,ffprobe:join(dirname(ffmpeg),'ffprobe')}}
 export function runProcess(executable,args,{signal,timeout=120000,cwd,env}={}){
   return new Promise((resolve,reject)=>{
     if(signal?.aborted){reject(new Error('Задание отменено'));return}
@@ -16,8 +17,19 @@ export function runProcess(executable,args,{signal,timeout=120000,cwd,env}={}){
     const timer=setTimeout(()=>{timedOut=true;kill()},timeout);timer.unref();const cancel=()=>kill();signal?.addEventListener('abort',cancel,{once:true});
     const done=(error)=>{if(finished)return;finished=true;clearTimeout(timer);signal?.removeEventListener('abort',cancel);error?reject(error):resolve({stdout,stderr})};
     child.stdout.on('data',data=>{stdout+=data;if(stdout.length>8*1024*1024){kill();done(new Error('Слишком большой ответ источника'))}});child.stderr.on('data',data=>{stderr=(stderr+data).slice(-32000)});
-    child.on('error',e=>done(new Error(e.code==='ENOENT'?'Загрузчик не установлен':e.message)));child.on('close',code=>done(signal?.aborted?new Error('Задание отменено'):timedOut?new Error('Источник слишком долго отвечает'):code!==0?new Error(stderr.trim()||'Источник не отдал аудио'):null));
+    child.on('error',e=>done(new Error(e.code==='ENOENT'?'Загрузчик не установлен':e.message)));child.on('close',code=>done(signal?.aborted?new Error('Задание отменено'):timedOut?new Error('Источник слишком долго отвечает'):code!==0?new Error(downloadFailure(stderr)):null));
   });
+}
+export function downloadFailure(value){
+ const message=String(value||'');
+ if(/max.filesize|larger than|max.*file.*size/i.test(message))return 'Файл превышает ограничение 50 МБ';
+ if(/drm|protected content|encrypted (?:media|stream)/i.test(message))return 'Источник защищён DRM: нужна открытая аудиоверсия или исходный файл';
+ if(/sign in|login required|cookies|private video|members.only|authentication|premium|paywall/i.test(message))return 'Источник требует вход или подписку. Пришли публичную ссылку или исходный файл';
+ if(/captcha|confirm you.re not a bot|cloudflare|http error (?:403|429)|rate.limit/i.test(message))return 'Источник ограничил загрузку. Повтори позже или выбери другую ссылку';
+ if(/not available in your country|geo.restrict|geographic/i.test(message))return 'Запись недоступна в регионе загрузчика';
+ if(/unsupported url|no suitable extractor/i.test(message))return 'Загрузчик пока не поддерживает эту страницу. Попробуй прямую аудиоссылку или RSS';
+ if(/not available|video unavailable|removed|not found|http error 404/i.test(message))return 'Запись удалена или недоступна';
+ return 'Источник не отдал полную аудиозапись. Попробуй другую публичную ссылку';
 }
 function childEnvironment(directory,proxy){const env={PATH:dirname(process.execPath)+':'+join(directory,'runtime')+':/usr/local/bin:/usr/bin:/bin',LANG:'en_US.UTF-8'};if(proxy){env.http_proxy=proxy;env.https_proxy=proxy;env.HTTP_PROXY=proxy;env.HTTPS_PROXY=proxy}return env}
 export function normalizeEntries(info,input,override='',limit=MAX_TRACKS){
@@ -25,16 +37,41 @@ export function normalizeEntries(info,input,override='',limit=MAX_TRACKS){
   const seen=new Set(),tracks=[];
   for(const entry of flat){if(cleanEdition(entry.title)){unavailable++;continue}let value=entry.webpage_url||entry.original_url||entry.url||input;const extractor=entry.ie_key||entry.extractor_key||info.extractor_key||'Generic';if(/youtube/i.test(extractor)&&/^[\w-]{11}$/.test(value))value='https://www.youtube.com/watch?v='+value;
     if(flat.length===1&&!entry.webpage_url&&!Array.isArray(info.entries))value=input;
-    let url;try{url=sourceURL(new URL(value,input).href)}catch{unavailable++;continue}
+    let url;try{url=sourceURL(new URL(value,input).href);if(previewAudioURL(url.href))throw Error('preview')}catch{unavailable++;continue}
     const sourceKey=/generic/i.test(extractor)?'url:'+createHash('sha256').update(url.href).digest('hex'):extractor+':'+url.hostname+':'+String(entry.id||createHash('sha256').update(url.href).digest('hex'));
-    if(seen.has(sourceKey))continue;seen.add(sourceKey);tracks.push({url:url.href,sourceKey,title:String(entry.track||entry.title||entry.id||'Трек').slice(0,120),artist:String(override||entry.artist||entry.creator||entry.uploader||info.artist||info.uploader||'Без исполнителя').slice(0,80),album:String(entry.album||info.album||'').slice(0,120)});
+    if(seen.has(sourceKey))continue;seen.add(sourceKey);tracks.push({url:url.href,sourceKey,title:String(entry.track||entry.title||entry.id||'Трек').slice(0,120),artist:String(entry.artist||entry.creator||info.artist||override||entry.uploader||info.uploader||'Без исполнителя').slice(0,80),album:String(entry.album||info.album||'').slice(0,120),duration:Number(entry.duration)||undefined,provider:extractor});
   }
   return {tracks:tracks.slice(0,limit),truncated:tracks.length>limit,unavailable};
 }
+export function artistSearchEntries(info,artist){
+ const entries=[],seen=new Set();
+ const channelName=value=>String(value||'').replace(/\s*[-–—]\s*Topic$|VEVO$|\s*(?:[-–—]\s*)?(?:Official(?:\s+(?:YouTube\s+)?Channel)?|Официальный\s+канал)\s*$/i,'').trim();
+ for(const item of (info.entries||[]).slice(0,100)){
+  if(!item||item.is_live||item.was_live||['is_live','is_upcoming','post_live'].includes(item.live_status)||cleanEdition(item.title)||Number(item.duration)>1800)continue;
+  const original=String(item.title||item.track||'');
+  if(/\b(?:mix|megamix|full album|dj set|live stream|live concert|compilation|playlist)\b|\((?:live|концерт)[^)]*\)|\[(?:live|концерт)[^\]]*\]|(?:сборник|альбом целиком|прямой эфир)/iu.test(original))continue;
+  const prefix=original.match(/^(.+?)\s+[-–—]\s+(.+)$/),explicit=[item.artist,item.creator,...(Array.isArray(item.artists)?item.artists:[])].filter(x=>typeof x==='string'&&x.trim());
+  const explicitMatch=explicit.some(name=>importArtistMatches(name,artist)||name.split(/\s*(?:,|&|feat\.?|ft\.?)\s*/i).some(x=>importArtistMatches(x,artist)));
+  const channel=channelName(item.channel||item.uploader),prefixMatch=prefix&&importArtistMatches(prefix[1],artist);
+  if(explicit.length?!explicitMatch:!importArtistMatches(channel,artist)&&!prefixMatch)continue;
+  const credit=explicit[0]||(prefixMatch?prefix[1]:channel);
+  const title=String(item.track||(prefixMatch?prefix[2]:original)).replace(/\((?:official[^)]*|audio|lyrics?|explicit|uncensored|hd|4k)\)|\[(?:official[^\]]*|audio|lyrics?|explicit|uncensored|hd|4k)\]/gi,'').trim();
+  if(!title||cleanEdition(title))continue;
+  const key=importArtistKey(credit)+'|'+recordingKey(title);if(seen.has(key))continue;seen.add(key);entries.push({...item,artist:credit,title,track:title});
+ }
+ const query='https://www.youtube.com/results?search_query='+encodeURIComponent(artist+' official audio');
+ const normalized=normalizeEntries({extractor_key:'Youtube',entries},query);
+ return {...normalized,truncated:true,note:'Поиск YouTube, неполная дискография: найдено '+normalized.tracks.length+' подходящих записей. Полный каталог не подтверждён.'};
+}
 export class Downloader {
   constructor(directory,proxy){this.directory=directory;this.proxy=proxy;this.tools=tools(directory)}
-  arguments(){return ['--ignore-config','--no-cache-dir','--no-warnings','--socket-timeout','20','--retries','2','--fragment-retries','2','--proxy',this.proxy,'--js-runtimes','node:'+process.execPath]}
-  async scan(url,artist,signal){sourceURL(url);const result=await runProcess(this.tools.yt,[...this.arguments(),'--flat-playlist','--ignore-errors','--playlist-end',String(MAX_TRACKS+1),'--dump-single-json','--skip-download','--',url],{signal,timeout:120000,env:childEnvironment(this.directory,this.proxy)});let data;try{data=JSON.parse(result.stdout.trim())}catch{throw Error('Не удалось прочитать список треков с этой страницы')};const normalized=normalizeEntries(data,url,'');if(!normalized.tracks.length)throw Error('На странице не найдено доступных треков');return normalized}
+  arguments(){return ['--ignore-config','--no-cache-dir','--no-warnings','--no-remote-components','--socket-timeout','20','--retries','2','--fragment-retries','2','--proxy',this.proxy,'--js-runtimes','node:'+process.execPath]}
+  async scan(url,artist,signal){sourceURL(url);const result=await runProcess(this.tools.yt,[...this.arguments(),'--flat-playlist','--ignore-errors','--playlist-end',String(MAX_TRACKS+1),'--dump-single-json','--skip-download','--',url],{signal,timeout:120000,env:childEnvironment(this.directory,this.proxy)});let data;try{data=JSON.parse(result.stdout.trim())}catch{throw Error('Не удалось прочитать список треков с этой страницы')};const normalized=normalizeEntries(data,url,artist);if(!normalized.tracks.length)throw Error('На странице не найдено доступных треков');return normalized}
+  async searchArtist(artist,signal){
+    const result=await runProcess(this.tools.yt,[...this.arguments(),'--flat-playlist','--dump-single-json','--skip-download','--','ytsearch100:'+artist+' official audio'],{signal,timeout:120000,env:childEnvironment(this.directory,this.proxy)});
+    let info;try{info=JSON.parse(result.stdout)}catch{throw Error('Не удалось прочитать результаты поиска YouTube')}
+    const found=artistSearchEntries(info,artist);if(!found.tracks.length)throw Error('В поиске YouTube нет точных совпадений исполнителя');return found;
+  }
   async searchRecording(track,signal){
     const query='ytsearch8:'+track.artist+' - '+track.title+' official audio explicit';
     const result=await runProcess(this.tools.yt,[...this.arguments(),'--flat-playlist','--dump-single-json','--skip-download','--',query],{signal,timeout:120000,env:childEnvironment(this.directory,this.proxy)});
@@ -44,11 +81,18 @@ export class Downloader {
     const chosen=matches.sort((a,b)=>(/explicit|uncensored/i.test(b.title)?2:0)-(/explicit|uncensored/i.test(a.title)?2:0))[0];return {url:'https://www.youtube.com/watch?v='+chosen.id,title:track.title,artist:track.artist,album:track.album||'',sourceKey:'youtube:'+chosen.id};
   }
   async download(job,track,signal){
-    const folder=privateDirectory(join(this.directory,'media',job.id,String(track.ordinal)));sourceURL(track.url);
-    const result=await runProcess(this.tools.yt,[...this.arguments(),'--no-playlist','--no-progress','--quiet','--max-filesize','50M','--match-filters','!is_live & duration <=? 1800','-f','bestaudio/best','--extract-audio','--audio-format','mp3','--audio-quality','0','--ffmpeg-location',this.tools.ffmpeg,'--postprocessor-args','ExtractAudio+ffmpeg_i:-protocol_whitelist file,pipe','--write-info-json','--paths',folder,'--output','audio.%(ext)s','--print','after_move:PULSE_FILE:%(filepath)j','--',track.url],{signal,timeout:240000,cwd:folder,env:childEnvironment(this.directory,this.proxy)});
+    const folder=privateDirectory(join(this.directory,'media',job.id,String(track.ordinal)));try{sourceURL(track.url);if(previewAudioURL(track.url))throw Error('Это короткий фрагмент, а не полная запись');
+    const result=await runProcess(this.tools.yt,[...this.arguments(),'--no-playlist','--downloader','native','--downloader','dash,m3u8:native','--no-progress','--quiet','--max-filesize','50M','--match-filters','!is_live & duration <=? 1800','-f','bestaudio[protocol^=http]/bestaudio[protocol=m3u8_native]/best[protocol^=http]/best[protocol=m3u8_native]','--extract-audio','--audio-format','mp3','--audio-quality','0','--ffmpeg-location',this.tools.ffmpeg,'--postprocessor-args','ExtractAudio+ffmpeg_i:-protocol_whitelist file,pipe','--write-info-json','--paths',folder,'--output','audio.%(ext)s','--print','after_move:PULSE_FILE:%(filepath)j','--',track.url],{signal,timeout:240000,cwd:folder,env:childEnvironment(this.directory,this.proxy)});
     const marker=result.stdout.split('\n').filter(x=>x.startsWith('PULSE_FILE:')).at(-1);if(!marker)throw Error('Трек пропущен: эфир, слишком длинный файл или размер больше 50 МБ');let path;try{path=JSON.parse(marker.slice(11))}catch{throw Error('Не удалось получить аудиофайл')}
     const actual=realpathSync(path),root=realpathSync(folder)+sep;if(!actual.startsWith(root)||!lstatSync(path).isFile()||lstatSync(path).isSymbolicLink()||!actual.endsWith('.mp3'))throw Error('Загрузчик вернул недопустимый файл');const size=lstatSync(actual).size;if(!size||size>MAX_BYTES)throw Error('После обработки трек превышает 50 МБ');chmodSync(actual,0o600);
     let meta={};try{const name=readdirSync(folder).find(x=>x.endsWith('.info.json'));if(name)meta=JSON.parse(readFileSync(join(folder,name),'utf8'))}catch{}
-    let title=String(meta.track||meta.title||track.title),artist=String(meta.artist||meta.creator||track.artist||job.artist||meta.uploader);if(/(?:youtube\.com|youtu\.be)/i.test(track.url)){artist=artist.replace(/\s*-\s*Topic$|VEVO$/i,'').trim();const parts=title.match(/^(.+?)\s+[-–—]\s+(.+)$/);if(!meta.artist&&parts){artist=parts[1];title=parts[2]}title=title.replace(/\((?:official[^)]*|audio|lyrics?|hd|4k)\)|\[(?:official[^\]]*|audio|lyrics?|hd|4k)\]/gi,'').trim()}if(cleanEdition(title))throw Error('Источник отдаёт только clean-версию');return {file:actual,title:title.slice(0,120),artist:artist.slice(0,80),album:String(meta.album||track.album||'').slice(0,120)};
+    const probe=await runProcess(this.tools.ffprobe,['-v','error','-protocol_whitelist','file,pipe','-show_entries','format=duration','-of','json',actual],{signal,timeout:30000,env:childEnvironment(this.directory)});
+    let actualDuration;try{actualDuration=Number(JSON.parse(probe.stdout).format?.duration)}catch{}
+    if(!Number.isFinite(actualDuration)||actualDuration<=0)throw Error('Не удалось прочитать длительность аудио');
+    const expected=Number(track.duration||meta.duration)||0;
+    if(expected>45&&actualDuration<expected*.75)throw Error('Источник отдал короткий фрагмент вместо полной записи');
+    if(actualDuration>1805)throw Error('Запись длиннее 30 минут. Пришли отдельный трек.');
+    let title=String(meta.track||meta.title||track.title),artist=String(meta.artist||meta.creator||track.artist||job.artist||meta.uploader);if(/(?:youtube\.com|youtu\.be)/i.test(track.url)){artist=artist.replace(/\s*-\s*Topic$|VEVO$/i,'').trim();const parts=title.match(/^(.+?)\s+[-–—]\s+(.+)$/);if(!meta.artist&&parts){artist=parts[1];title=parts[2]}title=title.replace(/\((?:official[^)]*|audio|lyrics?|hd|4k)\)|\[(?:official[^\]]*|audio|lyrics?|hd|4k)\]/gi,'').trim()}if(cleanEdition(title))throw Error('Источник отдаёт только clean-версию');return {file:actual,title:title.slice(0,120),artist:artist.slice(0,80),album:String(meta.album||track.album||'').slice(0,120),cleanup:()=>rmSync(folder,{recursive:true,force:true})};
+    }catch(e){rmSync(folder,{recursive:true,force:true});throw e}
   }
 }

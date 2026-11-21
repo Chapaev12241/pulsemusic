@@ -15,7 +15,7 @@ GitHub schedules may be delayed, so five minutes is a polling interval, not an S
 
 ## Sources
 
-TuneMir: exact artist search, artist pagination, individual tracks, fresh public signed MP3 links. Max 250 tracks per job, max 50 MB per audio file. Metadata preserves collaborations. Duplicate audio is identified by SHA-256; admin-removed tracks are not restored. No login/captcha bypass.
+TuneMir: exact artist search, artist pagination, individual tracks, fresh public signed MP3 links. The legacy artist scanners follow their public pagination; every audio file is limited to 50 MB. Metadata preserves collaborations. Duplicate audio is identified by SHA-256; admin-removed tracks are not restored. No login/captcha bypass.
 
 Other public links use yt-dlp generic/provider support, with ffmpeg for MP3 conversion. Support depends on the source. The runner installs pinned yt-dlp only when needed; all downloader traffic goes through a public-address-only local proxy. Track errors are counted; partial imports remain available and can be retried. Private IPs, local URLs, non-HTTP schemes, credentials and arbitrary ports are rejected. No credentials are passed to the extractor.
 
@@ -26,12 +26,12 @@ Node 24:
 ```
 node scripts/build-worker.mjs
 node scripts/test-import-bot.mjs
-node --test import-bot/test.mjs
+node --test import-bot/test.mjs import-bot/open-media.test.mjs
 node scripts/test-backend.mjs
 node scripts/test-telegram.mjs
 ```
 
-Tests use in-memory SQLite D1 and mocked R2/Telegram/JWKS; they never publish test music or message a real user. Live TuneMir check: artist Гуф resolves correctly; all 42 tracks across three pages; single Ice Baby MP3 downloads with ID3 signature, 10,176,701 bytes.
+Tests use in-memory SQLite D1 and mocked R2/Telegram/JWKS; they never publish test music or message a real user. Live source diagnostics are optional: Actions → Pulse Import Bot → Run workflow → probe. They are not run automatically on push.
 
 ## Additional sources and artist interpretation
 
@@ -61,3 +61,44 @@ collections require a different public link. Known clean/censored/radio editions
 are filtered and explicit/uncensored labels preferred. This cannot guarantee that
 a mislabeled recording contains no audio edits; the bot never removes censorship
 from an existing censored recording.
+
+
+## Broader public-source import
+
+- Public YouTube videos, Shorts, playlists and channel pages; SoundCloud, Bandcamp,
+  Mixcloud, Audiomack, Vimeo, VK, Bilibili, Archive.org, Jamendo and other public
+  providers supported by the pinned yt-dlp release use one extractor pipeline.
+  The authoritative registry is [yt-dlp supported sites](https://github.com/yt-dlp/yt-dlp/blob/2026.10.26/supportedsites.md).
+  A listed extractor is not a promise that every page or region is available.
+- Public direct MP3/M4A/AAC/FLAC/Ogg/Opus/WAV/AIFF/WebM/MP4 audio links, HTML
+  audio/source elements, downloadable audio anchors, OpenGraph audio and JSON-LD
+  recordings are read directly. RSS/Atom enclosures and explicit HTML next-page links follow same-origin
+  pagination, up to100 pages. Pages are bounded to2 MB; audio remains bounded to50 MB.
+- Generic extractor jobs expose up to2000 tracks; larger catalogs are marked
+  partial instead of reported complete. Jobs resume on the next Actions run
+  after the worker's time budget, with duplicate protection.
+- Spotify short links (`spotify.link`, `spotify.app.link`, `spoti.fi`) and
+  supported `clck.ru` platform redirects are expanded through public-only HEAD/GET
+  requests before routing. An unresolved short link asks for the full URL.
+- Yandex Music first uses its native extractor for publicly exposed downloads.
+  If that path is unavailable, existing public metadata and exact full-recording
+  matching remain available. Spotify supplies metadata, not decrypted audio.
+- The downloader uses native HTTP/HLS/DASH fetching through the validated public
+  proxy. ffmpeg/ffprobe process only local files; extractor subprocesses receive
+  no account credentials or cookies. The pinned package provides the YouTube JS
+  solver; runtime remote component downloads are disabled.
+- All recordings, including direct MP3 files, are limited to30 minutes; actual duration is
+  read locally and compared with expected duration to reject short samples. Known preview URLs
+  are rejected. A direct file with no trustworthy duration metadata cannot be
+  proven to contain a particular complete recording just from its filename.
+- Diagnostics distinguish unavailable, login-only, region-restricted, rate-limited
+  and DRM sources without exposing upstream signed URLs. No authentication,
+  subscription, CAPTCHA or DRM bypass is performed.
+
+
+When a name-only request fails across the legacy artist catalogs, the worker may
+fall back to100 public YouTube search results. Candidates must match explicit
+artist metadata, the exact artist channel (ignoring Topic/VEVO/Official suffixes)
+or a clear artist/title prefix. Live streams, mixes, clean editions and ambiguous
+legacy artist identities are excluded. This fallback is always labelled
+“Поиск YouTube, неполная дискография”; it never claims a complete catalog.
