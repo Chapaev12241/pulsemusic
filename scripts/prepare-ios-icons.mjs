@@ -1,6 +1,6 @@
 import {mkdirSync,writeFileSync,copyFileSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
-const source='docs/icons/pulse-512.png';
+const source='docs/icons/pulse-1024.png';
 const folder='ios/Pulse/Assets.xcassets/AppIcon.appiconset';
 mkdirSync(folder,{recursive:true});
 execFileSync('sips',['-z','1024','1024',source,'--out',folder+'/AppIcon.png']);

@@ -6,8 +6,8 @@
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#080809",
-  "theme_color": "#080809",
+  "background_color": "#101314",
+  "theme_color": "#101314",
   "icons": [
     {
       "src": "./icons/pulse-192.png",
