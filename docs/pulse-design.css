@@ -152,3 +152,10 @@ h1{font-size:30px}h2,.section-title h2{font-size:23px}.hero h1{font-size:clamp(3
 @media(max-width:370px){.track-row.playlist-owned-row{grid-template-columns:25px 38px minmax(0,1fr) 32px 32px;gap:5px}.playlist-owned-row>.art,.playlist-owned-row>.artwork{width:38px;height:38px}.playlist-owned-row .playlist-drag-handle{min-width:25px;width:25px}.playlist-owned-row .icon,.playlist-row-menu summary{width:32px;min-width:32px}}
 @media(prefers-reduced-motion:reduce){.track-row.playlist-dragging{transform:none!important}.playlist-sorting .playlist-owned-row{will-change:auto}}
 html[data-motion=off] .track-row.playlist-dragging{transform:none!important}
+/* A quiet floating masthead; wordmark and controls keep their full contrast. */
+main>header{padding:8px 14px;border:1px solid color-mix(in srgb,var(--text) 8%,transparent);border-radius:24px;background:color-mix(in srgb,var(--bg) 48%,transparent);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+#playlistDownloadAll{border-radius:999px;background:var(--raised);font-size:13px;white-space:nowrap}
+#playlistDownloadAll:disabled{opacity:.65}
+@supports not (background:color-mix(in srgb,black 50%,transparent)){main>header{background:rgba(18,19,25,.55);border-color:rgba(255,255,255,.08)}}
+@media(max-width:700px){main>header{height:62px;border-radius:23px;padding-inline:14px;gap:8px}}
+@media(prefers-reduced-transparency:reduce){main>header{background:var(--panel);-webkit-backdrop-filter:none;backdrop-filter:none}}
