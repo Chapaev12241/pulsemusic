@@ -78,7 +78,7 @@ final class PulseStore: ObservableObject {
         await Task.detached(priority: .userInitiated) { PulseKeychain.load() }.value
     }) {
         self.loadSession = loadSession
-        tracks = downloads.tracks
+        tracks = downloads.offlineTracks
         downloadSubscription = downloads.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
         devices.snapshot = { [weak self] in self?.deviceSnapshot() ?? PulseDeviceSnapshot(state: PulseDeviceState(), queue: [], originalQueue: []) }
         devices.applyCommand = { [weak self] command, now in guard let self else { throw CancellationError() }; try await self.applyDevice(command, now: now) }
@@ -172,7 +172,7 @@ final class PulseStore: ObservableObject {
         generation = UUID(); mutation?.cancel(); mutation = nil
         player.command(["action": "stop"])
         token = ""; user = nil; social.configure(token: "", userID: ""); ownedTracks = []; ownedIDs = []; state = PulseLibraryState()
-        tracks = publicTracks; lastSync = nil
+        tracks = PulseLibrary.merge(publicTracks: publicTracks, ownedTracks: downloads.offlineTracks); lastSync = nil
         if deleteKeychain {
             let previous = keychainCleanup
             keychainCleanup = Task.detached(priority: .userInitiated) { await previous?.value; PulseKeychain.clear() }
@@ -206,7 +206,7 @@ final class PulseStore: ObservableObject {
                     user = identity.user
                 }
             }
-            let merged = PulseLibrary.merge(publicTracks: publicTracks, ownedTracks: ownedTracks)
+            let merged = PulseLibrary.merge(publicTracks: publicTracks, ownedTracks: ownedTracks + downloads.offlineTracks)
             if tracks != merged { tracks = merged }
             if autoDownloadLiked { downloadLikedTracks() }
             lastSync = Date()
@@ -221,7 +221,7 @@ final class PulseStore: ObservableObject {
             if let api = error as? PulseAPIError, api.status == 401 {
                 clearSession(); self.error = "Сессия закончилась. Войди снова."
             } else {
-                tracks = PulseLibrary.merge(publicTracks: publicTracks, ownedTracks: ownedTracks + downloads.tracks)
+                tracks = PulseLibrary.merge(publicTracks: publicTracks, ownedTracks: ownedTracks + downloads.offlineTracks)
                 if tracks.isEmpty { self.error = "Медиатека не обновлена: \(error.localizedDescription)" }
             }
         }

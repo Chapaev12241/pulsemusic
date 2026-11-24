@@ -35,6 +35,11 @@ actor PulseArtworkCache {
     func image(for track: PulseTrack) async -> CGImage? {
         let key = Self.key(artist: track.artist, title: track.title) + "|hq2|" + (track.artwork ?? "")
         if let image = images.object(forKey: key as NSString) { return image }
+        if let url = Self.offlineURL(track.id), let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+           let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: 1024, kCGImageSourceCreateThumbnailWithTransform: true] as CFDictionary) {
+            images.setObject(image, forKey: key as NSString, cost: image.bytesPerRow * image.height)
+            return image
+        }
         if let expiry = missing[key], expiry > Date() { return nil }
         if let task = inflight[key] { return await task.value }
         let preferred = track.artworkURL == nil ? bundled[Self.key(artist: track.artist, title: track.title)]?.url : nil
@@ -50,6 +55,28 @@ actor PulseArtworkCache {
         if let image { images.setObject(image, forKey: key as NSString, cost: image.bytesPerRow * image.height) }
         else { missing[key] = Date().addingTimeInterval(3600) }
         return image
+    }
+    private static var offlineDirectory: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Pulse/OfflineArtwork", isDirectory: true)
+    }
+    private static func offlineURL(_ id: String) -> URL? {
+        guard id.count == 64, id.allSatisfy({ $0.isHexDigit }) else { return nil }
+        return offlineDirectory.appendingPathComponent(id + ".jpg")
+    }
+    func retainOffline(_ track: PulseTrack) async {
+        guard !Task.isCancelled, let url = Self.offlineURL(track.id), !FileManager.default.fileExists(atPath: url.path) else { return }
+        let key = Self.key(artist: track.artist, title: track.title) + "|hq2|" + (track.artwork ?? "")
+        missing[key] = nil
+        guard let image = await image(for: track), !Task.isCancelled else { return }
+        let data = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(data, "public.jpeg" as CFString, 1, nil) else { return }
+        CGImageDestinationAddImage(destination, image, [kCGImageDestinationLossyCompressionQuality: 0.92] as CFDictionary)
+        guard CGImageDestinationFinalize(destination) else { return }
+        do {
+            try FileManager.default.createDirectory(at: Self.offlineDirectory, withIntermediateDirectories: true)
+            var folder = Self.offlineDirectory; var flags = URLResourceValues(); flags.isExcludedFromBackup = true; try? folder.setResourceValues(flags)
+            try (data as Data).write(to: url, options: .atomic)
+        } catch { /* Audio remains available if the cover cannot be saved. */ }
     }
     private func acquire() async {
         if running < 2 { running += 1; return }

@@ -12,7 +12,7 @@ struct PulsePlaylistItem: Identifiable {
     let tracks: [PulseTrack]
     let cover: String?
     @MainActor static func all(store: PulseStore) -> [PulsePlaylistItem] {
-        [PulsePlaylistItem(id: "liked", name: "Понравилось", symbol: "heart.fill", tracks: PulseLibrary.ordered(store.state.liked, in: store.tracks), cover: store.state.playlistCovers["liked"]),
+        (store.downloads.isOffline ? [PulsePlaylistItem(id: "offline", name: "Офлайн", symbol: "wifi.slash", tracks: store.downloads.offlineTracks, cover: nil)] : []) + [PulsePlaylistItem(id: "liked", name: "Понравилось", symbol: "heart.fill", tracks: PulseLibrary.ordered(store.state.liked, in: store.tracks), cover: store.state.playlistCovers["liked"]),
          PulsePlaylistItem(id: "library", name: "Моя музыка", symbol: "music.note.list", tracks: store.tracks.filter { store.ownedIDs.contains($0.id) }, cover: store.state.playlistCovers["library"]),
          PulsePlaylistItem(id: "downloads", name: "Скачано", symbol: "arrow.down.circle.fill", tracks: store.downloads.tracks, cover: store.state.playlistCovers["downloads"])] + store.state.playlists.map { PulsePlaylistItem(id: $0.id, name: $0.name, symbol: "music.note.list", tracks: PulseLibrary.ordered($0.tracks, in: store.tracks), cover: $0.cover) }
     }
@@ -54,7 +54,7 @@ struct PulsePlaylistsView: View {
                                     Text(PulseLibrary.trackCount(item.tracks.count)).font(PulseTheme.body(12)).foregroundStyle(PulseTheme.muted)
                                 }.contentShape(Rectangle())
                             }.buttonStyle(PulseTactileButton()).contextMenu {
-                                Button("Изменить обложку", systemImage: "photo") { chooseCover(item.id) }
+                                if item.id != "offline" { Button("Изменить обложку", systemImage: "photo") { chooseCover(item.id) } }
                                 Button("Скачать все треки", systemImage: "arrow.down.circle") { store.downloads.downloadAll(item.tracks) }.disabled(item.tracks.isEmpty)
                                 if isEditable(item.id) { Button("Переименовать", systemImage: "pencil") { renaming = PulsePlaylistRenameTarget(id: item.id, name: item.name) } }
                             }
@@ -75,6 +75,7 @@ struct PulsePlaylistsView: View {
         .sheet(item: $renaming) { target in PulsePlaylistRenameSheet(store: store, target: target).preferredColorScheme(.dark).tint(PulseTheme.accent) }
         .onChange(of: store.user?.id) { _, _ in creating = false; addingTracks = false; renaming = nil; resetEditing() }
         .onChange(of: selected) { _, _ in resetEditing() }
+        .onChange(of: store.downloads.isOffline) { _, offline in if !offline && selected == "offline" { selected = nil } }
         .onChange(of: item?.tracks.map(\.id)) { _, ids in
             if let track = reorder.active?.track, ids?.contains(track) != true { reorder.reset() }
         }
@@ -91,9 +92,9 @@ struct PulsePlaylistsView: View {
         }.padding(.vertical, 12)
     }
     private func coverButton(_ item: PulsePlaylistItem) -> some View {
-        Button { chooseCover(item.id) } label: {
+        Button { if item.id != "offline" { chooseCover(item.id) } } label: {
             PulsePlaylistCover(cover: item.cover, size: 208, symbol: item.symbol, fallback: item.tracks.first)
-        }.buttonStyle(PulseTactileButton()).accessibilityLabel("Изменить обложку плейлиста")
+        }.buttonStyle(PulseTactileButton()).disabled(item.id == "offline").accessibilityLabel(item.id == "offline" ? "Обложка офлайн-плейлиста" : "Изменить обложку плейлиста")
             .help("Изменить обложку")
     }
     private func playlistInfo(_ item: PulsePlaylistItem) -> some View {
@@ -119,7 +120,7 @@ struct PulsePlaylistsView: View {
                         .fixedSize().disabled(editing).accessibilityLabel("Настройки плейлиста")
                 }
             }
-            if !isEditable(item.id) { Button("Изменить обложку") { chooseCover(item.id) }.font(PulseTheme.body(12)).foregroundStyle(PulseTheme.muted).buttonStyle(PulseTactileButton()) }
+            if item.id != "offline" && !isEditable(item.id) { Button("Изменить обложку") { chooseCover(item.id) }.font(PulseTheme.body(12)).foregroundStyle(PulseTheme.muted).buttonStyle(PulseTactileButton()) }
         }
     }
     private func isEditable(_ id: String) -> Bool { store.signedIn && store.state.playlists.contains { $0.id == id } }
@@ -235,7 +236,7 @@ struct PulsePlaylistsView: View {
         #endif
         .accessibilityLabel("Создать плейлист")
     }
-    private func chooseCover(_ id: String) { coverTarget = id; choosingCover = true }
+    private func chooseCover(_ id: String) { guard id != "offline" else { return }; coverTarget = id; choosingCover = true }
 }
 
 

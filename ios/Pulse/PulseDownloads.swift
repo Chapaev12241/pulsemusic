@@ -2,10 +2,19 @@ import SwiftUI
 import ImageIO
 import CryptoKit
 import UniformTypeIdentifiers
+import Network
 
 @MainActor
 final class PulseDownloads: ObservableObject {
     @Published private(set) var tracks: [PulseTrack] = []
+    @Published private(set) var cachedTracks: [PulseTrack] = []
+    @Published private(set) var isOffline = false
+    private let network = NWPathMonitor()
+    private var artworkBackfill: Task<Void, Never>?
+    var offlineTracks: [PulseTrack] {
+        var seen = Set<String>()
+        return (tracks + cachedTracks).filter { Self.localURL($0.id) != nil && seen.insert($0.id).inserted }
+    }
     @Published private(set) var pending = Set<String>()
     @Published var error: String?
     private var queued: [PulseTrack] = []
@@ -30,6 +39,27 @@ final class PulseDownloads: ObservableObject {
     nonisolated static func localURL(_ id: String) -> URL? { savedURL(id) ?? file(id, in: cacheDirectory) }
     init() {
         if let data = try? Data(contentsOf: Self.directory.appendingPathComponent("index.json")), let saved = try? JSONDecoder().decode([PulseTrack].self, from: data) { tracks = saved.filter { Self.savedURL($0.id) != nil } }
+        if let data = try? Data(contentsOf: Self.cacheDirectory.appendingPathComponent("index.json")), let saved = try? JSONDecoder().decode([PulseTrack].self, from: data) { cachedTracks = saved.filter { Self.localURL($0.id) != nil } }
+        network.pathUpdateHandler = { [weak self] path in
+            let offline = path.status != .satisfied
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if self.isOffline != offline { self.isOffline = offline }
+                if !offline { self.backfillArtwork() }
+            }
+        }
+        network.start(queue: DispatchQueue(label: "pulse.connectivity", qos: .utility))
+    }
+    deinit { network.cancel(); artworkBackfill?.cancel() }
+    private func backfillArtwork() {
+        artworkBackfill?.cancel()
+        let values = offlineTracks
+        artworkBackfill = Task {
+            for track in values {
+                if Task.isCancelled { return }
+                await PulseArtworkCache.shared.retainOffline(track)
+            }
+        }
     }
     // Keep just two transfers active. Explicit downloads take priority over speculative caching.
     func download(_ track: PulseTrack) async { downloadAll([track]) }
@@ -64,7 +94,10 @@ final class PulseDownloads: ObservableObject {
             running[track.id] = Task { [weak self] in
                 guard let self else { return }
                 defer { self.running[track.id] = nil; self.pending.remove(track.id); self.persistent.remove(track.id); self.pump() }
-                do { try await self.save(track) }
+                do {
+                    try await self.save(track)
+                    if Self.localURL(track.id) != nil { await PulseArtworkCache.shared.retainOffline(track) }
+                }
                 catch { if !Task.isCancelled && self.persistent.contains(track.id) { self.error = "Не удалось скачать «\(track.title)»: " + error.localizedDescription } }
             }
         }
@@ -89,7 +122,9 @@ final class PulseDownloads: ObservableObject {
             try FileManager.default.createDirectory(at: Self.cacheDirectory, withIntermediateDirectories: true)
             let destination = Self.cacheDirectory.appendingPathComponent(track.id + "." + ext)
             if !FileManager.default.fileExists(atPath: destination.path) { try FileManager.default.moveItem(at: temporary, to: destination) }
+            if !cachedTracks.contains(where: { $0.id == track.id }) { cachedTracks.append(track) }
             pruneCache()
+            try persistCache()
         }
     }
     private func retain(_ track: PulseTrack, file: URL, ext: String) throws {
@@ -106,11 +141,15 @@ final class PulseDownloads: ObservableObject {
     private func pruneCache() {
         // Evict older queues, never the active playlist or explicit offline downloads.
         guard let files = try? FileManager.default.contentsOfDirectory(at: Self.cacheDirectory, includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey]) else { return }
-        let sizes = files.map { ($0, (try? $0.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey]))) }
+        let sizes = files.filter { $0.pathExtension != "json" }.map { ($0, (try? $0.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey]))) }
         var size = sizes.reduce(0) { $0 + ($1.1?.fileSize ?? 0) }
         for (url, info) in sizes.sorted(by: { ($0.1?.contentModificationDate ?? .distantPast) < ($1.1?.contentModificationDate ?? .distantPast) }) where size > 512 * 1024 * 1024 && !wanted.contains(url.deletingPathExtension().lastPathComponent) {
             if (try? FileManager.default.removeItem(at: url)) != nil { size -= info?.fileSize ?? 0 }
         }
+        cachedTracks.removeAll { Self.localURL($0.id) == nil }
+    }
+    private func persistCache() throws {
+        try JSONEncoder().encode(cachedTracks).write(to: Self.cacheDirectory.appendingPathComponent("index.json"), options: .atomic)
     }
     func remove(_ track: PulseTrack) {
         running[track.id]?.cancel(); queued.removeAll { $0.id == track.id }; persistent.remove(track.id); pending.remove(track.id)
