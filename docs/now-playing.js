@@ -4,8 +4,9 @@
  function update(request=true){
   if(!navigator.mediaSession||typeof MediaMetadata==='undefined')return;
   if(!current){signature='';navigator.mediaSession.metadata=null;return}
-  const track=current,raw=track.artwork||window.PulseArtwork?.url(track.artist,track.title)||'';
-  let src='';try{const u=new URL(raw,location.href);if(raw&&['https:','http:'].includes(u.protocol))src=u.href}catch{}
+  const track=current,offlineCover=!navigator.onLine?window.PulseDownloads?.artworkURL(track.artist,track.title)||'':'',raw=offlineCover||track.artwork||window.PulseArtwork?.url(track.artist,track.title)||'';
+  if(!navigator.onLine&&!offlineCover&&request)window.PulseDownloads?.artwork(track.artist,track.title).then(url=>{if(url&&current?.id===track.id)update(false)});
+  let src='';try{const u=new URL(raw,location.href);if(raw&&(['https:','http:'].includes(u.protocol)||(u.protocol==='blob:'&&raw===offlineCover)))src=u.href}catch{}
   const next=JSON.stringify([track.id,track.title,track.artist,track.album||'',src]);
   if(next!==signature){try{navigator.mediaSession.metadata=new MediaMetadata({title:track.title,artist:track.artist,album:track.album||'',artwork:src?[{src}]:[]});signature=next;document.dispatchEvent(new Event('pulse-now-playing'))}catch{}}
   if(!src&&request)window.PulseArtwork?.prioritize(track.artist,track.title);
