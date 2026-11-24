@@ -45,7 +45,7 @@ final class PulseDownloads: ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 if self.isOffline != offline { self.isOffline = offline }
-                if !offline { self.backfillArtwork() }
+                if offline { self.stopPreloading() } else { self.backfillArtwork(); self.pump() }
             }
         }
         network.start(queue: DispatchQueue(label: "pulse.connectivity", qos: .utility))
@@ -73,6 +73,7 @@ final class PulseDownloads: ObservableObject {
         pump()
     }
     func preload(_ values: [PulseTrack], after id: String) {
+        guard !isOffline else { stopPreloading(); return }
         let index = values.firstIndex { $0.id == id } ?? 0
         let ordered = Array(values.dropFirst(index + 1)) + Array(values.prefix(index + 1))
         wanted = Set(values.map(\.id))
@@ -89,7 +90,12 @@ final class PulseDownloads: ObservableObject {
     }
     private func pump() {
         while running.count < 2, !queued.isEmpty {
-            let track = queued.removeFirst()
+            let position: Int
+            if isOffline {
+                guard let cached = queued.firstIndex(where: { Self.localURL($0.id) != nil }) else { return }
+                position = cached
+            } else { position = 0 }
+            let track = queued.remove(at: position)
             guard running[track.id] == nil else { continue }
             running[track.id] = Task { [weak self] in
                 guard let self else { return }

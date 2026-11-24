@@ -135,7 +135,7 @@ final class PulseStore: ObservableObject {
                 guard generation == stamp else { return }
                 if identity.authenticated { user = identity.user }
                 else { clearSession() }
-            } catch { if generation == stamp && !Task.isCancelled { self.error = "Не удалось восстановить вход: \(error.localizedDescription)" } }
+            } catch { if generation == stamp && !Task.isCancelled && downloads.offlineTracks.isEmpty { self.error = "Не удалось восстановить вход: \(error.localizedDescription)" } }
         }
         guard generation == stamp, !Task.isCancelled else { return }
         configureSocial()
