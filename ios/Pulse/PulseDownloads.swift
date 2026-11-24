@@ -44,8 +44,8 @@ final class PulseDownloads: ObservableObject {
     }
     func preload(_ values: [PulseTrack], after id: String) {
         let index = values.firstIndex { $0.id == id } ?? 0
-        let ordered = Array(values.dropFirst(index + 1)) + Array(values.prefix(index))
-        wanted = Set(ordered.map(\.id))
+        let ordered = Array(values.dropFirst(index + 1)) + Array(values.prefix(index + 1))
+        wanted = Set(values.map(\.id))
         queued.removeAll { !persistent.contains($0.id) }
         var added = Set(queued.map(\.id))
         for track in ordered where Self.localURL(track.id) == nil && running[track.id] == nil && added.insert(track.id).inserted && valid(track) { queued.append(track) }
