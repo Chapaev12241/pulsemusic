@@ -55,6 +55,7 @@ struct PulsePlaylistsView: View {
                                 }.contentShape(Rectangle())
                             }.buttonStyle(PulseTactileButton()).contextMenu {
                                 Button("Изменить обложку", systemImage: "photo") { chooseCover(item.id) }
+                                Button("Скачать все треки", systemImage: "arrow.down.circle") { store.downloads.downloadAll(item.tracks) }.disabled(item.tracks.isEmpty)
                                 if isEditable(item.id) { Button("Переименовать", systemImage: "pencil") { renaming = PulsePlaylistRenameTarget(id: item.id, name: item.name) } }
                             }
                         }
@@ -103,6 +104,7 @@ struct PulsePlaylistsView: View {
                 Button { if let first = item.tracks.first { store.play(first, within: item.tracks) } } label: { Label("Слушать", systemImage: "play.fill").frame(minWidth: 100) }.buttonStyle(PulsePrimaryButton())
                 Button { store.shuffle = true; if let first = item.tracks.randomElement() { store.play(first, within: item.tracks) } } label: { Image(systemName: "shuffle").frame(width: 48, height: 48).background(PulseTheme.raised, in: Circle()) }.buttonStyle(PulseTactileButton(feedback: .shuffle)).accessibilityLabel("Перемешать плейлист")
             }.disabled(item.tracks.isEmpty).padding(.top, 8)
+            PulsePlaylistDownloadButton(tracks: item.tracks, downloads: store.downloads)
             if store.state.playlists.contains(where: { $0.id == item.id }) {
                 HStack(spacing: 12) {
                     Button { addingTracks = true } label: { Label("Добавить треки", systemImage: "plus").font(PulseTheme.body(14, weight: .semibold)).padding(.horizontal, 16).padding(.vertical, 12).background(PulseTheme.raised, in: Capsule()) }.buttonStyle(PulseTactileButton()).disabled(!store.signedIn || editing)

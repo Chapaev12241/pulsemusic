@@ -24,6 +24,19 @@ final class PulseStore: ObservableObject {
     let djLibrary = PulseDJStore()
     let ai = PulseAIStore()
     let downloads = PulseDownloads()
+    @Published var autoDownloadLiked = UserDefaults.standard.bool(forKey: "pulse_auto_download_liked") {
+        didSet {
+            UserDefaults.standard.set(autoDownloadLiked, forKey: "pulse_auto_download_liked")
+            if autoDownloadLiked { downloadLikedTracks() }
+        }
+    }
+    private func downloadLikedTracks() {
+        downloads.downloadAll(PulseLibrary.ordered(state.liked, in: tracks))
+    }
+    private func preloadQueue(after id: String) {
+        let byID = Dictionary(uniqueKeysWithValues: tracks.map { ($0.id, $0) })
+        downloads.preload(player.queueIDs.compactMap { byID[$0] }, after: id)
+    }
     let devices = PulseDevices()
     private var remoteClock: Task<Void, Never>?
     private var remoteActive = false
@@ -99,7 +112,7 @@ final class PulseStore: ObservableObject {
         playback.receive(value)
         let id = value["id"] as? String ?? ""
         let nextPaused = value["paused"] as? Bool ?? true
-        if currentID != id { currentID = id }
+        if currentID != id { currentID = id; preloadQueue(after: id) }
         if paused != nextPaused { paused = nextPaused }
     }
     func start() async {
@@ -155,6 +168,7 @@ final class PulseStore: ObservableObject {
     private func clearSession(deleteKeychain: Bool = true) {
         devices.configure(token: "", owner: ""); remoteClock?.cancel(); remoteActive = false
         djLibrary.clear(); ai.configure(owner: "guest")
+        downloads.stopPreloading()
         generation = UUID(); mutation?.cancel(); mutation = nil
         player.command(["action": "stop"])
         token = ""; user = nil; social.configure(token: "", userID: ""); ownedTracks = []; ownedIDs = []; state = PulseLibraryState()
@@ -194,6 +208,7 @@ final class PulseStore: ObservableObject {
             }
             let merged = PulseLibrary.merge(publicTracks: publicTracks, ownedTracks: ownedTracks)
             if tracks != merged { tracks = merged }
+            if autoDownloadLiked { downloadLikedTracks() }
             lastSync = Date()
             configureSocial()
             Task { await self.social.refresh() }
@@ -240,12 +255,14 @@ final class PulseStore: ObservableObject {
         applyLocalTransportSettings()
         player.setDJTransitions([:])
         player.command(["action": "play", "id": track.id, "tracks": queue.map(\.nativeValue), "token": token, "dj": dj])
+        preloadQueue(after: track.id)
     }
     func playDJ(_ track: PulseTrack, within queue: [PulseTrack], transitions: [String: PulseDJMix]) {
         remoteActive = false; remoteClock?.cancel(); devices.claimLocal()
         applyLocalTransportSettings()
         dj = true; player.setDJTransitions(transitions)
         player.command(["action": "play", "id": track.id, "tracks": queue.map(\.nativeValue), "token": token, "dj": true])
+        preloadQueue(after: track.id)
     }
     func togglePlayback() {
         if devices.controlsRemote { devices.control(paused ? "resume" : "pause"); return }
@@ -390,6 +407,10 @@ final class PulseStore: ObservableObject {
             guard self.generation == stamp else { throw CancellationError() }
             self.stateRevision += 1
             self.state = saved
+            if operation["type"] as? String == "like", operation["value"] as? Bool == true, self.autoDownloadLiked,
+               let id = operation["id"] as? String, let track = self.tracks.first(where: { $0.id == id }) {
+                self.downloads.downloadAll([track])
+            }
             return saved
         }
         mutation = Task {

@@ -17,7 +17,7 @@ final class NativePlayer {
             guard let id = value["id"] as? String, let audio = value["audio"] as? String,
                   let url = URL(string: audio), url.scheme == "https",
                   url.host == "pulse-vibe-music.desyatnichenkoiosyf2.chatgpt.site" else { return nil }
-            self.id = id; self.url = PulseDownloads.localURL(id) ?? url
+            self.id = id; self.url = url
             title = value["title"] as? String ?? ""; artist = value["artist"] as? String ?? ""
             album = value["album"] as? String ?? ""
             let imageURL = URL(string: value["artwork"] as? String ?? "")
@@ -194,7 +194,7 @@ final class NativePlayer {
             index = queue.firstIndex(where: { $0.id == current }) ?? 0
             emit()
         case "dj": dj = body["enabled"] as? Bool ?? false; if !dj { finishFade() }
-        case "stop": pause(); generation += 1; historyTask?.cancel(); bearer = ""; queue = []; originalQueue = []; player.replaceCurrentItem(with: nil); emit()
+        case "stop": pause(); preparedObservation = nil; prepared?.pause(); prepared = nil; preparedID = nil; generation += 1; historyTask?.cancel(); bearer = ""; queue = []; originalQueue = []; player.replaceCurrentItem(with: nil); emit()
         case "state": emit()
         default: break
         }
@@ -239,7 +239,13 @@ final class NativePlayer {
         currentMix = djTransitions[queue[target].id] ?? PulseDJMix(effect: .blend, duration: 3)
         if let clock = clock { player.removeTimeObserver(clock); self.clock = nil }
         if crossfade { outgoing = player } else { player.pause() }
-        player = preparedID == queue[target].id ? (prepared ?? makePlayer(queue[target].url)) : makePlayer(queue[target].url)
+        let targetTrack = queue[target]
+        if let cached = PulseDownloads.localURL(targetTrack.id) {
+            prepared?.pause()
+            player = makePlayer(cached)
+        } else {
+            player = preparedID == targetTrack.id ? (prepared ?? makePlayer(targetTrack.url)) : makePlayer(targetTrack.url)
+        }
         preparedObservation = nil; prepared = nil; preparedID = nil
         equalizer.attach(to: player.currentItem)
         player.automaticallyWaitsToMinimizeStalling = true
@@ -312,9 +318,9 @@ final class NativePlayer {
             if !recorded && duration > 0 && listened >= min(30, duration / 2) { saveHistory() }
             let nextID = adjacentID(1) ?? ""
             let transitionDuration = djTransitions[nextID]?.duration ?? 3
-            if wantsPlayback && dj && queue.count > 1 && duration > 5 && duration - time < max(20, transitionDuration + 10), preparedID != nextID, let upcoming = queue.first(where: { $0.id == nextID }) {
+            if wantsPlayback && queue.count > 1, preparedID != nextID, let upcoming = queue.first(where: { $0.id == nextID }) {
                 preparedObservation = nil; prepared?.pause()
-                let candidate = makePlayer(upcoming.url)
+                let candidate = makePlayer(PulseDownloads.localURL(upcoming.id) ?? upcoming.url)
                 prepared = candidate; preparedID = nextID
                 candidate.currentItem?.preferredForwardBufferDuration = 10
                 preparedObservation = candidate.observe(\.status, options: [.initial, .new]) { [weak self] candidate, _ in

@@ -100,7 +100,10 @@ struct PulseRootView: View {
             Spacer()
             Button { Task { await store.refresh() } } label: { Image(systemName: "arrow.clockwise") }.buttonStyle(PulseIconButton()).disabled(store.syncing).help("Обновить медиатеку")
             PulseAccountBadge(social: store.social, fallbackName: store.user?.name, action: { showAccount = true }, compact: true)
-        }.padding(.horizontal, contentPadding).padding(.vertical, 16)
+        }.padding(.horizontal, 18).padding(.vertical, 10)
+            .background(.ultraThinMaterial.opacity(0.55), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .overlay { RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(.white.opacity(0.07), lineWidth: 0.5) }
+            .padding(.horizontal, 14).padding(.top, 6).padding(.bottom, 8)
     }
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 28) {

@@ -8,40 +8,134 @@ final class PulseDownloads: ObservableObject {
     @Published private(set) var tracks: [PulseTrack] = []
     @Published private(set) var pending = Set<String>()
     @Published var error: String?
+    private var queued: [PulseTrack] = []
+    private var running: [String: Task<Void, Never>] = [:]
+    private var persistent = Set<String>()
+    private var wanted = Set<String>()
     nonisolated static var directory: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Pulse/Downloads", isDirectory: true)
     }
-    nonisolated static func localURL(_ id: String) -> URL? {
+    nonisolated static var cacheDirectory: URL {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("Pulse/Audio", isDirectory: true)
+    }
+    nonisolated private static func file(_ id: String, in folder: URL) -> URL? {
         guard id.count == 64, id.allSatisfy({ $0.isHexDigit }) else { return nil }
         for ext in ["mp3", "m4a", "aac", "wav", "flac", "ogg", "opus"] {
-            let url = directory.appendingPathComponent(id + "." + ext)
+            let url = folder.appendingPathComponent(id + "." + ext)
             if FileManager.default.fileExists(atPath: url.path) { return url }
         }
         return nil
     }
+    nonisolated static func savedURL(_ id: String) -> URL? { file(id, in: directory) }
+    nonisolated static func localURL(_ id: String) -> URL? { savedURL(id) ?? file(id, in: cacheDirectory) }
     init() {
-        if let data = try? Data(contentsOf: Self.directory.appendingPathComponent("index.json")), let saved = try? JSONDecoder().decode([PulseTrack].self, from: data) { tracks = saved.filter { Self.localURL($0.id) != nil } }
+        if let data = try? Data(contentsOf: Self.directory.appendingPathComponent("index.json")), let saved = try? JSONDecoder().decode([PulseTrack].self, from: data) { tracks = saved.filter { Self.savedURL($0.id) != nil } }
     }
-    func download(_ track: PulseTrack) async {
-        guard !pending.contains(track.id), Self.localURL(track.id) == nil, let url = URL(string: track.audio), url.scheme == "https", url.host == PulseAPI.base.host else { return }
-        pending.insert(track.id); defer { pending.remove(track.id) }
-        do {
-            let (temporary, response) = try await URLSession.shared.download(from: url)
-            defer { try? FileManager.default.removeItem(at: temporary) }
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200, http.mimeType?.hasPrefix("audio/") == true else { throw URLError(.badServerResponse) }
-            try FileManager.default.createDirectory(at: Self.directory, withIntermediateDirectories: true)
-            var folder = Self.directory; var flags = URLResourceValues(); flags.isExcludedFromBackup = true; try? folder.setResourceValues(flags)
-            let formats = ["audio/mpeg": "mp3", "audio/mp3": "mp3", "audio/mp4": "m4a", "audio/x-m4a": "m4a", "audio/aac": "aac", "audio/wav": "wav", "audio/x-wav": "wav", "audio/flac": "flac", "audio/ogg": "ogg"]
-            guard let ext = formats[http.mimeType ?? ""] else { throw URLError(.cannotDecodeContentData) }
-            try FileManager.default.moveItem(at: temporary, to: Self.directory.appendingPathComponent(track.id + "." + ext))
-            tracks.append(track); try persist()
-        } catch { self.error = "Не удалось скачать: " + error.localizedDescription }
+    // Keep just two transfers active. Explicit downloads take priority over speculative caching.
+    func download(_ track: PulseTrack) async { downloadAll([track]) }
+    func downloadAll(_ values: [PulseTrack]) {
+        for track in values where Self.savedURL(track.id) == nil {
+            guard valid(track) else { continue }
+            persistent.insert(track.id); pending.insert(track.id)
+            if running[track.id] == nil && !queued.contains(where: { $0.id == track.id }) { queued.append(track) }
+        }
+        queued.sort { persistent.contains($0.id) && !persistent.contains($1.id) }
+        pump()
+    }
+    func preload(_ values: [PulseTrack], after id: String) {
+        let index = values.firstIndex { $0.id == id } ?? 0
+        let ordered = Array(values.dropFirst(index + 1)) + Array(values.prefix(index))
+        wanted = Set(ordered.map(\.id))
+        queued.removeAll { !persistent.contains($0.id) }
+        var added = Set(queued.map(\.id))
+        for track in ordered where Self.localURL(track.id) == nil && running[track.id] == nil && added.insert(track.id).inserted && valid(track) { queued.append(track) }
+        pump()
+    }
+    func stopPreloading() {
+        wanted = []; queued.removeAll { !persistent.contains($0.id) }
+    }
+    private func valid(_ track: PulseTrack) -> Bool {
+        track.id.count == 64 && track.id.allSatisfy { $0.isHexDigit } && URL(string: track.audio).map { $0.scheme == "https" && $0.host == PulseAPI.base.host } == true
+    }
+    private func pump() {
+        while running.count < 2, !queued.isEmpty {
+            let track = queued.removeFirst()
+            guard running[track.id] == nil else { continue }
+            running[track.id] = Task { [weak self] in
+                guard let self else { return }
+                defer { self.running[track.id] = nil; self.pending.remove(track.id); self.persistent.remove(track.id); self.pump() }
+                do { try await self.save(track) }
+                catch { if !Task.isCancelled && self.persistent.contains(track.id) { self.error = "Не удалось скачать «\(track.title)»: " + error.localizedDescription } }
+            }
+        }
+    }
+    private func save(_ track: PulseTrack) async throws {
+        if Self.savedURL(track.id) != nil { return }
+        if let cached = Self.localURL(track.id) {
+            if persistent.contains(track.id) { try retain(track, file: cached, ext: cached.pathExtension) }
+            return
+        }
+        guard let url = URL(string: track.audio) else { return }
+        var request = URLRequest(url: url)
+        request.networkServiceType = persistent.contains(track.id) ? .default : .background
+        let (temporary, response) = try await URLSession.shared.download(for: request)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        try Task.checkCancellation()
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200, http.mimeType?.hasPrefix("audio/") == true else { throw URLError(.badServerResponse) }
+        let formats = ["audio/mpeg": "mp3", "audio/mp3": "mp3", "audio/mp4": "m4a", "audio/x-m4a": "m4a", "audio/aac": "aac", "audio/wav": "wav", "audio/x-wav": "wav", "audio/flac": "flac", "audio/ogg": "ogg", "audio/opus": "opus"]
+        guard let ext = formats[http.mimeType ?? ""], (try temporary.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0) > 0 else { throw URLError(.cannotDecodeContentData) }
+        if persistent.contains(track.id) { try retain(track, file: temporary, ext: ext) }
+        else if wanted.contains(track.id) {
+            try FileManager.default.createDirectory(at: Self.cacheDirectory, withIntermediateDirectories: true)
+            let destination = Self.cacheDirectory.appendingPathComponent(track.id + "." + ext)
+            if !FileManager.default.fileExists(atPath: destination.path) { try FileManager.default.moveItem(at: temporary, to: destination) }
+            pruneCache()
+        }
+    }
+    private func retain(_ track: PulseTrack, file: URL, ext: String) throws {
+        try FileManager.default.createDirectory(at: Self.directory, withIntermediateDirectories: true)
+        var folder = Self.directory; var flags = URLResourceValues(); flags.isExcludedFromBackup = true; try? folder.setResourceValues(flags)
+        let target = Self.directory.appendingPathComponent(track.id + "." + ext)
+        if !FileManager.default.fileExists(atPath: target.path) {
+            if file.deletingLastPathComponent() == Self.cacheDirectory { try FileManager.default.copyItem(at: file, to: target) }
+            else { try FileManager.default.moveItem(at: file, to: target) }
+        }
+        if !tracks.contains(where: { $0.id == track.id }) { tracks.append(track) }
+        try persist()
+    }
+    private func pruneCache() {
+        // Evict older queues, never the active playlist or explicit offline downloads.
+        guard let files = try? FileManager.default.contentsOfDirectory(at: Self.cacheDirectory, includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey]) else { return }
+        let sizes = files.map { ($0, (try? $0.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey]))) }
+        var size = sizes.reduce(0) { $0 + ($1.1?.fileSize ?? 0) }
+        for (url, info) in sizes.sorted(by: { ($0.1?.contentModificationDate ?? .distantPast) < ($1.1?.contentModificationDate ?? .distantPast) }) where size > 512 * 1024 * 1024 && !wanted.contains(url.deletingPathExtension().lastPathComponent) {
+            if (try? FileManager.default.removeItem(at: url)) != nil { size -= info?.fileSize ?? 0 }
+        }
     }
     func remove(_ track: PulseTrack) {
-        do { if let url = Self.localURL(track.id) { try FileManager.default.removeItem(at: url) }; tracks.removeAll { $0.id == track.id }; try persist() }
+        running[track.id]?.cancel(); queued.removeAll { $0.id == track.id }; persistent.remove(track.id); pending.remove(track.id)
+        do { if let url = Self.savedURL(track.id) { try FileManager.default.removeItem(at: url) }; tracks.removeAll { $0.id == track.id }; try persist() }
         catch { self.error = error.localizedDescription }
     }
     private func persist() throws { try JSONEncoder().encode(tracks).write(to: Self.directory.appendingPathComponent("index.json"), options: .atomic) }
+}
+struct PulsePlaylistDownloadButton: View {
+    let tracks: [PulseTrack]
+    @ObservedObject var downloads: PulseDownloads
+    private var savedCount: Int { let ids = Set(downloads.tracks.map(\.id)); return tracks.filter { ids.contains($0.id) }.count }
+    private var busy: Bool { tracks.contains { downloads.pending.contains($0.id) } }
+    private var complete: Bool { !tracks.isEmpty && savedCount == tracks.count }
+    var body: some View {
+        Button { downloads.downloadAll(tracks) } label: {
+            HStack(spacing: 8) {
+                if busy { ProgressView().controlSize(.small) }
+                else { Image(systemName: complete ? "checkmark.circle.fill" : "arrow.down.circle") }
+                Text(busy ? "\(savedCount) из \(tracks.count)" : complete ? "Скачано" : "Скачать всё")
+            }.font(PulseTheme.body(14, weight: .medium)).padding(.horizontal, 16).padding(.vertical, 12)
+                .background(PulseTheme.raised, in: Capsule())
+        }.buttonStyle(PulseTactileButton()).disabled(tracks.isEmpty || busy || complete)
+            .accessibilityLabel(busy ? "Скачивание: \(savedCount) из \(tracks.count)" : complete ? "Все треки скачаны" : "Скачать все треки плейлиста")
+    }
 }
 struct PulseDownloadAction: View {
     let track: PulseTrack

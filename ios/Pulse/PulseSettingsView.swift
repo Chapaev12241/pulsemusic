@@ -61,6 +61,11 @@ struct PulseSettingsView: View {
                     if systemReducedMotion { Text("Уменьшение движения включено — анимации интерфейса ограничены.").font(PulseTheme.body(12)).foregroundStyle(PulseTheme.muted) }
                     HStack { Image(systemName: "speaker.wave.2"); Slider(value: $store.volume, in: 0...1); Text("\(Int(store.volume * 100))%").font(PulseTheme.body(12).monospacedDigit()).frame(width: 36) }
                 }.font(PulseTheme.body(14)).padding(22).pulseGlass(cornerRadius: 22)
+                VStack(alignment: .leading, spacing: 14) {
+                    Label("Скачивание", systemImage: "arrow.down.circle").font(PulseTheme.body(16, weight: .semibold))
+                    Toggle("Скачивать понравившиеся", isOn: $store.autoDownloadLiked)
+                    Text("Треки с сердечком сохраняются на этом устройстве и доступны без интернета.").font(PulseTheme.body(12)).foregroundStyle(PulseTheme.muted)
+                }.font(PulseTheme.body(14)).padding(22).pulseGlass(cornerRadius: 22)
                 VStack(alignment: .leading, spacing: 12) {
                     Label("Медиатека в облаке", systemImage: "cloud").font(PulseTheme.body(16, weight: .semibold))
                     Text("Музыка и плейлисты всегда с тобой.").font(PulseTheme.body(14)).foregroundStyle(PulseTheme.muted)
