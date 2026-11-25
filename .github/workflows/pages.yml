@@ -5,7 +5,6 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
-  actions: read
   pages: write
   id-token: write
 concurrency:
@@ -39,7 +38,6 @@ jobs:
           path: docs
       - name: Deploy
         id: deployment
-        run: node scripts/deploy-pages.mjs
-        env:
-          PULSE_PAGES_TOKEN: ${{ github.token }}
-          PULSE_PAGES_ARTIFACT_ID: ${{ steps.pages_artifact.outputs.artifact_id }}
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: ${{ env.PULSE_PAGES_ARTIFACT }}
