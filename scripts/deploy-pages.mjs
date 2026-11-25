@@ -11,22 +11,34 @@ export async function deployPages(env=process.env,{request=fetch,sleep=ms=>new P
  let oidcURL;try{oidcURL=new URL(requestURL)}catch{throw Error('Invalid Actions OIDC endpoint')}
  if(oidcURL.protocol!=='https:'||!oidcURL.hostname.endsWith('.actions.githubusercontent.com')||oidcURL.username||oidcURL.password||oidcURL.port||oidcURL.hash)throw Error('Invalid Actions OIDC endpoint');
  const headers={authorization:'Bearer '+token,accept:'application/vnd.github+json','content-type':'application/json','X-GitHub-Api-Version':'2022-11-28'};
- const base=api+'/repos/'+repo+'/pages/deployments';let deploymentID='',succeeded=false;
+ const base=api+'/repos/'+repo+'/pages/deployments';let deploymentID='',statusEndpoint='',succeeded=false;
  async function json(url,options={},label='GitHub Pages',withSignal=true){
   let response;try{response=await request(url,{...options,redirect:'error',signal:withSignal&&signal?AbortSignal.any([signal,AbortSignal.timeout(20000)]):AbortSignal.timeout(20000)})}catch{const error=Error(label+' network request failed');error.status=signal?.aborted?499:504;throw error}
   if(!response.ok){const error=Error(label+' returned HTTP '+response.status);error.status=response.status;throw error}
   try{return await response.json()}catch{throw Error(label+' returned invalid JSON')}
  }
- async function cancel(){if(!deploymentID||succeeded)return;try{await request(base+'/'+deploymentID+'/cancel',{method:'POST',headers,redirect:'error',signal:AbortSignal.timeout(10000)});log('Requested cancellation of unfinished Pages deployment.')}catch{log('Could not cancel unfinished Pages deployment.')}}
+ async function cancel(){if(!deploymentID||succeeded)return;try{await request((statusEndpoint||base+'/'+deploymentID)+'/cancel',{method:'POST',headers,redirect:'error',signal:AbortSignal.timeout(10000)});log('Requested cancellation of unfinished Pages deployment.')}catch{log('Could not cancel unfinished Pages deployment.')}}
  try{
   const identity=await json(oidcURL.href,{headers:{authorization:'Bearer '+requestToken}},'Actions OIDC');
   if(typeof identity.value!=='string'||!identity.value)throw Error('Actions OIDC did not return a token');
   if(signal?.aborted)throw Error('Pages deployment cancelled');
   const deployment=await json(base,{method:'POST',headers,body:JSON.stringify({artifact_id:Number(rawID),pages_build_version:sha,oidc_token:identity.value})});
+  // Record a recoverable reference immediately, so validation failures can cancel
+  // a deployment that the API has already created.
+  const returnedID=String(deployment.id||sha);
+  deploymentID=/^[A-Za-z0-9_-]{1,120}$/.test(returnedID)?returnedID:sha;
   let statusURL;try{statusURL=deployment.status_url?new URL(deployment.status_url):null}catch{throw Error('Pages returned an invalid deployment status URL')}
-  if(statusURL&&(statusURL.origin!==api||!statusURL.pathname.startsWith('/repos/'+repo+'/pages/deployments/')||statusURL.search||statusURL.hash||statusURL.username||statusURL.password))throw Error('Pages returned an invalid deployment status URL');
-  deploymentID=String(deployment.id||statusURL?.pathname.split('/').pop()||sha);
-  if(!/^[A-Za-z0-9_-]{1,120}$/.test(deploymentID)||(statusURL&&statusURL.pathname!=='/repos/'+repo+'/pages/deployments/'+deploymentID))throw Error('Pages returned an invalid deployment identifier');
+  if(statusURL){
+   const named=statusURL.pathname.match(/^\/repos\/([^/]+)\/([^/]+)\/pages\/deployments\/([A-Za-z0-9_-]{1,120})$/i);
+   const numbered=statusURL.pathname.match(/^\/repositories\/([1-9]\d*)\/pages\/deployments\/([A-Za-z0-9_-]{1,120})$/i);
+   const scoped=named?((named[1]+'/'+named[2]).toLowerCase()===repo.toLowerCase()):!!(numbered&&env.GITHUB_REPOSITORY_ID&&numbered[1]===env.GITHUB_REPOSITORY_ID);
+   if(statusURL.origin!==api||!scoped||statusURL.search||statusURL.hash||statusURL.username||statusURL.password){
+    log('Rejected Pages status endpoint: '+statusURL.origin+statusURL.pathname.slice(0,200));
+    throw Error('Pages returned an invalid deployment status URL');
+   }
+   deploymentID=named?named[3]:numbered[2];
+   statusEndpoint=statusURL.href;
+  }else{statusEndpoint=base+'/'+deploymentID}
   let pageURL;try{pageURL=new URL(deployment.page_url)}catch{throw Error('Pages did not return a site URL')}
   if(!['https:','http:'].includes(pageURL.protocol)||pageURL.username||pageURL.password)throw Error('Pages returned an invalid site URL');
   log('Created Pages deployment from the uploaded artifact.');
@@ -34,7 +46,7 @@ export async function deployPages(env=process.env,{request=fetch,sleep=ms=>new P
   while(now()<deadline){
    if(signal?.aborted)throw Error('Pages deployment cancelled');
    let status;
-   try{status=await json(base+'/'+deploymentID,{headers});errors=0}catch(error){if(signal?.aborted||!([404,429,504].includes(error.status)||error.status>=500)||++errors>=10)throw error;log('Pages status temporarily unavailable; retrying.');await sleep(intervalMs);continue}
+   try{status=await json(statusEndpoint,{headers});errors=0}catch(error){if(signal?.aborted||!([404,429,504].includes(error.status)||error.status>=500)||++errors>=10)throw error;log('Pages status temporarily unavailable; retrying.');await sleep(intervalMs);continue}
    if(status.status==='succeed'){succeeded=true;writeOutput('page_url='+pageURL.href+'\n');log('Pages deployment succeeded.');return {page_url:pageURL.href,id:deploymentID,status:'succeed'}}
    if(finalErrors.has(status.status))throw Error('Pages deployment ended with '+status.status);
    if(status.status!==lastStatus){lastStatus=status.status;log('Waiting for Pages deployment.');}
