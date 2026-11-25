@@ -64,7 +64,7 @@ async function importStartDiscovery(env,cfg,chat,updateID,text){
  if(command&&!query)return importShowThemes(env,cfg,chat,updateID,null);
  if(theme)return importShowThemes(env,cfg,chat,updateID,theme);
  if(command)return importSearchStyle(env,cfg,chat,updateID,query);
- const moods=[[/джаз|jazz/iu,'jazz'],[/lo[ -]?fi|ло[ -]?фай/iu,'lofi'],[/^рок$|^хочу рок$/iu,'rock']];for(const [re,value]of moods)if(re.test(text))return importSearchStyle(env,cfg,chat,updateID,value);
+ const moods={джаз:'jazz',jazz:'jazz',рок:'rock',rock:'rock',lofi:'lofi',лофай:'lofi',рэп:'rap',реп:'rap',rap:'rap',хипхоп:'hip hop',трэп:'trap',треп:'trap',метал:'metal',metal:'metal',фонк:'phonk',эмбиент:'ambient',классика:'classical'};const mood=moods[importArtistKey(query)];if(mood)return importSearchStyle(env,cfg,chat,updateID,mood);
  return importSearchSong(env,cfg,chat,updateID,query);
 }
 async function importChoiceCallback(r,env,cfg,update){
