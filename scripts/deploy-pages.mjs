@@ -17,7 +17,7 @@ export async function deployPages(env=process.env,{request=fetch,sleep=ms=>new P
   if(!response.ok){const error=Error(label+' returned HTTP '+response.status);error.status=response.status;throw error}
   try{return await response.json()}catch{throw Error(label+' returned invalid JSON')}
  }
- async function cancel(){if(!deploymentID||succeeded)return;try{await request((statusEndpoint||base+'/'+deploymentID)+'/cancel',{method:'POST',headers,redirect:'error',signal:AbortSignal.timeout(10000)});log('Requested cancellation of unfinished Pages deployment.')}catch{log('Could not cancel unfinished Pages deployment.')}}
+ async function cancel(){if(!deploymentID||succeeded)return;try{await request(base+'/'+deploymentID+'/cancel',{method:'POST',headers,redirect:'error',signal:AbortSignal.timeout(10000)});log('Requested cancellation of unfinished Pages deployment.')}catch{log('Could not cancel unfinished Pages deployment.')}}
  try{
   const identity=await json(oidcURL.href,{headers:{authorization:'Bearer '+requestToken}},'Actions OIDC');
   if(typeof identity.value!=='string'||!identity.value)throw Error('Actions OIDC did not return a token');
@@ -29,8 +29,8 @@ export async function deployPages(env=process.env,{request=fetch,sleep=ms=>new P
   deploymentID=/^[A-Za-z0-9_-]{1,120}$/.test(returnedID)?returnedID:sha;
   let statusURL;try{statusURL=deployment.status_url?new URL(deployment.status_url):null}catch{throw Error('Pages returned an invalid deployment status URL')}
   if(statusURL){
-   const named=statusURL.pathname.match(/^\/repos\/([^/]+)\/([^/]+)\/pages\/deployments\/([A-Za-z0-9_-]{1,120})$/i);
-   const numbered=statusURL.pathname.match(/^\/repositories\/([1-9]\d*)\/pages\/deployments\/([A-Za-z0-9_-]{1,120})$/i);
+   const named=statusURL.pathname.match(/^\/repos\/([^/]+)\/([^/]+)\/pages\/(?:deployments|deployment\/status)\/([A-Za-z0-9_-]{1,120})$/i);
+   const numbered=statusURL.pathname.match(/^\/repositories\/([1-9]\d*)\/pages\/(?:deployments|deployment\/status)\/([A-Za-z0-9_-]{1,120})$/i);
    const scoped=named?((named[1]+'/'+named[2]).toLowerCase()===repo.toLowerCase()):!!(numbered&&env.GITHUB_REPOSITORY_ID&&numbered[1]===env.GITHUB_REPOSITORY_ID);
    if(statusURL.origin!==api||!scoped||statusURL.search||statusURL.hash||statusURL.username||statusURL.password){
     log('Rejected Pages status endpoint: '+statusURL.origin+statusURL.pathname.slice(0,200));
