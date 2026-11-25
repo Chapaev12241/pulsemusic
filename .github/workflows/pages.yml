@@ -5,6 +5,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read
   pages: write
   id-token: write
 concurrency:
@@ -12,6 +13,8 @@ concurrency:
   cancel-in-progress: false
 jobs:
   deploy:
+    env:
+      PULSE_PAGES_ARTIFACT: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -31,7 +34,14 @@ jobs:
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
+          name: ${{ env.PULSE_PAGES_ARTIFACT }}
           path: docs
+      - name: Wait for artifact metadata
+        run: node scripts/wait-pages-artifact.mjs
+        env:
+          PULSE_PAGES_TOKEN: ${{ github.token }}
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: ${{ env.PULSE_PAGES_ARTIFACT }}
