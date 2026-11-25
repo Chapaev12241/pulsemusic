@@ -33,15 +33,13 @@ jobs:
           node scripts/test-music.mjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
+        id: pages_artifact
         with:
           name: ${{ env.PULSE_PAGES_ARTIFACT }}
           path: docs
-      - name: Wait for artifact metadata
-        run: node scripts/wait-pages-artifact.mjs
-        env:
-          PULSE_PAGES_TOKEN: ${{ github.token }}
       - name: Deploy
         id: deployment
-        uses: actions/deploy-pages@v4
-        with:
-          artifact_name: ${{ env.PULSE_PAGES_ARTIFACT }}
+        run: node scripts/deploy-pages.mjs
+        env:
+          PULSE_PAGES_TOKEN: ${{ github.token }}
+          PULSE_PAGES_ARTIFACT_ID: ${{ steps.pages_artifact.outputs.artifact_id }}
