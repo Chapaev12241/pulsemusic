@@ -63,8 +63,25 @@ export function artistSearchEntries(info,artist){
  const normalized=normalizeEntries({extractor_key:'Youtube',entries},query);
  return {...normalized,truncated:true,note:'Поиск YouTube, неполная дискография: найдено '+normalized.tracks.length+' подходящих записей. Полный каталог не подтверждён.'};
 }
+export function recordingTitle(value){return String(value||'').normalize('NFKC').replace(/\((?:feat\.?|ft\.?)\s+[^)]*\)|\[(?:feat\.?|ft\.?)\s+[^\]]*\]/gi,'').replace(/\((?:премьера[^)]*|официальн[^)]*|клип[^)]*|текст песни[^)]*)\)|\[(?:премьера[^\]]*|официальн[^\]]*|клип[^\]]*|текст песни[^\]]*)\]/gi,'').replace(/\((?:official[^)]*|audio[^)]*|lyrics?[^)]*|visuali[sz]er[^)]*|music video|mv|pv|hd|4k|explicit|uncensored|(?:\d{4}\s*)?remaster(?:ed)?[^)]*|prod\.?[^)]*)\)|\[(?:official[^\]]*|audio[^\]]*|lyrics?[^\]]*|visuali[sz]er[^\]]*|music video|mv|pv|hd|4k|explicit|uncensored|(?:\d{4}\s*)?remaster(?:ed)?[^\]]*|prod\.?[^\]]*)\]/gi,'').replace(/\s+(?:feat\.?|ft\.?)\s+.*$/i,'').replace(/\s*[-–—]?\s*(?:official (?:music )?(?:video|audio)|lyrics?|visuali[sz]er|\d{4} remaster(?:ed)?)\s*$/i,'').trim()}
+export function recordingCandidates(entries,track){
+ const artists=String(track.artist||'').split(/\s*(?:,|&|feat\.?|ft\.?)\s*/i).filter(Boolean);
+ const isArtist=value=>String(value||'').split(/\s*(?:,|&|feat\.?|ft\.?)\s*/i).some(credit=>artists.some(artist=>importArtistMatches(credit.replace(/\s*[-–—]?\s*Topic$|VEVO$|\s*[-–—]?\s*Official(?: Channel)?$/i,'').trim(),artist)));
+ const wanted=recordingKey(recordingTitle(track.title));
+ return entries.filter(x=>{
+  if(!x||!/^[\w-]{11}$/.test(String(x.id))||cleanEdition(x.title)||x.is_live||x.was_live||['is_live','is_upcoming','post_live'].includes(x.live_status))return false;
+  const duration=Number(x.duration)||0;if(duration>1800||track.duration&&duration&&Math.abs(track.duration-duration)>Math.max(12,track.duration*.12))return false;
+  const title=recordingTitle(x.track||x.title),parts=title.match(/^(.+?)\s+[-–—]\s+(.+)$/);
+  let key=recordingKey(title),titleCredit=false;
+  if(parts){const left=isArtist(parts[1])||parts[1].split(/\s*(?:,|&|feat\.?|ft\.?)\s*/i).some(isArtist),right=isArtist(parts[2]);if(left){key=recordingKey(parts[2]);titleCredit=true}else if(right){key=recordingKey(parts[1]);titleCredit=true}}
+  if(key!==wanted){const compact=recordingKey(title);titleCredit=artists.some(a=>compact===importArtistKey(a)+wanted||compact===wanted+importArtistKey(a));if(!titleCredit)return false;key=wanted}
+  const explicit=[x.artist,x.creator,...(Array.isArray(x.artists)?x.artists:[])].filter(Boolean);
+  const credit=explicit.some(isArtist)||isArtist(x.channel||x.uploader)||titleCredit;
+  return key===wanted&&credit;
+ }).sort((a,b)=>(/official|topic|vevo/i.test((b.channel||b.uploader||'')+' '+b.title)?1:0)-(/official|topic|vevo/i.test((a.channel||a.uploader||'')+' '+a.title)?1:0));
+}
 export class Downloader {
-  constructor(directory,proxy){this.directory=directory;this.proxy=proxy;this.tools=tools(directory)}
+  constructor(directory,proxy,execute=runProcess){this.directory=directory;this.proxy=proxy;this.tools=tools(directory);this.execute=execute}
   arguments(){return ['--ignore-config','--no-cache-dir','--no-warnings','--no-remote-components','--socket-timeout','20','--retries','2','--fragment-retries','2','--proxy',this.proxy,'--js-runtimes','node:'+process.execPath]}
   async scan(url,artist,signal){sourceURL(url);const result=await runProcess(this.tools.yt,[...this.arguments(),'--flat-playlist','--ignore-errors','--playlist-end',String(MAX_TRACKS+1),'--dump-single-json','--skip-download','--',url],{signal,timeout:120000,env:childEnvironment(this.directory,this.proxy)});let data;try{data=JSON.parse(result.stdout.trim())}catch{throw Error('Не удалось прочитать список треков с этой страницы')};const normalized=normalizeEntries(data,url,artist);if(!normalized.tracks.length)throw Error('На странице не найдено доступных треков');return normalized}
   async searchArtist(artist,signal){
@@ -73,12 +90,26 @@ export class Downloader {
     const found=artistSearchEntries(info,artist);if(!found.tracks.length)throw Error('В поиске YouTube нет точных совпадений исполнителя');return found;
   }
   async searchRecording(track,signal){
-    const query='ytsearch8:'+track.artist+' - '+track.title+' official audio explicit';
-    const result=await runProcess(this.tools.yt,[...this.arguments(),'--flat-playlist','--dump-single-json','--skip-download','--',query],{signal,timeout:120000,env:childEnvironment(this.directory,this.proxy)});
-    const entries=JSON.parse(result.stdout).entries||[];const wanted=recordingKey(track.title),artist=importArtistKey(track.artist.split(',')[0]);
-    const matches=entries.filter(x=>{if(cleanEdition(x.title)||x.is_live)return false;const title=String(x.title||'').replace(/\((?:official[^)]*|audio|lyrics?|explicit|uncensored|hd|4k)\)|\[(?:official[^\]]*|audio|lyrics?|explicit|uncensored|hd|4k)\]/gi,'').trim();const key=recordingKey(title);const duration=Number(x.duration)||0;if(track.duration&&duration&&Math.abs(track.duration-duration)>Math.max(12,track.duration*.12))return false;return (key===wanted||key.endsWith(wanted))&&(importArtistKey(x.channel||x.uploader||'').includes(artist)||key.includes(artist))});
-    if(!matches.length)throw Error('Не найдена совпадающая полная запись YouTube без отметки clean');
-    const chosen=matches.sort((a,b)=>(/explicit|uncensored/i.test(b.title)?2:0)-(/explicit|uncensored/i.test(a.title)?2:0))[0];return {url:'https://www.youtube.com/watch?v='+chosen.id,title:track.title,artist:track.artist,album:track.album||'',sourceKey:'youtube:'+chosen.id};
+    const artists=String(track.artist||'').split(/\s*(?:,|&|feat\.?|ft\.?)\s*/i).filter(Boolean);
+    const checked=new Set();
+    const queries=[...new Set([track.artist+' '+track.title,...artists.map(a=>a+' '+track.title+' audio'),track.title+' '+track.artist])].slice(0,3);
+    for(const query of queries){
+      const result=await this.execute(this.tools.yt,[...this.arguments(),'--flat-playlist','--dump-single-json','--skip-download','--','ytsearch15:'+query],{signal,timeout:120000,env:childEnvironment(this.directory,this.proxy)});
+      let data;try{data=JSON.parse(result.stdout)}catch{throw Error('Не удалось прочитать результаты поиска YouTube')}
+      let chosen=recordingCandidates(data.entries||[],track)[0];
+      if(!chosen){
+        const possible=(data.entries||[]).filter(x=>x&&/^[\w-]{11}$/.test(String(x.id))&&!cleanEdition(x.title)&&recordingKey(recordingTitle(x.title))===recordingKey(recordingTitle(track.title)));
+        for(const candidate of possible){
+          if(checked.size>=3)break;if(checked.has(candidate.id))continue;checked.add(candidate.id);
+          try{
+            const details=await this.execute(this.tools.yt,[...this.arguments(),'--no-playlist','--dump-single-json','--skip-download','--','https://www.youtube.com/watch?v='+candidate.id],{signal,timeout:90000,env:childEnvironment(this.directory,this.proxy)});
+            const full=JSON.parse(details.stdout);chosen=recordingCandidates([{...candidate,...full}],track)[0];if(chosen)break;
+          }catch(e){if(signal?.aborted)throw e}
+        }
+      }
+      if(chosen)return {url:'https://www.youtube.com/watch?v='+chosen.id,title:track.title,artist:track.artist,album:track.album||'',duration:track.duration||Number(chosen.duration)||undefined,sourceKey:'youtube:'+chosen.id};
+    }
+    throw Error('Полная запись пока не найдена: '+track.artist+' — '+track.title+'. Пришли прямую ссылку на нужную запись.');
   }
   async download(job,track,signal){
     const folder=privateDirectory(join(this.directory,'media',job.id,String(track.ordinal)));try{sourceURL(track.url);if(previewAudioURL(track.url))throw Error('Это короткий фрагмент, а не полная запись');

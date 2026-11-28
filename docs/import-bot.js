@@ -18,6 +18,7 @@ async function refresh(){
   metric('Добавлено',j.uploaded);if(number(j.duplicates))metric('Уже есть',j.duplicates);if(number(j.total))metric('Найдено',j.total);if(number(j.failed))metric('Не удалось',j.failed,'failed');info.append(heading,counts);
   if(j.note){const note=document.createElement('p');note.className='job-note';note.textContent=j.note;info.append(note)}
   if(Number.isFinite(Number(j.created_at))){const time=document.createElement('small');time.className='job-time';time.textContent=new Date(Number(j.created_at)).toLocaleString('ru-RU');info.append(time)}
+  if(j.failed||j.status==='partial'){const report=document.createElement('button');report.textContent='Отчёт о переносе';report.onclick=()=>action(report,async()=>{const data=await request('/api/import-admin?report='+encodeURIComponent(j.id));const text=['Найдено: '+data.total+'; не перенесено: '+data.failed,data.sourceIncomplete?'Источник отдал неполный список.':'',...data.missing.map(t=>t.artist+' — '+t.title+': '+t.reason),data.missingTruncated?'Список ошибок сокращён.':''].filter(Boolean).join('\n');const url=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download='Pulse-transfer-report.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)});info.append(report)}
   badge.className='badge';badge.textContent=names[j.status]||j.status;row.append(info,badge);$('jobs').append(row);
  }
  if(!jobs.length)$('jobs').textContent='Здесь появится первое задание из Telegram.';

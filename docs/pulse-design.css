@@ -159,3 +159,17 @@ main>header{padding:8px 14px;border:1px solid color-mix(in srgb,var(--text) 8%,t
 @supports not (background:color-mix(in srgb,black 50%,transparent)){main>header{background:rgba(18,19,25,.55);border-color:rgba(255,255,255,.08)}}
 @media(max-width:700px){main>header{height:62px;border-radius:23px;padding-inline:14px;gap:8px}}
 @media(prefers-reduced-transparency:reduce){main>header{background:var(--panel);-webkit-backdrop-filter:none;backdrop-filter:none}}
+/* Picker rows audition the middle of a track; the separate plus still saves it. */
+.playlist-picker-row>.playlist-picker-preview{display:flex;align-items:center;gap:13px;flex:1;width:auto;min-width:0;padding:0;background:none;border:0;border-radius:12px;text-align:left;min-height:54px}
+.playlist-preview-art{position:relative;display:block;width:48px;height:48px;flex-shrink:0}
+.playlist-preview-art>.art{width:100%;height:100%;border-radius:10px}
+.playlist-preview-symbol{position:absolute;right:-4px;bottom:-4px;width:23px;height:23px;display:grid;place-items:center;border:2px solid var(--panel);border-radius:50%;background:var(--text);color:var(--bg)}
+.playlist-preview-symbol>.ui-icon{width:11px;height:11px}
+.playlist-picker-preview.preview-active .playlist-preview-symbol{background:var(--accent);color:var(--bg)}
+.playlist-picker-preview.preview-active .playlist-picker-meta>b{color:var(--accent)}
+.playlist-picker-preview.preview-loading .playlist-preview-symbol{animation:playlist-preview-breathe .8s ease-in-out infinite alternate}
+.playlist-preview-status{min-height:20px;margin:6px 0 0;font-size:12px}
+@keyframes playlist-preview-breathe{to{opacity:.4}}
+@media(max-width:700px){.playlist-picker-row>.playlist-picker-preview{gap:10px}.playlist-preview-art{width:42px;height:42px}}
+@media(prefers-reduced-motion:reduce){.playlist-picker-preview.preview-loading .playlist-preview-symbol{animation:none}}
+html[data-motion=off] .playlist-picker-preview.preview-loading .playlist-preview-symbol{animation:none}
