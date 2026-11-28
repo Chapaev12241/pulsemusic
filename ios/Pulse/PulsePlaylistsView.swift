@@ -340,6 +340,12 @@ private struct PulsePlaylistCreateSheet: View {
 private struct PulsePlaylistTrackPicker: View {
     @ObservedObject var store: PulseStore
     let playlistID: String
+    @StateObject private var preview: PulseTrackPreview
+    @Environment(\.scenePhase) private var scenePhase
+    init(store: PulseStore, playlistID: String) {
+        self.store = store; self.playlistID = playlistID
+        _preview = StateObject(wrappedValue: PulseTrackPreview(store: store))
+    }
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
     @State private var pending = Set<String>()
@@ -363,6 +369,7 @@ private struct PulsePlaylistTrackPicker: View {
                         if !query.isEmpty { Button { query = "" } label: { Image(systemName: "xmark.circle.fill") }.buttonStyle(PulseTactileButton()).accessibilityLabel("Очистить поиск") }
                     }.padding(16).background(PulseTheme.panel, in: RoundedRectangle(cornerRadius: 16))
                     if let message { Text(message).font(PulseTheme.body(13)).foregroundStyle(PulseTheme.accent) }
+                    if let error = preview.error { Text(error).font(PulseTheme.body(13)).foregroundStyle(PulseTheme.muted).accessibilityAddTraits(.updatesFrequently) }
                     if playlist == nil { ContentUnavailableView("Плейлист недоступен", systemImage: "music.note.list", description: Text("Вернись к списку плейлистов.")) }
                     else if results.isEmpty { ContentUnavailableView("Ничего не найдено", systemImage: "magnifyingglass", description: Text("Попробуй другое название или имя исполнителя.")) }
                     else { ForEach(results) { track in pickerRow(track) } }
@@ -370,6 +377,12 @@ private struct PulsePlaylistTrackPicker: View {
             }.background(PulseTheme.background)
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Готово") { dismiss() } } }
         }
+        .onDisappear { preview.stop() }
+        .onChange(of: query) { _, _ in preview.stop() }
+        .onChange(of: store.user?.id) { _, _ in preview.stop(resume: false) }
+        .onChange(of: scenePhase) { _, phase in if phase != .active { preview.stop(resume: false) } }
+        .onChange(of: store.tracks.map(\.id)) { _, ids in if let id = preview.trackID, !ids.contains(id) { preview.stop() } }
+        .onChange(of: playlist?.id) { _, id in if id == nil { preview.stop() } }
         #if os(iOS)
         .scrollDismissesKeyboard(.interactively)
         #else
@@ -380,11 +393,22 @@ private struct PulsePlaylistTrackPicker: View {
         let added = playlist?.tracks.contains(track.id) == true
         let busy = pending.contains(track.id)
         return HStack(spacing: 12) {
-            PulseArtworkView(track: track, size: 48, radius: 11)
-            VStack(alignment: .leading, spacing: 5) {
-                Text(track.title).font(PulseTheme.body(15, weight: .medium)).lineLimit(1)
-                Text(track.artist).font(PulseTheme.body(13)).foregroundStyle(PulseTheme.muted).lineLimit(1)
-            }.frame(maxWidth: .infinity, alignment: .leading)
+            Button { preview.toggle(track) } label: {
+                HStack(spacing: 12) {
+                    PulseArtworkView(track: track, size: 48, radius: 11)
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 11).fill(.black.opacity(preview.trackID == track.id ? 0.48 : 0.18))
+                            if preview.trackID == track.id && preview.loading { ProgressView().controlSize(.small).tint(.white) }
+                            else { Image(systemName: preview.trackID == track.id && preview.playing ? "pause.fill" : "play.fill").font(.system(size: 15, weight: .semibold)).foregroundStyle(.white) }
+                        }
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(track.title).font(PulseTheme.body(15, weight: .medium)).foregroundStyle(preview.trackID == track.id ? PulseTheme.accent : PulseTheme.text).lineLimit(1)
+                        Text(preview.trackID == track.id ? (preview.loading ? "Загружаем отрывок…" : "Отрывок из середины") : track.artist).font(PulseTheme.body(13)).foregroundStyle(PulseTheme.muted).lineLimit(1)
+                    }.frame(maxWidth: .infinity, alignment: .leading)
+                }.contentShape(Rectangle())
+            }.buttonStyle(PulseTactileButton()).disabled(playlist == nil)
+                .accessibilityLabel(preview.trackID == track.id ? "Остановить отрывок: \(track.title)" : "Прослушать отрывок: \(track.title), \(track.artist)")
+                .help("Прослушать отрывок из середины")
             Button { add(track) } label: {
                 Group {
                     if busy { ProgressView().controlSize(.small) }

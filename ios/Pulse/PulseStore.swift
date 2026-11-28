@@ -66,6 +66,30 @@ final class PulseStore: ObservableObject {
     private var mutating = false
     private var stateRevision = 0
     private var started = false
+    private struct TrackPreviewSession {
+        let id: UUID, generation: UUID
+        let track: String, owner: String
+        let resume: Bool
+        let interrupt: () -> Void
+    }
+    private var trackPreviewSession: TrackPreviewSession?
+    func beginTrackPreview(interrupt: @escaping () -> Void) -> UUID {
+        interruptTrackPreview()
+        let id = UUID(), local = !devices.controlsRemote && !remoteActive
+        trackPreviewSession = TrackPreviewSession(id: id, generation: generation, track: currentID, owner: user?.id ?? "", resume: local && !paused && !currentID.isEmpty, interrupt: interrupt)
+        if local { player.command(["action": "pause"]) }
+        return id
+    }
+    func endTrackPreview(_ id: UUID, resume: Bool) {
+        guard let session = trackPreviewSession, session.id == id else { return }
+        trackPreviewSession = nil
+        guard resume, session.resume, session.generation == generation, session.track == currentID, session.owner == (user?.id ?? ""), !devices.controlsRemote, !remoteActive, paused else { return }
+        player.command(["action": "resume"])
+    }
+    private func interruptTrackPreview() {
+        guard let session = trackPreviewSession else { return }
+        trackPreviewSession = nil; session.interrupt()
+    }
     private let player = NativePlayer()
     var currentTrack: PulseTrack? { tracks.first { $0.id == currentID } }
     var signedIn: Bool { user != nil }
@@ -86,6 +110,7 @@ final class PulseStore: ObservableObject {
         devices.onActionError = { [weak self] message in self?.error = message }
         player.onSystemCommand = { [weak self] action, position in
             guard let self else { return false }
+            self.interruptTrackPreview()
             if self.devices.controlsRemote { self.devices.control(action, position: position); return true }
             if ["resume", "next", "previous"].contains(action) { self.devices.claimLocal() }
             return false
@@ -166,6 +191,7 @@ final class PulseStore: ObservableObject {
         await refresh()
     }
     private func clearSession(deleteKeychain: Bool = true) {
+        interruptTrackPreview()
         devices.configure(token: "", owner: ""); remoteClock?.cancel(); remoteActive = false
         djLibrary.clear(); ai.configure(owner: "guest")
         downloads.stopPreloading()
@@ -251,6 +277,7 @@ final class PulseStore: ObservableObject {
         } catch { self.error = error.localizedDescription }
     }
     func play(_ track: PulseTrack, within queue: [PulseTrack]) {
+        interruptTrackPreview()
         remoteActive = false; remoteClock?.cancel(); devices.claimLocal()
         applyLocalTransportSettings()
         player.setDJTransitions([:])
@@ -258,6 +285,7 @@ final class PulseStore: ObservableObject {
         preloadQueue(after: track.id)
     }
     func playDJ(_ track: PulseTrack, within queue: [PulseTrack], transitions: [String: PulseDJMix]) {
+        interruptTrackPreview()
         remoteActive = false; remoteClock?.cancel(); devices.claimLocal()
         applyLocalTransportSettings()
         dj = true; player.setDJTransitions(transitions)
@@ -265,12 +293,13 @@ final class PulseStore: ObservableObject {
         preloadQueue(after: track.id)
     }
     func togglePlayback() {
+        interruptTrackPreview()
         if devices.controlsRemote { devices.control(paused ? "resume" : "pause"); return }
         if paused { devices.claimLocal() }
         player.command(["action": paused ? "resume" : "pause"])
     }
-    func next(_ direction: Int) { PulseHaptics.fire(.track); if devices.controlsRemote { devices.control(direction > 0 ? "next" : "previous"); return }; devices.claimLocal(); player.command(["action": direction > 0 ? "next" : "previous"]) }
-    func seek(_ seconds: Double) { if devices.controlsRemote { devices.control("seek", position: seconds); return }; player.command(["action": "seek", "time": seconds]) }
+    func next(_ direction: Int) { interruptTrackPreview(); PulseHaptics.fire(.track); if devices.controlsRemote { devices.control(direction > 0 ? "next" : "previous"); return }; devices.claimLocal(); player.command(["action": direction > 0 ? "next" : "previous"]) }
+    func seek(_ seconds: Double) { interruptTrackPreview(); if devices.controlsRemote { devices.control("seek", position: seconds); return }; player.command(["action": "seek", "time": seconds]) }
     private func applyLocalTransportSettings() {
         player.command(["action": "shuffle", "enabled": shuffle])
         player.command(["action": "volume", "value": volume])
@@ -282,6 +311,7 @@ final class PulseStore: ObservableObject {
     private func deviceFocus(_ focus: PulseDeviceFocus) {
         let remote = focus.online && focus.deviceId != nil && focus.deviceId != devices.id
         guard !applyingDevice else { return }
+        if remote != remoteActive { interruptTrackPreview() }
         if remote && !remoteActive { remoteActive = true; player.command(["action": "pause"]) }
         if !remote {
             let wasRemote = remoteActive
@@ -314,6 +344,7 @@ final class PulseStore: ObservableObject {
         }
     }
     private func applyDevice(_ command: PulseDeviceCommand, now: Double) async throws {
+        interruptTrackPreview()
         applyingDevice = true
         defer { applyingDevice = false }
         if command.type == "transfer", var state = command.payload.state {
